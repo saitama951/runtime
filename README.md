@@ -71,5 +71,6 @@ This project has adopted the code of conduct defined by the [Contributor Covenan
 General .NET OSS discussions: [.NET Foundation Discussions](https://github.com/dotnet-foundation/Home/discussions)
 
 ## License
+blahhh
 
 .NET (including the runtime repo) is licensed under the [MIT](LICENSE.TXT) license.
