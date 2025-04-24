@@ -29,13 +29,6 @@ protected:
 #ifdef DEBUG
     jitstd::vector<unsigned>* m_sequence;
 #endif
-#if defined(TARGET_AMD64)
-    unsigned             cntCalleeTrashInt;
-    FORCEINLINE unsigned get_CNT_CALLEE_TRASH_INT() const
-    {
-        return this->cntCalleeTrashInt;
-    }
-#endif // TARGET_AMD64
 
 public:
     virtual void Initialize()
@@ -99,10 +92,6 @@ public:
         JITDUMP("%s\n", Name());
     }
 #endif
-
-private:
-    void ReplaceCSENode(Statement* stmt, GenTree* exp, GenTree* newNode);
-    void InsertUseIntoSsa(class IncrementalSsaBuilder& ssaBuilder, const struct UseDefLocation& useDefLoc);
 };
 
 #ifdef DEBUG
@@ -375,6 +364,11 @@ struct CSEdsc
 
     // The set of exceptions we currently can use for CSE uses.
     ValueNum defExcSetCurrent;
+
+    // if all def occurrences share the same conservative normal value
+    // number, this will reflect it; otherwise, NoVN.
+    // not used for shared const CSE's
+    ValueNum defConservNormVN;
 
     // Number of distinct locals referenced (in first def tree)
     // and total number of local nodes.

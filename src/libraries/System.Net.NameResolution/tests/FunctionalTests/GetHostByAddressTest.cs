@@ -8,7 +8,6 @@ using Xunit;
 
 namespace System.Net.NameResolution.Tests
 {
-    [SkipOnPlatform(TestPlatforms.Wasi, "WASI has no getnameinfo")]
     public class GetHostByAddressTest
     {
         [Fact]

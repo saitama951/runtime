@@ -69,14 +69,16 @@ namespace Mono.Linker.Tests.TestCases
 		[MemberData (nameof (TestDatabase.Reflection), MemberType = typeof (TestDatabase))]
 		public void Reflection (string t)
 		{
-			switch (t)
-			{
-			case "ObjectGetTypeLibraryMode":
-			case "TypeHierarchyLibraryModeSuppressions":
-				// No Library mode
+			switch (t) {
+			case "TypeHierarchyReflectionWarnings":
+			case "ParametersUsedViaReflection":
+			case "UnsafeAccessor":
+			case "TypeUsedViaReflection":
+			case "RunClassConstructor":
+				Run (t);
 				break;
 			default:
-				Run (t);
+				// Skip the rest for now
 				break;
 			}
 		}

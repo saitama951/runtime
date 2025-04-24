@@ -137,7 +137,7 @@ void EHContext::UpdateFrame(PREGDISPLAY regs)
 }
 #endif // FEATURE_EH_FUNCLETS
 
-void TransitionFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloats)
+void TransitionFrame::UpdateRegDisplay(const PREGDISPLAY pRD, bool updateFloats)
 {
     CONTRACT_VOID
     {
@@ -155,7 +155,7 @@ void TransitionFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFl
 
     UpdateRegDisplayHelper(pRD, pFunc->CbStackPop());
 
-    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    TransitionFrame::UpdateRegDisplay_Impl(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
+    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    TransitionFrame::UpdateRegDisplay(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
 
     RETURN;
 }
@@ -175,14 +175,14 @@ void TransitionFrame::UpdateRegDisplayHelper(const PREGDISPLAY pRD, UINT cbStack
 
     pRD->PCTAddr = GetReturnAddressPtr();
 
-    DWORD CallerSP = (DWORD)(pRD->PCTAddr + sizeof(TADDR) + cbStackPop);
-
 #ifdef FEATURE_EH_FUNCLETS
+
+    DWORD CallerSP = (DWORD)(pRD->PCTAddr + sizeof(TADDR));
 
     pRD->IsCallerContextValid = FALSE;
     pRD->IsCallerSPValid      = FALSE;
 
-    pRD->pCurrentContext->Eip = *PTR_PCODE(pRD->PCTAddr);
+    pRD->pCurrentContext->Eip = *PTR_PCODE(pRD->PCTAddr);;
     pRD->pCurrentContext->Esp = CallerSP;
 
     UpdateRegDisplayFromCalleeSavedRegisters(pRD, regs);
@@ -200,21 +200,21 @@ void TransitionFrame::UpdateRegDisplayHelper(const PREGDISPLAY pRD, UINT cbStack
 #undef CALLEE_SAVED_REGISTER
 
     pRD->ControlPC = *PTR_PCODE(pRD->PCTAddr);
-    pRD->SP  = CallerSP;
+    pRD->SP  = (DWORD)(pRD->PCTAddr + sizeof(TADDR) + cbStackPop);
 
 #endif // FEATURE_EH_FUNCLETS
 
     RETURN;
 }
 
-void HelperMethodFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloats)
+void HelperMethodFrame::UpdateRegDisplay(const PREGDISPLAY pRD, bool updateFloats)
 {
     CONTRACT_VOID
     {
         NOTHROW;
         GC_NOTRIGGER;
         MODE_ANY;
-        PRECONDITION(m_MachState.isValid());               // EnsureInit has been called
+        PRECONDITION(m_MachState.isValid());               // InsureInit has been called
         SUPPORTS_DAC;
     }
     CONTRACT_END;
@@ -236,7 +236,7 @@ void HelperMethodFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool update
         // This allocation throws on OOM.
         MachState* pUnwoundState = (MachState*)DacAllocHostOnlyInstance(sizeof(*pUnwoundState), true);
 
-        EnsureInit(pUnwoundState);
+        InsureInit(pUnwoundState);
 
         pRD->PCTAddr = dac_cast<TADDR>(pUnwoundState->pRetAddr());
         pRD->pCurrentContext->Eip = pRD->ControlPC = pUnwoundState->GetRetAddr();
@@ -295,7 +295,7 @@ void HelperMethodFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool update
     {
         MachState unwindState;
 
-        EnsureInit(&unwindState);
+        InsureInit(&unwindState);
         pRD->PCTAddr = dac_cast<TADDR>(unwindState.pRetAddr());
         pRD->ControlPC = unwindState.GetRetAddr();
         pRD->SP = unwindState._esp;
@@ -317,10 +317,10 @@ void HelperMethodFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool update
         thisState->_ebp = unwindState._ebp;
         pRD->pEbp = (DWORD *)&thisState->_ebp;
 
-        // EnsureInit always sets m_RegArgs to zero
+        // InsureInit always sets m_RegArgs to zero
         // in the real code.  I'm not sure exactly
         // what should happen in the on-the-fly case,
-        // but go with what would happen from an EnsureInit.
+        // but go with what would happen from an InsureInit.
 
         RETURN;
     }
@@ -371,7 +371,7 @@ EXTERN_C MachState* STDCALL HelperMethodFrameConfirmState(HelperMethodFrame* fra
     BEGIN_DEBUG_ONLY_CODE;
     if (!state->isValid())
     {
-        frame->EnsureInit(NULL);
+        frame->InsureInit(NULL);
         _ASSERTE(state->_pEsi != &state->_esi || state->_esi  == (TADDR)esiVal);
         _ASSERTE(state->_pEdi != &state->_edi || state->_edi  == (TADDR)ediVal);
         _ASSERTE(state->_pEbx != &state->_ebx || state->_ebx  == (TADDR)ebxVal);
@@ -386,7 +386,7 @@ EXTERN_C MachState* STDCALL HelperMethodFrameConfirmState(HelperMethodFrame* fra
 }
 #endif
 
-void ExternalMethodFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloats)
+void ExternalMethodFrame::UpdateRegDisplay(const PREGDISPLAY pRD, bool updateFloats)
 {
     CONTRACT_VOID
     {
@@ -399,13 +399,13 @@ void ExternalMethodFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool upda
 
     UpdateRegDisplayHelper(pRD, CbStackPopUsingGCRefMap(GetGCRefMap()));
 
-    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    ExternalMethodFrane::UpdateRegDisplay_Impl(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
+    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    ExternalMethodFrane::UpdateRegDisplay(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
 
     RETURN;
 }
 
 
-void StubDispatchFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloats)
+void StubDispatchFrame::UpdateRegDisplay(const PREGDISPLAY pRD, bool updateFloats)
 {
     CONTRACT_VOID
     {
@@ -424,7 +424,7 @@ void StubDispatchFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool update
     else
     if (GetFunction() != NULL)
     {
-        FramedMethodFrame::UpdateRegDisplay_Impl(pRD);
+        FramedMethodFrame::UpdateRegDisplay(pRD);
     }
     else
     {
@@ -436,20 +436,14 @@ void StubDispatchFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool update
         // This path is hit when we are throwing null reference exception from
         // code:VSD_ResolveWorker or code:StubDispatchFixupWorker
         pRD->ControlPC = GetAdjustedCallAddress(pRD->ControlPC);
-#ifdef FEATURE_EH_FUNCLETS
-        // We need to set EIP to match ControlPC to ensure Thread::VirtualUnwindCallFrame
-        // doesn't fail assertion on GetControlPC(pRD) == GetIP(pRD->pCurrentContext)
-        // precondition.
-        pRD->pCurrentContext->Eip = pRD->ControlPC;
-#endif
     }
 
-    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    StubDispatchFrame::UpdateRegDisplay_Impl(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
+    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    StubDispatchFrame::UpdateRegDisplay(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
 
     RETURN;
 }
 
-PCODE StubDispatchFrame::GetReturnAddress_Impl()
+PCODE StubDispatchFrame::GetReturnAddress()
 {
     CONTRACTL
     {
@@ -458,7 +452,7 @@ PCODE StubDispatchFrame::GetReturnAddress_Impl()
     }
     CONTRACTL_END;
 
-    PCODE retAddress = FramedMethodFrame::GetReturnAddress_Impl();
+    PCODE retAddress = FramedMethodFrame::GetReturnAddress();
     if (GetFunction() == NULL && GetGCRefMap() == NULL)
     {
         // See comment in code:StubDispatchFrame::UpdateRegDisplay
@@ -467,7 +461,7 @@ PCODE StubDispatchFrame::GetReturnAddress_Impl()
     return retAddress;
 }
 
-void FaultingExceptionFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloats)
+void FaultingExceptionFrame::UpdateRegDisplay(const PREGDISPLAY pRD, bool updateFloats)
 {
     CONTRACT_VOID
     {
@@ -518,12 +512,12 @@ void FaultingExceptionFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool u
 
 #endif // FEATURE_EH_FUNCLETS
 
-    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    FaultingExceptionFrame::UpdateRegDisplay_Impl(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
+    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    FaultingExceptionFrame::UpdateRegDisplay(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
 
     RETURN;
 }
 
-void InlinedCallFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloats)
+void InlinedCallFrame::UpdateRegDisplay(const PREGDISPLAY pRD, bool updateFloats)
 {
     CONTRACT_VOID
     {
@@ -601,7 +595,7 @@ void InlinedCallFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateF
 
 #endif // FEATURE_EH_FUNCLETS
 
-    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    InlinedCallFrame::UpdateRegDisplay_Impl(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
+    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    InlinedCallFrame::UpdateRegDisplay(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
 
     RETURN;
 }
@@ -610,13 +604,13 @@ void InlinedCallFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateF
 //==========================
 // Resumable Exception Frame
 //
-TADDR ResumableFrame::GetReturnAddressPtr_Impl()
+TADDR ResumableFrame::GetReturnAddressPtr()
 {
     LIMITED_METHOD_DAC_CONTRACT;
     return dac_cast<TADDR>(m_Regs) + offsetof(CONTEXT, Eip);
 }
 
-void ResumableFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloats)
+void ResumableFrame::UpdateRegDisplay(const PREGDISPLAY pRD, bool updateFloats)
 {
     CONTRACT_VOID
     {
@@ -689,14 +683,14 @@ void ResumableFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFlo
 
 #endif // !FEATURE_EH_FUNCLETS
 
-    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    ResumableFrame::UpdateRegDisplay_Impl(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
+    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    ResumableFrame::UpdateRegDisplay(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
 
     RETURN;
 }
 
 // The HijackFrame has to know the registers that are pushed by OnHijackTripThread
 //  -> HijackFrame::UpdateRegDisplay should restore all the registers pushed by OnHijackTripThread
-void HijackFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloats)
+void HijackFrame::UpdateRegDisplay(const PREGDISPLAY pRD, bool updateFloats)
 {
     CONTRACTL {
         NOTHROW;
@@ -747,12 +741,12 @@ void HijackFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloats
 
 #endif // FEATURE_EH_FUNCLETS
 
-    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    HijackFrame::UpdateRegDisplay_Impl(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
+    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    HijackFrame::UpdateRegDisplay(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
 }
 
 #endif  // FEATURE_HIJACK
 
-void PInvokeCalliFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloats)
+void PInvokeCalliFrame::UpdateRegDisplay(const PREGDISPLAY pRD, bool updateFloats)
 {
     CONTRACT_VOID
     {
@@ -766,13 +760,13 @@ void PInvokeCalliFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool update
     VASigCookie *pVASigCookie = GetVASigCookie();
     UpdateRegDisplayHelper(pRD, pVASigCookie->sizeOfArgs);
 
-    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    PInvokeCalliFrame::UpdateRegDisplay_Impl(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
+    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    PInvokeCalliFrame::UpdateRegDisplay(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
 
     RETURN;
 }
 
 #ifndef UNIX_X86_ABI
-void TailCallFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloats)
+void TailCallFrame::UpdateRegDisplay(const PREGDISPLAY pRD, bool updateFloats)
 {
     CONTRACT_VOID
     {
@@ -812,14 +806,14 @@ void TailCallFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloa
 
 #endif
 
-    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    TailCallFrame::UpdateRegDisplay_Impl(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
+    LOG((LF_GCROOTS, LL_INFO100000, "STACKWALK    TailCallFrame::UpdateRegDisplay(ip:%p, sp:%p)\n", pRD->ControlPC, pRD->SP));
 
     RETURN;
 }
 #endif // !UNIX_X86_ABI
 
 #ifdef FEATURE_READYTORUN
-void DynamicHelperFrame::UpdateRegDisplay_Impl(const PREGDISPLAY pRD, bool updateFloats)
+void DynamicHelperFrame::UpdateRegDisplay(const PREGDISPLAY pRD, bool updateFloats)
 {
     WRAPPER_NO_CONTRACT;
     UpdateRegDisplayHelper(pRD, 0);
@@ -867,6 +861,78 @@ WORD GetUnpatchedCodeData(LPCBYTE pAddr)
 
 
 #ifndef DACCESS_COMPILE
+
+Stub *GenerateInitPInvokeFrameHelper()
+{
+    CONTRACT(Stub*)
+    {
+        STANDARD_VM_CHECK;
+        POSTCONDITION(CheckPointer(RETVAL));
+    }
+    CONTRACT_END;
+
+    CPUSTUBLINKER sl;
+    CPUSTUBLINKER *psl = &sl;
+
+    CORINFO_EE_INFO::InlinedCallFrameInfo FrameInfo;
+    InlinedCallFrame::GetEEInfo(&FrameInfo);
+
+    // EDI contains address of the frame on stack (the frame ptr, not its negspace)
+    unsigned negSpace = FrameInfo.offsetOfFrameVptr;
+
+    // mov esi, GetThread()
+    psl->X86EmitCurrentThreadFetch(kESI, (1 << kEDI) | (1 << kEBX) | (1 << kECX) | (1 << kEDX));
+
+    // mov [edi + FrameInfo.offsetOfGSCookie], GetProcessGSCookie()
+    psl->X86EmitOffsetModRM(0xc7, (X86Reg)0x0, kEDI, FrameInfo.offsetOfGSCookie - negSpace);
+    psl->Emit32(GetProcessGSCookie());
+
+    // mov [edi + FrameInfo.offsetOfFrameVptr], InlinedCallFrame::GetFrameVtable()
+    psl->X86EmitOffsetModRM(0xc7, (X86Reg)0x0, kEDI, FrameInfo.offsetOfFrameVptr - negSpace);
+    psl->Emit32(InlinedCallFrame::GetMethodFrameVPtr());
+
+    // mov eax, [esi + offsetof(Thread, m_pFrame)]
+    // mov [edi + FrameInfo.offsetOfFrameLink], eax
+    psl->X86EmitIndexRegLoad(kEAX, kESI, offsetof(Thread, m_pFrame));
+    psl->X86EmitIndexRegStore(kEDI, FrameInfo.offsetOfFrameLink - negSpace, kEAX);
+
+    // mov [edi + FrameInfo.offsetOfCalleeSavedEbp], ebp
+    psl->X86EmitIndexRegStore(kEDI, FrameInfo.offsetOfCalleeSavedFP - negSpace, kEBP);
+
+    // mov [edi + FrameInfo.offsetOfReturnAddress], 0
+    psl->X86EmitOffsetModRM(0xc7, (X86Reg)0x0, kEDI, FrameInfo.offsetOfReturnAddress - negSpace);
+    psl->Emit32(0);
+
+    // mov [esi + offsetof(Thread, m_pFrame)], edi
+    psl->X86EmitIndexRegStore(kESI, offsetof(Thread, m_pFrame), kEDI);
+
+    // leave current Thread in ESI
+    psl->X86EmitReturn(0);
+
+    // A single process-wide stub that will never unload
+    RETURN psl->Link(SystemDomain::GetGlobalLoaderAllocator()->GetExecutableHeap());
+}
+
+// Disable when calling into managed code from a place that fails via Exceptions
+extern "C" VOID STDCALL StubRareDisableTHROWWorker(Thread *pThread)
+{
+    STATIC_CONTRACT_THROWS;
+    STATIC_CONTRACT_GC_TRIGGERS;
+
+    // Do not add a CONTRACT here.  We haven't set up SEH.
+
+    // WARNING!!!!
+    // when we start executing here, we are actually in cooperative mode.  But we
+    // haven't synchronized with the barrier to reentry yet.  So we are in a highly
+    // dangerous mode.  If we call managed code, we will potentially be active in
+    // the GC heap, even as GC's are occurring!
+
+    // We must do the following in this order, because otherwise we would be constructing
+    // the exception for the abort without synchronizing with the GC.  Also, we have no
+    // CLR SEH set up, despite the fact that we may throw a ThreadAbortException.
+    pThread->RareDisablePreemptiveGC();
+    pThread->HandleThreadAbort();
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -931,6 +997,49 @@ void ResumeAtJit(PCONTEXT pContext, LPVOID oldESP)
 }
 #pragma warning (default : 4731)
 #endif // !FEATURE_METADATA_UPDATER
+
+
+void UMEntryThunkCode::Encode(UMEntryThunkCode *pEntryThunkCodeRX, BYTE* pTargetCode, void* pvSecretParam)
+{
+    LIMITED_METHOD_CONTRACT;
+
+#ifdef _DEBUG
+    m_alignpad[0] = X86_INSTR_INT3;
+    m_alignpad[1] = X86_INSTR_INT3;
+#endif // _DEBUG
+    m_movEAX     = X86_INSTR_MOV_EAX_IMM32;
+    m_uet        = pvSecretParam;
+    m_jmp        = X86_INSTR_JMP_REL32;
+    m_execstub   = (BYTE*) ((pTargetCode) - (4+((BYTE*)&pEntryThunkCodeRX->m_execstub)));
+
+    ClrFlushInstructionCache(pEntryThunkCodeRX->GetEntryPoint(),sizeof(UMEntryThunkCode) - GetEntryPointOffset(), /* hasCodeExecutedBefore */ true);
+}
+
+void UMEntryThunkCode::Poison()
+{
+    LIMITED_METHOD_CONTRACT;
+
+    ExecutableWriterHolder<UMEntryThunkCode> thunkWriterHolder(this, sizeof(UMEntryThunkCode));
+    UMEntryThunkCode *pThisRW = thunkWriterHolder.GetRW();
+
+    pThisRW->m_execstub = (BYTE*) ((BYTE*)UMEntryThunk::ReportViolation - (4+((BYTE*)&m_execstub)));
+
+    // mov ecx, imm32
+    pThisRW->m_movEAX = 0xb9;
+
+    ClrFlushInstructionCache(GetEntryPoint(),sizeof(UMEntryThunkCode) - GetEntryPointOffset(), /* hasCodeExecutedBefore */ true);
+}
+
+UMEntryThunk* UMEntryThunk::Decode(LPVOID pCallback)
+{
+    LIMITED_METHOD_CONTRACT;
+
+    if (*((BYTE*)pCallback) != X86_INSTR_MOV_EAX_IMM32 ||
+        ( ((size_t)pCallback) & 3) != 2) {
+        return NULL;
+    }
+    return *(UMEntryThunk**)( 1 + (BYTE*)pCallback );
+}
 
 #ifdef FEATURE_READYTORUN
 
@@ -1180,7 +1289,9 @@ PCODE DynamicHelpers::CreateDictionaryLookupHelper(LoaderAllocator * pAllocator,
 {
     STANDARD_VM_CONTRACT;
 
-    PCODE helperAddress = GetDictionaryLookupHelper(pLookup->helper);
+    PCODE helperAddress = (pLookup->helper == CORINFO_HELP_RUNTIMEHANDLE_METHOD ?
+        GetEEFuncEntryPoint(JIT_GenericHandleMethodWithSlotAndModule) :
+        GetEEFuncEntryPoint(JIT_GenericHandleClassWithSlotAndModule));
 
     GenericHandleArgs * pArgs = (GenericHandleArgs *)(void *)pAllocator->GetDynamicHelpersHeap()->AllocAlignedMem(sizeof(GenericHandleArgs), DYNAMIC_HELPER_ALIGNMENT);
     ExecutableWriterHolder<GenericHandleArgs> argsWriterHolder(pArgs, sizeof(GenericHandleArgs));

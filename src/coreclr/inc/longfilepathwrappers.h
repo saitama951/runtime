@@ -25,6 +25,11 @@ CreateFileWrapper(
     _In_opt_ HANDLE hTemplateFile
     );
 
+DWORD
+GetFileAttributesWrapper(
+    _In_ LPCWSTR lpFileName
+    );
+
 BOOL
 GetFileAttributesExWrapper(
     _In_ LPCWSTR lpFileName,

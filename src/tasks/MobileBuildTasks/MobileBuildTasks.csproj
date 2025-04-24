@@ -15,11 +15,11 @@
 
   <Target Name="GetFilesToPackage" Returns="@(FilesToPackage)">
     <ItemGroup>
-      <!-- .NETCoreApp -->
+      <!-- non-net4* -->
       <FilesToPackage Include="$(OutputPath)$(NetCoreAppToolCurrent)\$(MSBuildProjectName)*"
                       TargetPath="tasks\$(NetCoreAppToolCurrent)" />
 
-      <!-- For .NETFramework we need all the dependent assemblies too, so copy from the publish folder -->
+      <!-- for net472 we need all the dependent assemblies too, so copy from the publish folder -->
       <FilesToPackage Include="$(OutputPath)$(NetFrameworkToolCurrent)\*"
                       TargetPath="tasks\$(NetFrameworkToolCurrent)" />
     </ItemGroup>

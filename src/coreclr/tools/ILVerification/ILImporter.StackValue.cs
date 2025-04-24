@@ -161,6 +161,9 @@ namespace Internal.IL
 
         public override bool Equals(object obj)
         {
+            if (Object.ReferenceEquals(this, obj))
+                return true;
+
             if (!(obj is StackValue))
                 return false;
 

@@ -45,6 +45,7 @@
 
 class TypeHandleList;
 class Module;
+class BaseDomain;
 class SigTypeContext;
 class SigBuilder;
 
@@ -70,6 +71,9 @@ enum DictionaryEntrySignatureSource : BYTE
 class DictionaryEntryLayout
 {
 public:
+    DictionaryEntryLayout(PTR_VOID signature)
+    { LIMITED_METHOD_CONTRACT; m_signature = signature; }
+
     DictionaryEntryKind GetKind();
 
     PTR_VOID m_signature;
@@ -178,7 +182,7 @@ public:
 class Dictionary
 {
 private:
-    // First N entries are generic instantiations arguments.
+    // First N entries are generic instantiations arguments. 
     // The rest of the open array are normal pointers (no optional indirection) and may be NULL.
     DictionaryEntry m_pEntries[1];
 

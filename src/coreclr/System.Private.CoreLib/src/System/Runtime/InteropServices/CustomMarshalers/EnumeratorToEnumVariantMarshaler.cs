@@ -47,9 +47,6 @@ namespace System.Runtime.InteropServices.CustomMarshalers
             return Marshal.GetComInterfaceForObject<EnumVariantViewOfEnumerator, ComTypes.IEnumVARIANT>(nativeView);
         }
 
-        internal static object InternalMarshalNativeToManaged(IntPtr pNativeData)
-            => GetInstance(null).MarshalNativeToManaged(pNativeData);
-
         public object MarshalNativeToManaged(IntPtr pNativeData)
         {
             ArgumentNullException.ThrowIfNull(pNativeData);

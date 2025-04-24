@@ -442,7 +442,6 @@ namespace System.Data
         // If the column type is not string, or the column type is string and the value is not empty string, then a non-empty string is returned
         // This method does not throw any formatting exceptions, since we can always format the field value to a string.
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal string? GetColumnValueAsString(DataRow row, DataRowVersion version)
         {
             object objValue = this[row.GetRecordFromVersion(version)];
@@ -1740,12 +1739,12 @@ namespace System.Data
             OnPropertyChanging(new PropertyChangedEventArgs(name));
         }
 
-        private DataStorage EnsureStorage() =>
+        private DataStorage InsureStorage() =>
             _storage ??= DataStorage.CreateStorage(this, _dataType, _storageType);
 
         internal void SetCapacity(int capacity)
         {
-            EnsureStorage().SetCapacity(capacity);
+            InsureStorage().SetCapacity(capacity);
         }
 
         private bool ShouldSerializeDefaultValue() => !DefaultValueIsNull;
@@ -1756,39 +1755,35 @@ namespace System.Data
             ColumnName + " + " + Expression;
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal object ConvertXmlToObject(string s)
         {
             Debug.Assert(s != null, "Caller is responsible for missing element/attribute case");
-            return EnsureStorage().ConvertXmlToObject(s);
+            return InsureStorage().ConvertXmlToObject(s);
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal object ConvertXmlToObject(XmlReader xmlReader, XmlRootAttribute? xmlAttrib)
         {
-            return EnsureStorage().ConvertXmlToObject(xmlReader, xmlAttrib);
+            return InsureStorage().ConvertXmlToObject(xmlReader, xmlAttrib);
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal string ConvertObjectToXml(object value)
         {
             Debug.Assert(value != null && (value != DBNull.Value), "Caller is responsible for checking on DBNull");
-            return EnsureStorage().ConvertObjectToXml(value);
+            return InsureStorage().ConvertObjectToXml(value);
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal void ConvertObjectToXml(object value, XmlWriter xmlWriter, XmlRootAttribute? xmlAttrib)
         {
             Debug.Assert(value != null && (value != DBNull.Value), "Caller is responsible for checking on DBNull");
-            EnsureStorage().ConvertObjectToXml(value, xmlWriter, xmlAttrib);
+            InsureStorage().ConvertObjectToXml(value, xmlWriter, xmlAttrib);
         }
 
         internal object GetEmptyColumnStore(int recordCount)
         {
-            return EnsureStorage().GetEmptyStorageInternal(recordCount);
+            return InsureStorage().GetEmptyStorageInternal(recordCount);
         }
 
         internal void CopyValueIntoStore(int record, object store, BitArray nullbits, int storeIndex)
@@ -1800,7 +1795,7 @@ namespace System.Data
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
         internal void SetStorage(object store, BitArray nullbits)
         {
-            EnsureStorage().SetStorageInternal(store, nullbits);
+            InsureStorage().SetStorageInternal(store, nullbits);
         }
 
         internal void AddDependentColumn(DataColumn expressionColumn)

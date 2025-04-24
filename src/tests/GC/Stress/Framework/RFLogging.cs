@@ -79,13 +79,8 @@ internal class RFLogging
                 }
                 catch (IOException e)
                 {
+                    ReliabilityFramework.MyDebugBreak(String.Format("LogWorker IOException:{0}", e.ToString()));
                     //Disk may be full so simply stop logging
-                    ExceptionHandler exceptionHandler = ReliabilityFramework.GenerateExceptionMessageAndHandler(ReliabilityFramework._debugBreakOnTestHang, e);
-                    string msg = exceptionHandler.HandleMessage;
-                    Action handler = exceptionHandler.Handler;
-
-                    Console.WriteLine(msg);
-                    handler();
                 }
             }
 
@@ -125,12 +120,7 @@ internal class RFLogging
                 }
                 catch (IOException e)
                 {
-                    ExceptionHandler exceptionHandler = ReliabilityFramework.GenerateExceptionMessageAndHandler(ReliabilityFramework._debugBreakOnTestHang, e);
-                    string msg = exceptionHandler.HandleMessage;
-                    Action handler = exceptionHandler.Handler;
-
-                    Console.WriteLine(msg);
-                    handler();
+                    ReliabilityFramework.MyDebugBreak(String.Format("LogWorker IOException:{0}", e.ToString()));
                 }
             }
         }

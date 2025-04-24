@@ -6,7 +6,6 @@
 using System;
 using System.Threading;
 using System.Runtime.CompilerServices;
-using Xunit;
 
 public class Test_finalizenested {
 
@@ -113,8 +112,7 @@ public class Test_finalizenested {
         temp.RunTest();
     }
 
-    [Fact]
-    public static int TestEntryPoint() 
+    public static int Main() 
     {
         AllocAndDealloc();
 

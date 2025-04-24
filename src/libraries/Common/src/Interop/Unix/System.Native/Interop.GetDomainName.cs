@@ -31,13 +31,7 @@ internal static partial class Interop
                 throw new InvalidOperationException($"{nameof(GetDomainName)}: {err}");
             }
 
-            string domainName = Marshal.PtrToStringUTF8((IntPtr)name)!;
-            if (domainName == "(none)")
-            {
-                return string.Empty;
-            }
-
-            return domainName;
+            return Marshal.PtrToStringUTF8((IntPtr)name)!;
         }
     }
 }

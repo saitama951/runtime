@@ -12,21 +12,11 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
     {
         private class ImportTable : ArrayOfEmbeddedDataNode<Import>
         {
-            private byte _alignment;
-
-            public ImportTable(string symbol, byte alignment) : base(symbol, nodeSorter: new EmbeddedObjectNodeComparer(CompilerComparer.Instance))
-            {
-                _alignment = alignment;
-            }
+            public ImportTable(string symbol) : base(symbol, nodeSorter: new EmbeddedObjectNodeComparer(CompilerComparer.Instance)) {}
 
             public override bool ShouldSkipEmittingObjectNode(NodeFactory factory) => false;
 
             public override int ClassCode => (int)ObjectNodeOrder.ImportSectionNode;
-
-            protected override int GetAlignmentRequirement(NodeFactory factory)
-            {
-                return _alignment;
-            }
         }
 
         private readonly ImportTable _imports;
@@ -54,7 +44,7 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
             _emitPrecode = emitPrecode;
             _emitGCRefMap = emitGCRefMap;
 
-            _imports = new ImportTable(_name + "_ImportBegin", entrySize);
+            _imports = new ImportTable(_name + "_ImportBegin");
             _signatures = new ArrayOfEmbeddedPointersNode<Signature>(_name + "_SigBegin", new EmbeddedObjectNodeComparer(CompilerComparer.Instance));
             _signatureList = new List<Signature>();
             _gcRefMap = _emitGCRefMap ? new GCRefMapNode(this) : null;
@@ -164,7 +154,5 @@ namespace ILCompiler.DependencyAnalysis.ReadyToRun
         {
             return _name.CompareTo(((ImportSectionNode)other)._name);
         }
-
-        public int EntrySize => _entrySize;
     }
 }

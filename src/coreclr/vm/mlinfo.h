@@ -87,8 +87,9 @@ struct OverrideProcArgs
 
         struct
         {
-            MethodTable* m_pSigMod;
             MethodTable* m_pMT;
+            MethodDesc*  m_pCopyCtor;
+            MethodDesc*  m_pDtor;
         } mm;
 
         struct
@@ -102,13 +103,6 @@ struct OverrideProcArgs
         {
             UINT32 fixedStringLength;
         } fs;
-
-#ifdef FEATURE_COMINTEROP
-        struct
-        {
-            MethodTable* m_pColorType;
-        } color;
-#endif
     };
 };
 
@@ -119,7 +113,8 @@ typedef MarshalerOverrideStatus (*OVERRIDEPROC)(NDirectStubLinker*    psl,
                                                 BOOL                  fManagedToNative,
                                                 OverrideProcArgs*     pargs,
                                                 UINT*                 pResID,
-                                                UINT                  argidx);
+                                                UINT                  argidx,
+                                                UINT                  nativeStackOffset);
 
 typedef MarshalerOverrideStatus (*RETURNOVERRIDEPROC)(NDirectStubLinker*  psl,
                                                       BOOL                fManagedToNative,
@@ -195,6 +190,45 @@ BOOL ParseNativeTypeInfo(mdToken                    token,
 BOOL IsFixedBuffer(mdFieldDef field, IMDInternalImport* pInternalImport);
 #endif
 
+#ifdef FEATURE_COMINTEROP
+class OleColorMarshalingInfo
+{
+public:
+    // Constructor.
+    OleColorMarshalingInfo();
+
+    // OleColorMarshalingInfo's are always allocated on the loader heap so we need to redefine
+    // the new and delete operators to ensure this.
+    void *operator new(size_t size, LoaderHeap *pHeap);
+    void operator delete(void *pMem);
+
+    // Accessors.
+    TypeHandle GetColorType()
+    {
+        LIMITED_METHOD_CONTRACT;
+        return m_hndColorType;
+    }
+    MethodDesc *GetOleColorToSystemColorMD()
+    {
+        LIMITED_METHOD_CONTRACT;
+        return m_OleColorToSystemColorMD;
+    }
+    MethodDesc *GetSystemColorToOleColorMD()
+    {
+        LIMITED_METHOD_CONTRACT;
+        return m_SystemColorToOleColorMD;
+    }
+
+
+private:
+    TypeHandle  m_hndColorType;
+    MethodDesc* m_OleColorToSystemColorMD;
+    MethodDesc* m_SystemColorToOleColorMD;
+};
+
+#endif // FEATURE_COMINTEROP
+
+
 class EEMarshalingData
 {
 public:
@@ -226,21 +260,27 @@ public:
     void CacheStructILStub(MethodTable* pMT, MethodDesc* pStubMD);
 #endif
 
-    // This method returns the custom marshaling info associated with the name cookie pair. If the
+    // This method returns the custom marshaling helper associated with the name cookie pair. If the
     // CM info has not been created yet for this pair then it will be created and returned.
-    CustomMarshalerInfo *GetCustomMarshalerInfo(Assembly *pAssembly, TypeHandle hndManagedType, LPCUTF8 strMarshalerTypeName, DWORD cMarshalerTypeNameBytes, LPCUTF8 strCookie, DWORD cCookieStrBytes);
+    CustomMarshalerHelper *GetCustomMarshalerHelper(Assembly *pAssembly, TypeHandle hndManagedType, LPCUTF8 strMarshalerTypeName, DWORD cMarshalerTypeNameBytes, LPCUTF8 strCookie, DWORD cCookieStrBytes);
+
+    // This method returns the custom marshaling info associated with shared CM helper.
+    CustomMarshalerInfo *GetCustomMarshalerInfo(SharedCustomMarshalerHelper *pSharedCMHelper);
 
 #ifdef FEATURE_COMINTEROP
-    CustomMarshalerInfo *GetIEnumeratorMarshalerInfo();
+    // This method retrieves OLE_COLOR marshaling info.
+    OleColorMarshalingInfo *GetOleColorMarshalingInfo();
 #endif // FEATURE_COMINTEROP
 
 private:
     EEPtrHashTable                      m_structILStubCache;
-    EECMInfoHashTable                   m_CMInfoHashTable;
+    EECMHelperHashTable                 m_CMHelperHashtable;
+    EEPtrHashTable                      m_SharedCMHelperToCMInfoMap;
     LoaderAllocator*                    m_pAllocator;
     LoaderHeap*                         m_pHeap;
+    CMINFOLIST                          m_pCMInfoList;
 #ifdef FEATURE_COMINTEROP
-    CustomMarshalerInfo*                m_pIEnumeratorMarshalerInfo;
+    OleColorMarshalingInfo*             m_pOleColorInfo;
 #endif // FEATURE_COMINTEROP
     CrstBase*                           m_lock;
 };
@@ -316,6 +356,7 @@ public:
 
     void GenerateArgumentIL(NDirectStubLinker* psl,
                             int argOffset, // the argument's index is m_paramidx + argOffset
+                            UINT nativeStackOffset, // offset of the argument on the native stack
                             BOOL fMngToNative);
 
     void GenerateReturnIL(NDirectStubLinker* psl,
@@ -505,7 +546,7 @@ private:
 #endif // FEATURE_COMINTEROP
 
     // Information used by NT_CUSTOMMARSHALER.
-    CustomMarshalerInfo* m_pCMInfo;
+    CustomMarshalerHelper* m_pCMHelper;
     VARTYPE         m_CMVt;
 
     OverrideProcArgs  m_args;

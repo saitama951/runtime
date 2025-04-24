@@ -3,8 +3,8 @@
 
 using System.Diagnostics.CodeAnalysis;
 using ILLink.Shared.TypeSystemProxy;
-using Mono.Linker;
 using TypeReference = Mono.Cecil.TypeReference;
+
 
 namespace ILLink.Shared.TrimAnalysis
 {
@@ -14,9 +14,9 @@ namespace ILLink.Shared.TrimAnalysis
 	/// </summary>
 	internal partial record MethodParameterValue
 	{
-		public MethodParameterValue (TypeReference? staticType, ParameterProxy param, DynamicallyAccessedMemberTypes dynamicallyAccessedMemberTypes, ITryResolveMetadata resolver)
+		public MethodParameterValue (TypeReference? staticType, ParameterProxy param, DynamicallyAccessedMemberTypes dynamicallyAccessedMemberTypes)
 		{
-			StaticType = staticType == null ? null : new (staticType, resolver);
+			StaticType = staticType == null ? null : new (staticType);
 			DynamicallyAccessedMemberTypes = dynamicallyAccessedMemberTypes;
 			Parameter = param;
 		}

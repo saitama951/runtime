@@ -26,7 +26,7 @@ namespace System.Drawing
         {
             if (value is string strValue)
             {
-                ReadOnlySpan<char> text = strValue.AsSpan().Trim();
+                string text = strValue.Trim();
                 if (text.Length == 0)
                 {
                     return null;
@@ -35,19 +35,22 @@ namespace System.Drawing
                 // Parse 2 integer values.
                 culture ??= CultureInfo.CurrentCulture;
 
-                string sep = culture.TextInfo.ListSeparator;
-                Span<Range> ranges = stackalloc Range[3];
-                int rangesCount = text.Split(ranges, sep);
-                if (rangesCount != 2)
+                char sep = culture.TextInfo.ListSeparator[0];
+                string[] tokens = text.Split(sep);
+                int[] values = new int[tokens.Length];
+                TypeConverter intConverter = TypeDescriptor.GetConverterTrimUnsafe(typeof(int));
+                for (int i = 0; i < values.Length; i++)
                 {
-                    throw new ArgumentException(SR.Format(SR.TextParseFailedFormat, text.ToString(), $"Width{sep} Height"));
+                    // Note: ConvertFromString will raise exception if value cannot be converted.
+                    values[i] = (int)intConverter.ConvertFromString(context, culture, tokens[i])!;
                 }
 
-                TypeConverter converter = TypeDescriptor.GetConverterTrimUnsafe(typeof(int));
-                int width = (int)converter.ConvertFromString(context, culture, strValue[ranges[0]])!;
-                int height = (int)converter.ConvertFromString(context, culture, strValue[ranges[1]])!;
+                if (values.Length != 2)
+                {
+                    throw new ArgumentException(SR.Format(SR.TextParseFailedFormat, text, "Width,Height"));
+                }
 
-                return new Size(width, height);
+                return new Size(values[0], values[1]);
             }
 
             return base.ConvertFrom(context, culture, value);
@@ -63,18 +66,20 @@ namespace System.Drawing
                 {
                     culture ??= CultureInfo.CurrentCulture;
 
-                    string sep = culture.TextInfo.ListSeparator;
+                    string sep = culture.TextInfo.ListSeparator + " ";
                     TypeConverter intConverter = TypeDescriptor.GetConverterTrimUnsafe(typeof(int));
 
                     // Note: ConvertToString will raise exception if value cannot be converted.
-                    string? width = intConverter.ConvertToString(context, culture, size.Width);
-                    string? height = intConverter.ConvertToString(context, culture, size.Height);
-
-                    return $"{width}{sep} {height}";
+                    var args = new string?[]
+                    {
+                        intConverter.ConvertToString(context, culture, size.Width),
+                        intConverter.ConvertToString(context, culture, size.Height)
+                    };
+                    return string.Join(sep, args);
                 }
                 else if (destinationType == typeof(InstanceDescriptor))
                 {
-                    ConstructorInfo? ctor = typeof(Size).GetConstructor([typeof(int), typeof(int)]);
+                    ConstructorInfo? ctor = typeof(Size).GetConstructor(new Type[] { typeof(int), typeof(int) });
                     if (ctor != null)
                     {
                         return new InstanceDescriptor(ctor, new object[] { size.Width, size.Height });
@@ -102,7 +107,7 @@ namespace System.Drawing
 
         public override bool GetCreateInstanceSupported(ITypeDescriptorContext? context) => true;
 
-        private static readonly string[] s_propertySort = ["Width", "Height"];
+        private static readonly string[] s_propertySort = { "Width", "Height" };
 
         [RequiresUnreferencedCode("The Type of value cannot be statically discovered. " + AttributeCollection.FilterRequiresUnreferencedCodeMessage)]
         public override PropertyDescriptorCollection GetProperties(ITypeDescriptorContext? context, object value, Attribute[]? attributes)

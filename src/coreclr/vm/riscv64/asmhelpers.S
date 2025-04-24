@@ -53,35 +53,48 @@ WRITE_BARRIER_ENTRY JIT_UpdateWriteBarrierState
     addi  t0, a0, 0
     addi  t1, a1, 0
 
-    ld   a0, g_card_table
+    lla  a0, g_card_table
+    ld  a0, 0(a0)
 
 #ifdef FEATURE_MANUALLY_MANAGED_CARD_BUNDLES
-    ld   a1, g_card_bundle_table
+    lla  a1, g_card_bundle_table
+    ld  a1, 0(a1)
 #endif
 
 #ifdef WRITE_BARRIER_CHECK
-    ld  a2, g_GCShadow
-    ld  a3, g_GCShadowEnd
+    lla  a2, g_GCShadow
+    ld  a2, 0(a2)
+
+    lla a3, g_GCShadowEnd
+    ld  a3, 0(a3)
 #endif
 
 #ifdef FEATURE_USE_SOFTWARE_WRITE_WATCH_FOR_GC_HEAP
-    ld   a4, g_sw_ww_table
+    lla  a4, g_sw_ww_table
+    ld  a4, 0(a4)
 #endif
 
-    ld   a5, g_ephemeral_low
-    ld   a6, g_ephemeral_high
+    lla  a5, g_ephemeral_low
+    ld  a5, 0(a5)
+
+    lla  a6, g_ephemeral_high
+    ld  a6, 0(a6)
 
     beq  t0, zero, LOCAL_LABEL(EphemeralCheckEnabled)
 
-    li  a5, 0
-    li  a6, -1
+    ori  a5, zero, 0
+    addi  a6, zero, -1
 LOCAL_LABEL(EphemeralCheckEnabled):
 
-    ld   a7, g_lowest_address
-    ld   t3, g_highest_address
+    lla  a7, g_lowest_address
+    ld  a7, 0(a7)
+
+    lla  t3, g_highest_address
+    ld  t3, 0(t3)
 
     // Update wbs state
-    ld   t2, JIT_WriteBarrier_Table_Loc
+    lla  t2, JIT_WriteBarrier_Table_Loc
+    ld  t2, 0(t2)
     add  t2, t2, t1
 
     sd  a0, 0(t2)
@@ -106,7 +119,8 @@ LEAF_ENTRY  JIT_WriteBarrier_Callable, _TEXT
     addi  t4, a1, 0                 // t4 = val
 
     // Branch to the write barrier
-    ld  t1, JIT_WriteBarrier_Loc
+    lla  t1, JIT_WriteBarrier_Loc
+    ld  t1, 0(t1)
     jr  t1
 LEAF_END JIT_WriteBarrier_Callable, _TEXT
 
@@ -152,10 +166,12 @@ WRITE_BARRIER_END JIT_ByRefWriteBarrier
 //
 
 WRITE_BARRIER_ENTRY JIT_CheckedWriteBarrier
-    ld   t6, wbs_lowest_address
+    lla  t6, wbs_lowest_address
+    ld  t6, 0(t6)
     slt  t6, t3, t6
 
-    ld   t1, wbs_highest_address
+    lla  t1, wbs_highest_address
+    ld  t1, 0(t1)
     slt  t0, t1, t3
     or  t6, t0, t6
     beq  t6, zero, C_FUNC(JIT_WriteBarrier)
@@ -187,18 +203,23 @@ WRITE_BARRIER_ENTRY JIT_WriteBarrier
     // Update GC Shadow Heap
 
     // Do not perform the work if g_GCShadow is 0
-    ld   t1, wbs_GCShadow
+    lla  t1, wbs_GCShadow
+    ld  t1, 0(t1)
 
     beq  t1, zero, LOCAL_LABEL(ShadowUpdateDisabled)
 
     // Compute address of shadow heap location:
     //   pShadow = g_GCShadow + ($t3 - g_lowest_address)
-    ld   t6, wbs_lowest_address
+    lla  t6, wbs_lowest_address
+    ld  t6, 0(t6)
+
     sub  t6, t3, t6
     add  t0, t6, t1
 
     // if (pShadow >= g_GCShadowEnd) goto end
-    ld   t6, wbs_GCShadowEnd
+    lla t6, wbs_GCShadowEnd
+    ld  t6, 0(t6)
+
     slt  t6, t0, t6
     beq  t6, zero, LOCAL_LABEL(ShadowUpdateEnd)
 
@@ -223,7 +244,8 @@ LOCAL_LABEL(ShadowUpdateDisabled):
 #ifdef FEATURE_USE_SOFTWARE_WRITE_WATCH_FOR_GC_HEAP
     // Update the write watch table if necessary
 
-    ld   t6, wbs_sw_ww_table
+    lla  t6, wbs_sw_ww_table
+    ld  t6, 0(t6)
     beq  t6, zero, LOCAL_LABEL(CheckCardTable)
 
     srli  t0, t3, 0xc
@@ -231,40 +253,44 @@ LOCAL_LABEL(ShadowUpdateDisabled):
     lb  t0, 0(t6)
     bne  t0, zero, LOCAL_LABEL(CheckCardTable)
 
-    li  t0, 0xFF
+    ori  t0, zero, 0xFF
     sb  t0, 0(t6)
 
 LOCAL_LABEL(CheckCardTable):
 #endif
     // Branch to Exit if the reference is not in the Gen0 heap
-    ld   t6, wbs_ephemeral_low
+    lla  t6, wbs_ephemeral_low
+    ld  t6, 0(t6)
     beq  t6, zero, LOCAL_LABEL(SkipEphemeralCheck)
 
     slt  t0, t4, t6
-    ld   t6, wbs_ephemeral_high
+    lla  t6, wbs_ephemeral_high
+    ld  t6, 0(t6)
     slt  t1, t6, t4
     or  t0, t1, t0
     bne  t0, zero, LOCAL_LABEL(Exit)
 
 LOCAL_LABEL(SkipEphemeralCheck):
     // Check if we need to update the card table
-    ld   t6, wbs_card_table
-    srli t0, t3, 11
+    lla  t6, wbs_card_table
+    ld  t6, 0(t6)
+    srli  t0, t3, 11
     add  t4, t6, t0
     lbu  t1, 0(t4)
-    li   t0, 0xFF
+    ori  t0, zero, 0xFF
     beq  t1, t0, LOCAL_LABEL(Exit)
 
     sb  t0, 0(t4)
 
 #ifdef FEATURE_MANUALLY_MANAGED_CARD_BUNDLES
     // Check if we need to update the card bundle table
-    ld   t6, wbs_card_bundle_table
-    srli t0, t3, 21
+    lla  t6, wbs_card_bundle_table
+    ld  t6, 0(t6)
+    srli  t0, t3, 21
     add  t4, t6, t0
 
     lbu  t6, 0(t4)
-    li   t0, 0xFF
+    ori  t0, zero, 0xFF
     beq  t6, t0, LOCAL_LABEL(Exit)
 
     sb  t0, 0(t4)
@@ -451,6 +477,19 @@ NESTED_ENTRY NDirectImportThunk, _TEXT, NoHandler
     EPILOG_BRANCH_REG  t4
 NESTED_END NDirectImportThunk, _TEXT
 
+// void SinglecastDelegateInvokeStub(Delegate *pThis)
+LEAF_ENTRY SinglecastDelegateInvokeStub, _TEXT
+    beq  a0, zero, LOCAL_LABEL(LNullThis)
+
+    ld  t4, (DelegateObject___methodPtr)(a0)
+    ld  a0, (DelegateObject___target)(a0)
+    jr  t4
+
+LOCAL_LABEL(LNullThis):
+    addi  a0, zero, CORINFO_NullReferenceException_ASM
+    tail JIT_InternalThrow
+LEAF_END SinglecastDelegateInvokeStub, _TEXT
+
 // ------------------------------------------------------------------
 // ThePreStubPatch()
 LEAF_ENTRY ThePreStubPatch, _TEXT
@@ -482,8 +521,8 @@ NESTED_ENTRY TheUMEntryPrestub, _TEXT, UnhandledExceptionHandlerUnix
 NESTED_END TheUMEntryPrestub, _TEXT
 
 // Make sure the `FaultingExceptionFrame_StackAlloc` is 16-byte aligned.
-#define FaultingExceptionFrame_StackAlloc (SIZEOF__FaultingExceptionFrame)
-#define FaultingExceptionFrame_FrameOffset 0
+#define FaultingExceptionFrame_StackAlloc (SIZEOF__GSCookie + SIZEOF__FaultingExceptionFrame + 0x8)
+#define FaultingExceptionFrame_FrameOffset SIZEOF__GSCookie
 
 .macro GenerateRedirectedStubWithFrame stub, target
 
@@ -774,44 +813,6 @@ LEAF_END setFPReturn, _TEXT
 
 #endif // FEATURE_COMINTEROP
 
-// ------------------------------------------------------------------
-// void* JIT_GetDynamicNonGCStaticBase(DynamicStaticsInfo* pStaticsInfo)
-
-LEAF_ENTRY JIT_GetDynamicNonGCStaticBase_SingleAppDomain, _TEXT
-    // If class is not initialized, bail to C++ helper
-    ld a1, OFFSETOF__DynamicStaticsInfo__m_pNonGCStatics(a0)
-    fence r,rw
-    bnez a1, LOCAL_LABEL(JIT_GetDynamicNonGCStaticBase_SingleAppDomain_CallHelper)
-    mv  a0, a1
-    ret
-
-LOCAL_LABEL(JIT_GetDynamicNonGCStaticBase_SingleAppDomain_CallHelper):
-    // Tail call GetNonGCStaticBase
-    ld a0, OFFSETOF__DynamicStaticsInfo__m_pMethodTable(a0)
-    PREPARE_EXTERNAL_VAR g_pGetNonGCStaticBase, t4
-    ld t4, 0(t4)
-    EPILOG_BRANCH_REG        t4
-LEAF_END JIT_GetDynamicNonGCStaticBase_SingleAppDomain, _TEXT
-
-// ------------------------------------------------------------------
-// void* JIT_GetDynamicGCStaticBase(DynamicStaticsInfo* pStaticsInfo)
-
-LEAF_ENTRY JIT_GetDynamicGCStaticBase_SingleAppDomain, _TEXT
-    // If class is not initialized, bail to C++ helper
-    ld a1, OFFSETOF__DynamicStaticsInfo__m_pGCStatics(a0)
-    fence r,rw
-    bnez a1, LOCAL_LABEL(JIT_GetDynamicGCStaticBase_SingleAppDomain_CallHelper)
-    mv  a0, a1
-    ret
-
-LOCAL_LABEL(JIT_GetDynamicGCStaticBase_SingleAppDomain_CallHelper):
-    // Tail call GetGCStaticBase
-    ld a0, OFFSETOF__DynamicStaticsInfo__m_pMethodTable(a0)
-    PREPARE_EXTERNAL_VAR g_pGetGCStaticBase, t4
-    ld t4, 0(t4)
-    EPILOG_BRANCH_REG        t4
-LEAF_END JIT_GetDynamicGCStaticBase_SingleAppDomain, _TEXT
-
 #ifdef FEATURE_READYTORUN
 
 NESTED_ENTRY DelayLoad_MethodCall_FakeProlog, _TEXT, NoHandler
@@ -828,6 +829,7 @@ C_FUNC(DelayLoad_MethodCall):
     addi  t4, a0, 0
 
     EPILOG_WITH_TRANSITION_BLOCK_TAILCALL
+    PATCH_LABEL ExternalMethodFixupPatchLabel
     EPILOG_BRANCH_REG   t4
 NESTED_END DelayLoad_MethodCall_FakeProlog, _TEXT
 
@@ -932,22 +934,6 @@ NESTED_ENTRY OnCallCountThresholdReachedStub, _TEXT, NoHandler
     EPILOG_BRANCH_REG t4
 NESTED_END OnCallCountThresholdReachedStub, _TEXT
 
-NESTED_ENTRY JIT_Patchpoint, _TEXT, NoHandler
-    PROLOG_WITH_TRANSITION_BLOCK
-
-    addi  a0, sp, __PWTB_TransitionBlock // TransitionBlock *
-    call  C_FUNC(JIT_PatchpointWorkerWorkerWithPolicy)
-
-    EPILOG_WITH_TRANSITION_BLOCK_RETURN
-NESTED_END JIT_Patchpoint, _TEXT
-
-// first arg register holds iloffset, which needs to be moved to the second register, and the first register filled with NULL
-LEAF_ENTRY JIT_PartialCompilationPatchpoint, _TEXT
-    mv    a1, a0
-    li    a0, 0
-    j C_FUNC(JIT_Patchpoint)
-LEAF_END JIT_PartialCompilationPatchpoint, _TEXT
-
 #endif // FEATURE_TIERED_COMPILATION
 
 // ------------------------------------------------------------------
@@ -958,24 +944,3 @@ LEAF_ENTRY GetThreadStaticsVariableOffset, _TEXT
     la.tls.ie   a0, t_ThreadStatics
     EPILOG_RETURN
 LEAF_END GetThreadStaticsVariableOffset, _TEXT
-
-LEAF_ENTRY JIT_PollGC, _TEXT
-        PREPARE_EXTERNAL_VAR g_TrapReturningThreads, t0
-        lw      t0, 0(t0)
-        bnez    t0, LOCAL_LABEL(JIT_PollGCRarePath)
-        ret
-LOCAL_LABEL(JIT_PollGCRarePath):
-        PREPARE_EXTERNAL_VAR g_pPollGC, t0
-        ld      t0, 0(t0)
-        jr      t0
-LEAF_END JIT_PollGC, _TEXT
-
-//a0 -This pointer
-//a1 -ReturnBuffer
-LEAF_ENTRY ThisPtrRetBufPrecodeWorker, _TEXT
-    ld  t2, ThisPtrRetBufPrecodeData__Target(METHODDESC_REGISTER)
-    mv  t6, a0     // Move first arg pointer to temp register
-    mv  a0, a1     // Move ret buf arg pointer from location in ABI for return buffer for instance method to location in ABI for return buffer for static method
-    mv  a1, t6     // Move temp register to first arg register for static method with return buffer
-    EPILOG_BRANCH_REG t2
-LEAF_END ThisPtrRetBufPrecodeWorker, _TEXT

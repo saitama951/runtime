@@ -1501,10 +1501,10 @@ namespace System.Text
         {
             // max ASCII character is 0b_0111_1111, so the most significant bit (0x80) tells whether it contains non ascii
 
-            // For performance, prefer architecture specific implementation
+            // prefer architecture specific intrinsic as they offer better perf
             if (Sse41.IsSupported)
             {
-                return (asciiVector & Vector128.Create((byte)0x80)) != Vector128<byte>.Zero;
+                return !Sse41.TestZ(asciiVector, Vector128.Create((byte)0x80));
             }
             else if (AdvSimd.Arm64.IsSupported)
             {
@@ -1520,21 +1520,23 @@ namespace System.Text
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool VectorContainsNonAsciiChar(Vector128<ushort> utf16Vector)
         {
-            // For performance, prefer architecture specific implementation
-            if (Sse41.IsSupported)
+            // prefer architecture specific intrinsic as they offer better perf
+            if (Sse2.IsSupported)
             {
-                const ushort asciiMask = ushort.MaxValue - 127; // 0xFF80
-                Vector128<ushort> zeroIsAscii = utf16Vector & Vector128.Create(asciiMask);
-                // If a non-ASCII bit is set in any WORD of the vector, we have seen non-ASCII data.
-                return zeroIsAscii != Vector128<ushort>.Zero;
-            }
-            else if (Sse2.IsSupported)
-            {
-                Vector128<ushort> asciiMaskForAddSaturate = Vector128.Create((ushort)0x7F80);
-                // The operation below forces the 0x8000 bit of each WORD to be set iff the WORD element
-                // has value >= 0x0800 (non-ASCII). Then we'll treat the vector as a BYTE vector in order
-                // to extract the mask. Reminder: the 0x0080 bit of each WORD should be ignored.
-                return (Sse2.MoveMask(Sse2.AddSaturate(utf16Vector, asciiMaskForAddSaturate).AsByte()) & 0b_1010_1010_1010_1010) != 0;
+                if (Sse41.IsSupported)
+                {
+                    Vector128<ushort> asciiMaskForTestZ = Vector128.Create((ushort)0xFF80);
+                    // If a non-ASCII bit is set in any WORD of the vector, we have seen non-ASCII data.
+                    return !Sse41.TestZ(utf16Vector.AsInt16(), asciiMaskForTestZ.AsInt16());
+                }
+                else
+                {
+                    Vector128<ushort> asciiMaskForAddSaturate = Vector128.Create((ushort)0x7F80);
+                    // The operation below forces the 0x8000 bit of each WORD to be set iff the WORD element
+                    // has value >= 0x0800 (non-ASCII). Then we'll treat the vector as a BYTE vector in order
+                    // to extract the mask. Reminder: the 0x0080 bit of each WORD should be ignored.
+                    return (Sse2.MoveMask(Sse2.AddSaturate(utf16Vector, asciiMaskForAddSaturate).AsByte()) & 0b_1010_1010_1010_1010) != 0;
+                }
             }
             else if (AdvSimd.Arm64.IsSupported)
             {
@@ -1555,10 +1557,18 @@ namespace System.Text
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool VectorContainsNonAsciiChar(Vector256<ushort> utf16Vector)
         {
-            const ushort asciiMask = ushort.MaxValue - 127; // 0xFF80
-            Vector256<ushort> zeroIsAscii = utf16Vector & Vector256.Create(asciiMask);
-            // If a non-ASCII bit is set in any WORD of the vector, we have seen non-ASCII data.
-            return zeroIsAscii != Vector256<ushort>.Zero;
+            if (Avx.IsSupported)
+            {
+                Vector256<ushort> asciiMaskForTestZ = Vector256.Create((ushort)0xFF80);
+                return !Avx.TestZ(utf16Vector.AsInt16(), asciiMaskForTestZ.AsInt16());
+            }
+            else
+            {
+                const ushort asciiMask = ushort.MaxValue - 127; // 0xFF80
+                Vector256<ushort> zeroIsAscii = utf16Vector & Vector256.Create(asciiMask);
+                // If a non-ASCII bit is set in any WORD of the vector, we have seen non-ASCII data.
+                return zeroIsAscii != Vector256<ushort>.Zero;
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1591,13 +1601,14 @@ namespace System.Text
             if (typeof(T) == typeof(byte))
             {
                 return
-                    Sse41.IsSupported ? (vector.AsByte() & Vector128.Create((byte)0x80)) == Vector128<byte>.Zero :
+                    Sse41.IsSupported ? Sse41.TestZ(vector.AsByte(), Vector128.Create((byte)0x80)) :
                     AdvSimd.Arm64.IsSupported ? AllBytesInUInt64AreAscii(AdvSimd.Arm64.MaxPairwise(vector.AsByte(), vector.AsByte()).AsUInt64().ToScalar()) :
                     vector.AsByte().ExtractMostSignificantBits() == 0;
             }
             else
             {
                 return
+                    Sse41.IsSupported ? Sse41.TestZ(vector.AsUInt16(), Vector128.Create((ushort)0xFF80)) :
                     AdvSimd.Arm64.IsSupported ? AllCharsInUInt64AreAscii(AdvSimd.Arm64.MaxPairwise(vector.AsUInt16(), vector.AsUInt16()).AsUInt64().ToScalar()) :
                     (vector.AsUInt16() & Vector128.Create((ushort)0xFF80)) == Vector128<ushort>.Zero;
             }
@@ -1613,12 +1624,14 @@ namespace System.Text
             if (typeof(T) == typeof(byte))
             {
                 return
-                    Avx.IsSupported ? (vector.AsByte() & Vector256.Create((byte)0x80)) == Vector256<byte>.Zero:
+                    Avx.IsSupported ? Avx.TestZ(vector.AsByte(), Vector256.Create((byte)0x80)) :
                     vector.AsByte().ExtractMostSignificantBits() == 0;
             }
             else
             {
-                return (vector.AsUInt16() & Vector256.Create((ushort)0xFF80)) == Vector256<ushort>.Zero;
+                return
+                    Avx.IsSupported ? Avx.TestZ(vector.AsUInt16(), Vector256.Create((ushort)0xFF80)) :
+                    (vector.AsUInt16() & Vector256.Create((ushort)0xFF80)) == Vector256<ushort>.Zero;
             }
         }
 
@@ -1664,7 +1677,7 @@ namespace System.Text
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static Vector256<byte> ExtractAsciiVector(Vector256<ushort> vectorFirst, Vector256<ushort> vectorSecond)
+        private static Vector256<byte> ExtractAsciiVector(Vector256<ushort> vectorFirst, Vector256<ushort> vectorSecond)
         {
             return Avx2.IsSupported
                 ? PackedSpanHelpers.FixUpPackedVector256Result(Avx2.PackUnsignedSaturate(vectorFirst.AsInt16(), vectorSecond.AsInt16()))
@@ -1672,7 +1685,7 @@ namespace System.Text
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static Vector512<byte> ExtractAsciiVector(Vector512<ushort> vectorFirst, Vector512<ushort> vectorSecond)
+        private static Vector512<byte> ExtractAsciiVector(Vector512<ushort> vectorFirst, Vector512<ushort> vectorSecond)
         {
             return Avx512BW.IsSupported
                 ? PackedSpanHelpers.FixUpPackedVector512Result(Avx512BW.PackUnsignedSaturate(vectorFirst.AsInt16(), vectorSecond.AsInt16()))
@@ -2167,14 +2180,14 @@ namespace System.Text
             // Calculating the destination address outside the loop results in significant
             // perf wins vs. relying on the JIT to fold memory addressing logic into the
             // write instructions. See: https://github.com/dotnet/runtime/issues/33002
-            nuint finalOffsetWhereCanRunLoop = elementCount - (nuint)TVectorByte.ElementCount;
+            nuint finalOffsetWhereCanRunLoop = elementCount - (nuint)TVectorByte.Count;
             TVectorByte asciiVector = TVectorByte.Load(pAsciiBuffer + currentOffset);
             if (!HasMatch<TVectorByte>(asciiVector))
             {
                 (TVectorUInt16 utf16LowVector, TVectorUInt16 utf16HighVector) = Widen<TVectorByte, TVectorUInt16>(asciiVector);
                 utf16LowVector.Store(pCurrentWriteAddress);
-                utf16HighVector.Store(pCurrentWriteAddress + TVectorUInt16.ElementCount);
-                pCurrentWriteAddress += (nuint)(TVectorUInt16.ElementCount * 2);
+                utf16HighVector.Store(pCurrentWriteAddress + TVectorUInt16.Count);
+                pCurrentWriteAddress += (nuint)(TVectorUInt16.Count * 2);
                 if (((nuint)pCurrentWriteAddress % sizeof(char)) == 0)
                 {
                     // Bump write buffer up to the next aligned boundary
@@ -2185,7 +2198,7 @@ namespace System.Text
                 else
                 {
                     // If input isn't char aligned, we won't be able to align it to a Vector
-                    currentOffset += (nuint)TVectorByte.ElementCount;
+                    currentOffset += (nuint)TVectorByte.Count;
                 }
                 while (currentOffset <= finalOffsetWhereCanRunLoop)
                 {
@@ -2196,17 +2209,17 @@ namespace System.Text
                     }
                     (utf16LowVector, utf16HighVector) = Widen<TVectorByte, TVectorUInt16>(asciiVector);
                     utf16LowVector.Store(pCurrentWriteAddress);
-                    utf16HighVector.Store(pCurrentWriteAddress + TVectorUInt16.ElementCount);
+                    utf16HighVector.Store(pCurrentWriteAddress + TVectorUInt16.Count);
 
-                    currentOffset += (nuint)TVectorByte.ElementCount;
-                    pCurrentWriteAddress += (nuint)(TVectorUInt16.ElementCount * 2);
+                    currentOffset += (nuint)TVectorByte.Count;
+                    pCurrentWriteAddress += (nuint)(TVectorUInt16.Count * 2);
                 }
             }
             return;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool HasMatch<TVectorByte>(TVectorByte vector)
+        private static unsafe bool HasMatch<TVectorByte>(TVectorByte vector)
             where TVectorByte : unmanaged, ISimdVector<TVectorByte, byte>
         {
             return !(vector & TVectorByte.Create((byte)0x80)).Equals(TVectorByte.Zero);
@@ -2214,7 +2227,7 @@ namespace System.Text
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static (TVectorUInt16 Lower, TVectorUInt16 Upper) Widen<TVectorByte, TVectorUInt16>(TVectorByte vector)
+        private static unsafe (TVectorUInt16 Lower, TVectorUInt16 Upper) Widen<TVectorByte, TVectorUInt16>(TVectorByte vector)
             where TVectorByte : unmanaged, ISimdVector<TVectorByte, byte>
             where TVectorUInt16 : unmanaged, ISimdVector<TVectorUInt16, ushort>
         {

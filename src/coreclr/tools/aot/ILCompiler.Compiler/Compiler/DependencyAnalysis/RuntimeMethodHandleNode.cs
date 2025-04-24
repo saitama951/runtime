@@ -66,6 +66,8 @@ namespace ILCompiler.DependencyAnalysis
             return dependencies;
         }
 
+        private static readonly Utf8String s_NativeLayoutSignaturePrefix = new Utf8String("__RMHSignature_");
+
         protected override ObjectData GetDehydratableData(NodeFactory factory, bool relocsOnly = false)
         {
             ObjectDataBuilder objData = new ObjectDataBuilder(factory, relocsOnly);
@@ -73,21 +75,8 @@ namespace ILCompiler.DependencyAnalysis
             objData.RequireInitialPointerAlignment();
             objData.AddSymbol(this);
 
-            int handle = relocsOnly ? 0 : factory.MetadataManager.GetMetadataHandleForMethod(factory, _targetMethod.GetTypicalMethodDefinition());
-
-            objData.EmitPointerReloc(factory.MaximallyConstructableType(_targetMethod.OwningType));
-            objData.EmitInt(handle);
-
-            if (_targetMethod != _targetMethod.GetMethodDefinition())
-            {
-                objData.EmitInt(_targetMethod.Instantiation.Length);
-                foreach (TypeDesc instParam in _targetMethod.Instantiation)
-                    objData.EmitPointerReloc(factory.NecessaryTypeSymbol(instParam));
-            }
-            else
-            {
-                objData.EmitInt(0);
-            }
+            NativeLayoutMethodLdTokenVertexNode ldtokenSigNode = factory.NativeLayout.MethodLdTokenVertex(_targetMethod);
+            objData.EmitPointerReloc(factory.NativeLayout.NativeLayoutSignature(ldtokenSigNode, s_NativeLayoutSignaturePrefix, _targetMethod));
 
             return objData.ToObjectData();
         }

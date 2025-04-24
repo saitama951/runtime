@@ -5,8 +5,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <CLRTestTargetUnsupported Condition="'$(TargetsWindows)' != 'true'">true</CLRTestTargetUnsupported>
     <Win32Resource>test.res</Win32Resource>
-    <RequiresProcessIsolation>true</RequiresProcessIsolation>
-    <ReferenceXUnitWrapperGenerator>false</ReferenceXUnitWrapperGenerator>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Win32Resources.cs" />

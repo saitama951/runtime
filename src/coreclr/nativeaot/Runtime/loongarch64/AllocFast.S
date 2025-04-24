@@ -10,8 +10,8 @@
 //
 // Rename fields of nested structs
 //
-#define OFFSETOF__Thread__m_alloc_context__alloc_ptr        (OFFSETOF__Thread__m_eeAllocContext + OFFSETOF__ee_alloc_context__m_rgbAllocContextBuffer + OFFSETOF__gc_alloc_context__alloc_ptr)
-#define OFFSETOF__Thread__m_eeAllocContext__combined_limit  (OFFSETOF__Thread__m_eeAllocContext + OFFSETOF__ee_alloc_context__combined_limit)
+#define OFFSETOF__Thread__m_alloc_context__alloc_ptr        (OFFSETOF__Thread__m_rgbAllocContextBuffer + OFFSETOF__gc_alloc_context__alloc_ptr)
+#define OFFSETOF__Thread__m_alloc_context__alloc_limit      (OFFSETOF__Thread__m_rgbAllocContextBuffer + OFFSETOF__gc_alloc_context__alloc_limit)
 
 
 
@@ -21,7 +21,11 @@
     LEAF_ENTRY RhpNewFast, _TEXT
 
         // a1 = GetThread()
+#ifdef FEATURE_EMULATED_TLS
+        GETTHREAD_ETLS_1
+#else
         INLINE_GETTHREAD  $a1
+#endif
 
         //
         // a0 contains MethodTable pointer
@@ -40,8 +44,8 @@
         // Determine whether the end of the object would lie outside of the current allocation context. If so,
         // we abandon the attempt to allocate the object directly and fall back to the slow helper.
         add.d  $a2, $a2, $t3
-        ld.d   $t4, $a1, OFFSETOF__Thread__m_eeAllocContext__combined_limit
-        bltu  $t4, $a2, LOCAL_LABEL(RhpNewFast_RarePath)
+        ld.d   $t4, $a1, OFFSETOF__Thread__m_alloc_context__alloc_limit
+        bltu  $t4, $a2, RhpNewFast_RarePath
 
         // Update the alloc pointer to account for the allocation.
         st.d  $a2, $a1, OFFSETOF__Thread__m_alloc_context__alloc_ptr
@@ -52,7 +56,7 @@
         ori  $a0, $t3, 0
         jirl  $r0, $ra, 0
 
-LOCAL_LABEL(RhpNewFast_RarePath):
+RhpNewFast_RarePath:
         ori  $a1, $zero, 0
         b  RhpNewObject
     LEAF_END RhpNewFast, _TEXT
@@ -83,14 +87,14 @@ LOCAL_LABEL(RhpNewFast_RarePath):
         bl  C_FUNC(RhpGcAlloc)
 
         // Set the new objects MethodTable pointer on success.
-        beq  $a0, $zero, LOCAL_LABEL(NewOutOfMemory)
+        beq  $a0, $zero, NewOutOfMemory
 
         .cfi_remember_state
         POP_COOP_PINVOKE_FRAME
         EPILOG_RETURN
 
         .cfi_restore_state
-LOCAL_LABEL(NewOutOfMemory):
+NewOutOfMemory:
         // This is the OOM failure path. We are going to tail-call to a managed helper that will throw
         // an out of memory exception that the caller of this allocator understands.
 
@@ -109,7 +113,7 @@ LOCAL_LABEL(NewOutOfMemory):
         // Make sure computing the overall allocation size wont overflow
         lu12i.w  $a2, ((MAX_STRING_LENGTH >> 12) & 0xFFFFF)
         ori  $a2, $a2, (MAX_STRING_LENGTH & 0xFFF)
-        bltu  $a2, $a1, LOCAL_LABEL(StringSizeOverflow)
+        bltu  $a2, $a1, StringSizeOverflow
 
         // Compute overall allocation size (align(base size + (element size * elements), 8)).
         ori  $a2, $zero, STRING_COMPONENT_SIZE
@@ -121,7 +125,11 @@ LOCAL_LABEL(NewOutOfMemory):
         // a1 == element count
         // a2 == string size
 
+#ifdef FEATURE_EMULATED_TLS
+        GETTHREAD_ETLS_3
+#else
         INLINE_GETTHREAD $a3
+#endif
 
         // Load potential new object address into t3.
         ld.d  $t3, $a3, OFFSETOF__Thread__m_alloc_context__alloc_ptr
@@ -129,8 +137,8 @@ LOCAL_LABEL(NewOutOfMemory):
         // Determine whether the end of the object would lie outside of the current allocation context. If so,
         // we abandon the attempt to allocate the object directly and fall back to the slow helper.
         add.d  $a2, $a2, $t3
-        ld.d  $t3, $a3, OFFSETOF__Thread__m_eeAllocContext__combined_limit
-        bltu  $t3, $a2, LOCAL_LABEL(RhNewString_Rare)
+        ld.d  $t3, $a3, OFFSETOF__Thread__m_alloc_context__alloc_limit
+        bltu  $t3, $a2, RhNewString_Rare
 
         // Reload new object address into r12.
         ld.d  $t3, $a3, OFFSETOF__Thread__m_alloc_context__alloc_ptr
@@ -147,7 +155,7 @@ LOCAL_LABEL(NewOutOfMemory):
 
         jirl  $r0, $ra, 0
 
-LOCAL_LABEL(StringSizeOverflow):
+StringSizeOverflow:
         // We get here if the length of the final string object can not be represented as an unsigned
         // 32-bit value. We are going to tail-call to a managed helper that will throw
         // an OOM exception that the caller of this allocator understands.
@@ -156,7 +164,7 @@ LOCAL_LABEL(StringSizeOverflow):
         ori  $a1, $zero, 1                  // Indicate that we should throw OverflowException
         b  C_FUNC(RhExceptionHandling_FailedAllocation)
 
-LOCAL_LABEL(RhNewString_Rare):
+RhNewString_Rare:
         b  C_FUNC(RhpNewArrayRare)
     LEAF_END    RhNewString, _Text
 
@@ -171,7 +179,7 @@ LOCAL_LABEL(RhNewString_Rare):
         // case (32 dimensional MdArray) is less than 0xffff, and thus the product fits in 64 bits.
         lu12i.w  $a2, 0x7ffff
         ori  $a2, $a2, 0xfff
-        bltu  $a2, $a1, LOCAL_LABEL(ArraySizeOverflow)
+        bltu  $a2, $a1, ArraySizeOverflow
 
         ld.h  $a2, $a0, OFFSETOF__MethodTable__m_usComponentSize
         mulw.d.w  $a2, $a1, $a2
@@ -191,8 +199,8 @@ LOCAL_LABEL(RhNewString_Rare):
         // Determine whether the end of the object would lie outside of the current allocation context. If so,
         // we abandon the attempt to allocate the object directly and fall back to the slow helper.
         add.d  $a2, $a2, $t3
-        ld.d  $t3, $a3, OFFSETOF__Thread__m_eeAllocContext__combined_limit
-        bltu  $t3, $a2, LOCAL_LABEL(RhpNewArray_Rare)
+        ld.d  $t3, $a3, OFFSETOF__Thread__m_alloc_context__alloc_limit
+        bltu  $t3, $a2, RhpNewArray_Rare
 
         // Reload new object address into t3.
         ld.d  $t3, $a3, OFFSETOF__Thread__m_alloc_context__alloc_ptr
@@ -209,7 +217,7 @@ LOCAL_LABEL(RhNewString_Rare):
 
         jirl  $r0, $ra, 0
 
-LOCAL_LABEL(ArraySizeOverflow):
+ArraySizeOverflow:
         // We get here if the size of the final array object can not be represented as an unsigned
         // 32-bit value. We are going to tail-call to a managed helper that will throw
         // an overflow exception that the caller of this allocator understands.
@@ -218,7 +226,7 @@ LOCAL_LABEL(ArraySizeOverflow):
         ori  $a1, $zero, 1 // Indicate that we should throw OverflowException
         b  C_FUNC(RhExceptionHandling_FailedAllocation)
 
-LOCAL_LABEL(RhpNewArray_Rare):
+RhpNewArray_Rare:
         b  C_FUNC(RhpNewArrayRare)
     LEAF_END    RhpNewArray, _TEXT
 
@@ -245,14 +253,14 @@ LOCAL_LABEL(RhpNewArray_Rare):
         bl  C_FUNC(RhpGcAlloc)
 
         // Set the new objects MethodTable pointer and length on success.
-        beq  $a0, $zero, LOCAL_LABEL(ArrayOutOfMemory)
+        beq  $a0, $zero, ArrayOutOfMemory
 
         .cfi_remember_state
         POP_COOP_PINVOKE_FRAME
         EPILOG_RETURN
 
         .cfi_restore_state
-LOCAL_LABEL(ArrayOutOfMemory):
+ArrayOutOfMemory:
         // This is the OOM failure path. We are going to tail-call to a managed helper that will throw
         // an out of memory exception that the caller of this allocator understands.
 

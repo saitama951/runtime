@@ -5,37 +5,47 @@ using System;
 using System.Reflection;
 using Xunit;
 
-public class SetValueScenario
+public class TestSetValue
 {
     public static readonly long MagicNumber = 42;
 }
 
-public class SetValueDirectScenario
+public class TestSetValueDirect
 {
     public static readonly string MagicString = "";
 }
 
-// Validate that the readonly static field cannot be set via reflection when the static constructor is triggered
-// by the reflection SetValue operation itself.
-public class TrySetReadonlyStaticField2
+public class Test_TrySetReadonlyStaticField2
 {
     [Fact]
-    public static void TestSetValue()
+    public static int TestEntryPoint()
     {
-        Assert.Throws<FieldAccessException>(() =>
-        {
-            typeof(SetValueScenario).GetField(nameof(SetValueScenario.MagicNumber)).SetValue(null, 0x123456789);
-        });
-    }
+        // Validate that the readonly static field cannot be set via reflection when the static constructor is triggered 
+        // by the reflection SetValue operation itself.
 
-    [Fact]
-    public static void TestSetValueDirect()
-    {
-        Assert.Throws<FieldAccessException>(() =>
+        try
+        {
+            typeof(TestSetValue).GetField(nameof(TestSetValue.MagicNumber)).SetValue(null, 0x123456789);
+            Console.WriteLine("FAILED: TestSetValue - Exception expected");
+            return -1;
+        }
+        catch (FieldAccessException)
+        {
+            Console.WriteLine("TestSetValue - Caught expected exception");
+        }
+
+        try 
         {
             int i = 0;
-            typeof(SetValueDirectScenario).GetField(nameof(SetValueDirectScenario.MagicString)).SetValueDirect(__makeref(i), "Hello");
-        });
+            typeof(TestSetValueDirect).GetField(nameof(TestSetValueDirect.MagicString)).SetValueDirect(__makeref(i), "Hello");
+            Console.WriteLine("FAILED: TestSetValueDirect - Exception expected");
+            return -1;
+        }
+        catch (FieldAccessException)
+        {
+            Console.WriteLine("TestSetValueDirect - Caught expected exception");
+        }
+        return 100;
     }
 }
 

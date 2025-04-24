@@ -5,6 +5,13 @@ namespace System
 {
     public partial class TypeLoadException
     {
+        internal TypeLoadException(string message, string typeName)
+            : base(message)
+        {
+            HResult = HResults.COR_E_TYPELOAD;
+            _className = typeName;
+        }
+
         private void SetMessageField()
         {
             _message ??= SR.Arg_TypeLoadException;

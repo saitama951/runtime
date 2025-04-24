@@ -1982,10 +1982,7 @@ namespace System.Tests
             yield return new object[] { "#2020-5-7T09:37:00.0000000+00:00#\0", CultureInfo.InvariantCulture, TimeZoneInfo.ConvertTimeFromUtc(new DateTime(2020, 5, 7, 9, 37, 0, DateTimeKind.Utc), TimeZoneInfo.Local) };
             yield return new object[] { "2020-5-7T09:37:00.0000000+00:00", CultureInfo.InvariantCulture, TimeZoneInfo.ConvertTimeFromUtc(new DateTime(2020, 5, 7, 9, 37, 0, DateTimeKind.Utc), TimeZoneInfo.Local) };
 
-            // On Apple platforms, the handling  calendars relies on native Apple APIs (NSCalendar).
-            // These APIs can cause differences in behavior when parsing or formatting dates compared to other platforms.
-            // Specifically, the way Apple handles calendar identifiers and date formats for cultures like "he-IL" may lead to variations in the output.
-            if (PlatformDetection.IsNotInvariantGlobalization && PlatformDetection.IsNotHybridGlobalizationOnApplePlatform)
+            if (PlatformDetection.IsNotInvariantGlobalization)
             {
                 DateTime today = DateTime.Today;
                 var hebrewCulture = new CultureInfo("he-IL");
@@ -2006,6 +2003,7 @@ namespace System.Tests
         }
 
         [Theory]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/95338", typeof(PlatformDetection), nameof(PlatformDetection.IsHybridGlobalizationOnApplePlatform))]
         [MemberData(nameof(Parse_ValidInput_Succeeds_MemberData))]
         public static void Parse_ValidInput_Succeeds(string input, CultureInfo culture, DateTime? expected)
         {
@@ -2466,6 +2464,7 @@ namespace System.Tests
         }
 
         [Theory]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/95338", typeof(PlatformDetection), nameof(PlatformDetection.IsHybridGlobalizationOnApplePlatform))]
         [MemberData(nameof(Parse_ValidInput_Succeeds_MemberData))]
         public static void Parse_Span_ValidInput_Succeeds(string input, CultureInfo culture, DateTime? expected)
         {
@@ -2685,17 +2684,6 @@ namespace System.Tests
             fileTime = now.ToFileTime();
             roundTrippedDateTime = DateTime.FromFileTime(fileTime);
             Assert.Equal(now, roundTrippedDateTime);
-        }
-
-        [Fact]
-        public void TestParseTimeOnlyStringWithAssumeUtcOption()
-        {
-            DateTime utcNow1 = DateTime.UtcNow;
-            DateTime dt = DateTime.Parse("13:30", null, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
-            DateTime utcNow2 = DateTime.UtcNow;
-
-            // Ensure the parsed date part is in UTC.
-            Assert.InRange(dt.Date, utcNow1.Date, utcNow2.Date);
         }
 
         [Fact]

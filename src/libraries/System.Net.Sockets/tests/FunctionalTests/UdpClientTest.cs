@@ -60,7 +60,7 @@ namespace System.Net.Sockets.Tests
             AssertExtensions.Throws<ArgumentNullException>("localEP", () => new UdpClient(null));
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void Ctor_CanSend()
         {
             using (var udpClient = new DerivedUdpClient())
@@ -71,16 +71,6 @@ namespace System.Net.Sockets.Tests
         }
 
         [Fact]
-        public async Task Ctor_CanSendAsync()
-        {
-            using (var udpClient = new DerivedUdpClient())
-            {
-                Assert.Equal(1, await udpClient.SendAsync(new byte[1], 1, new IPEndPoint(IPAddress.Loopback, UnusedPort)));
-                Assert.False(udpClient.Active);
-            }
-        }
-
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
         public void Ctor_Int_CanSend()
         {
             try
@@ -97,7 +87,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void Ctor_IntAddressFamily_IPv4_CanSend()
         {
             try
@@ -114,7 +104,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void Ctor_IntAddressFamily_IPv6_CanSend()
         {
             try
@@ -131,7 +121,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void Ctor_IPEndPoint_CanSend()
         {
             try
@@ -148,7 +138,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void Ctor_StringInt_CanSend()
         {
             using (var udpClient = new DerivedUdpClient("localhost", UnusedPort))
@@ -158,7 +148,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public void DisposeClose_OperationsThrow(bool close)
@@ -277,7 +267,6 @@ namespace System.Net.Sockets.Tests
 
         [Fact]
         [ActiveIssue("https://github.com/dotnet/runtime/issues/51392", TestPlatforms.iOS | TestPlatforms.tvOS | TestPlatforms.MacCatalyst)]
-        [SkipOnPlatform(TestPlatforms.Wasi, "Not supported on Wasi.")]
         public void DontFragment_Roundtrips()
         {
             using (var udpClient = new UdpClient())
@@ -293,7 +282,6 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(AddressFamily.InterNetwork)]
         [InlineData(AddressFamily.InterNetworkV6)]
-        [SkipOnPlatform(TestPlatforms.Wasi, "Not supported on Wasi.")]
         public void MulticastLoopback_Roundtrips(AddressFamily addressFamily)
         {
             using (var udpClient = new UdpClient(addressFamily))
@@ -307,7 +295,6 @@ namespace System.Net.Sockets.Tests
         }
 
         [Fact]
-        [SkipOnPlatform(TestPlatforms.Wasi, "Not supported on Wasi.")]
         public void EnableBroadcast_Roundtrips()
         {
             using (var udpClient = new UdpClient())
@@ -334,7 +321,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void InvalidArguments_Throw()
         {
             using (var udpClient = new UdpClient("localhost", UnusedPort))
@@ -345,7 +332,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void BeginSend_NegativeBytes_Throws()
         {
             using (UdpClient udpClient = new UdpClient(AddressFamily.InterNetwork))
@@ -360,7 +347,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void BeginSend_BytesMoreThanArrayLength_Throws()
         {
             using (UdpClient udpClient = new UdpClient(AddressFamily.InterNetwork))
@@ -375,7 +362,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void BeginSend_AsyncOperationCompletes_Success()
         {
             using (UdpClient udpClient = new UdpClient())
@@ -389,7 +376,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void Send_InvalidArguments_Throws()
         {
             using (var udpClient = new DerivedUdpClient())
@@ -402,6 +389,8 @@ namespace System.Net.Sockets.Tests
                 udpClient.Active = true;
                 Assert.Throws<InvalidOperationException>(() => udpClient.Send(new byte[1], 1, new IPEndPoint(IPAddress.Loopback, 0)));
                 Assert.Throws<InvalidOperationException>(() => udpClient.Send(new ReadOnlySpan<byte>(new byte[1]), new IPEndPoint(IPAddress.Loopback, 0)));
+                Assert.Throws<InvalidOperationException>(() => {udpClient.SendAsync(new byte[1], 1, new IPEndPoint(IPAddress.Loopback, 0));});
+                Assert.Throws<InvalidOperationException>(() => udpClient.SendAsync(new ReadOnlyMemory<byte>(new byte[1]), new IPEndPoint(IPAddress.Loopback, 0)));
             }
         }
 
@@ -434,7 +423,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void Connect_InvalidArguments_Throws()
         {
             using (var udpClient = new UdpClient())
@@ -469,7 +458,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void Connect_StringHost_Success()
         {
             using (var c = new UdpClient())
@@ -478,7 +467,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void Connect_IPAddressHost_Success()
         {
             using (var c = new UdpClient())
@@ -519,7 +508,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public void Send_Receive_Success(bool ipv4)
@@ -583,7 +572,7 @@ namespace System.Net.Sockets.Tests
             Assert.True(Enumerable.SequenceEqual(sentData, data));
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public void Send_Available_Success(bool ipv4)
@@ -599,7 +588,7 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public void BeginEndSend_BeginEndReceive_Success(bool ipv4)
@@ -763,7 +752,6 @@ namespace System.Net.Sockets.Tests
         }
 
         [Fact]
-        [SkipOnPlatform(TestPlatforms.Wasi, "Not supported on Wasi.")]
         public void JoinDropMulticastGroup_InvalidArguments_Throws()
         {
             using (var udpClient = new UdpClient(AddressFamily.InterNetwork))
@@ -812,7 +800,6 @@ namespace System.Net.Sockets.Tests
         }
 
         [Fact]
-        [SkipOnPlatform(TestPlatforms.Wasi, "Not supported on Wasi.")]
         public void BeginSend_IPv6Socket_IPv4Dns_Success()
         {
             using (var receiver = new UdpClient("127.0.0.1", DiscardPort))

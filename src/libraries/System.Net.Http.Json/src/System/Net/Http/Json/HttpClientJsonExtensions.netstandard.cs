@@ -18,7 +18,7 @@ namespace System.Net.Http.Json
 
         private static Task<HttpResponseMessage> PatchAsync(this HttpClient client, Uri? requestUri, HttpContent content, CancellationToken cancellationToken)
         {
-            // HttpClient.PatchAsync is not available in .NET Standard 2.0 and .NET Framework
+            // HttpClient.PatchAsync is not available in .NET standard and NET462
             HttpRequestMessage request = new HttpRequestMessage(HttpPatch, requestUri) { Content = content };
             return client.SendAsync(request, cancellationToken);
         }

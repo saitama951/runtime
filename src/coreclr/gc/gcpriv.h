@@ -615,8 +615,12 @@ struct hc_history
 #ifdef BACKGROUND_GC
     short bgc_t_join_n_threads;
     // We have observed a problem on Windows in production where GC indicates a BGC thread was created successfully yet we have
-    // invalid fields on the Thread object such as m_OSThreadId. This is to help with debugging that problem.
+    // invalid fields on the Thread object such as m_OSThreadId. This is to help with debugging that problem so I
+    // only enable it for retail builds on Windows. We can extend this with a GCToEEInterface interface method to get the offset
+    // of that particular field on the Thread object.
+#if defined(TARGET_AMD64) && defined(TARGET_WINDOWS) && !defined(_DEBUG) && !defined(FEATURE_NATIVEAOT)
     int bgc_thread_os_id;
+#endif
     short bgc_t_join_join_lock;
 #endif //BACKGROUND_GC
     bool gc_t_join_joined_p;
@@ -1412,18 +1416,13 @@ enum interesting_data_point
 #ifdef USE_REGIONS
 enum free_region_kind
 {
-    basic_free_region = 0,
-    large_free_region = 1,
-    count_distributed_free_region_kinds = 2,
-    huge_free_region = 2,
-    count_free_region_kinds = 3,
+    basic_free_region,
+    large_free_region,
+    huge_free_region,
+    count_free_region_kinds,
 };
 
 static_assert(count_free_region_kinds == FREE_REGION_KINDS, "Keep count_free_region_kinds in sync with FREE_REGION_KINDS, changing this is not a version breaking change.");
-
-#ifdef TRACE_GC
-static const char * const free_region_kind_name[count_free_region_kinds] = { "basic", "large", "huge"};
-#endif // TRACE_GC
 
 class region_free_list
 {
@@ -1733,14 +1732,6 @@ private:
     PER_HEAP_ISOLATED_METHOD void compute_gc_and_ephemeral_range (int condemned_gen_number, bool end_of_gc_p);
 
     PER_HEAP_ISOLATED_METHOD void distribute_free_regions();
-    PER_HEAP_ISOLATED_METHOD void move_all_aged_regions(size_t total_num_free_regions[count_distributed_free_region_kinds], region_free_list aged_regions[count_free_region_kinds], bool joined_last_gc_before_oom);
-    PER_HEAP_ISOLATED_METHOD void move_aged_regions(region_free_list dest[count_free_region_kinds], region_free_list& src, free_region_kind kind, bool joined_last_gc_before_oom);
-    PER_HEAP_ISOLATED_METHOD bool aged_region_p(heap_segment* region, free_region_kind kind);
-    PER_HEAP_ISOLATED_METHOD void move_regions_to_decommit(region_free_list oregions[count_free_region_kinds]);
-    PER_HEAP_ISOLATED_METHOD size_t compute_basic_region_budgets(size_t heap_basic_budget_in_region_units[MAX_SUPPORTED_CPUS], size_t min_heap_basic_budget_in_region_units[MAX_SUPPORTED_CPUS], size_t total_basic_free_regions);
-    PER_HEAP_ISOLATED_METHOD bool near_heap_hard_limit_p();
-    PER_HEAP_ISOLATED_METHOD bool distribute_surplus_p(ptrdiff_t balance, int kind, bool aggressive_decommit_large_p);
-    PER_HEAP_ISOLATED_METHOD void decide_on_decommit_strategy(bool joined_last_gc_before_oom);
 
     PER_HEAP_ISOLATED_METHOD void age_free_regions (const char* msg);
 
@@ -5244,7 +5235,6 @@ private:
     PER_HEAP_ISOLATED_FIELD_INIT_ONLY uint32_t high_memory_load_th;
     PER_HEAP_ISOLATED_FIELD_INIT_ONLY uint32_t m_high_memory_load_th;
     PER_HEAP_ISOLATED_FIELD_INIT_ONLY uint32_t v_high_memory_load_th;
-    PER_HEAP_ISOLATED_FIELD_INIT_ONLY uint32_t almost_high_memory_load_th;
     PER_HEAP_ISOLATED_FIELD_INIT_ONLY bool is_restricted_physical_mem;
     PER_HEAP_ISOLATED_FIELD_INIT_ONLY uint64_t mem_one_percent;
     PER_HEAP_ISOLATED_FIELD_INIT_ONLY uint64_t total_physical_mem;
@@ -6216,9 +6206,7 @@ public:
     // GCs. We stop at 99. It's initialized to 0 when a region is added to
     // the region's free list.
     #define MAX_AGE_IN_FREE 99
-    #define AGE_IN_FREE_TO_DECOMMIT_BASIC 20
-    #define AGE_IN_FREE_TO_DECOMMIT_LARGE 5
-    #define AGE_IN_FREE_TO_DECOMMIT_HUGE 2
+    #define AGE_IN_FREE_TO_DECOMMIT 20
     int             age_in_free;
     // This is currently only used by regions that are swept in plan -
     // we then thread this list onto the generation's free list.

@@ -39,9 +39,8 @@ namespace System.Runtime.Caching
         private bool _useMemoryCacheManager = true;
         private bool _throwOnDisposed;
 #if NET
-        [UnsupportedOSPlatformGuard("wasi")]
         [UnsupportedOSPlatformGuard("browser")]
-        private static bool _countersSupported => !OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi();
+        private static bool _countersSupported => !OperatingSystem.IsBrowser();
 #else
         private static bool _countersSupported => true;
 #endif

@@ -26,6 +26,7 @@ namespace System.Runtime.InteropServices.JavaScript
             }
             Interop.Runtime.CancelPromise(holder.GCHandle);
 #else
+
             lock (holder.ProxyContext)
             {
                 if (promise.IsCompleted || holder.IsDisposed || holder.ProxyContext._isDisposed)

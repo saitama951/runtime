@@ -257,13 +257,11 @@ namespace System.Diagnostics.Eventing.Reader
         {
             get
             {
-                using (EventLogHandle bookmarkHandle = NativeWrapper.EvtCreateBookmark(null))
-                {
-                    NativeWrapper.EvtUpdateBookmark(bookmarkHandle, Handle);
-                    string bookmarkText = NativeWrapper.EvtRenderBookmark(bookmarkHandle);
+                EventLogHandle bookmarkHandle = NativeWrapper.EvtCreateBookmark(null);
+                NativeWrapper.EvtUpdateBookmark(bookmarkHandle, Handle);
+                string bookmarkText = NativeWrapper.EvtRenderBookmark(bookmarkHandle);
 
-                    return new EventBookmark(bookmarkText);
-                }
+                return new EventBookmark(bookmarkText);
             }
         }
 

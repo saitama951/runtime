@@ -325,7 +325,9 @@ namespace Mono.Linker.Steps
 					MarkEntireType (nested, new DependencyInfo (DependencyKind.NestedType, type), origin);
 			}
 
-			MarkTypeVisibleToReflection (type, reason, origin);
+			MarkTypeVisibleToReflection (type, type, reason, origin);
+			MarkCustomAttributes (type, new DependencyInfo (DependencyKind.CustomAttribute, type), origin);
+			MarkTypeSpecialCustomAttributes (type, origin);
 
 			if (type.HasInterfaces) {
 				foreach (InterfaceImplementation iface in type.Interfaces)
@@ -912,7 +914,7 @@ namespace Mono.Linker.Steps
 			foreach (var member in members) {
 				switch (member) {
 				case TypeDefinition type:
-					MarkTypeVisibleToReflection (type, reason, origin);
+					MarkTypeVisibleToReflection (type, type, reason, origin);
 					break;
 				case MethodDefinition method:
 					MarkMethodVisibleToReflection (method, reason, origin);
@@ -1726,7 +1728,6 @@ namespace Mono.Linker.Steps
 			case DependencyKind.AlreadyMarked:
 			case DependencyKind.TypePreserve:
 			case DependencyKind.PreservedMethod:
-			case DependencyKind.MemberOfType:
 				return;
 
 			case DependencyKind.DynamicallyAccessedMemberOnType:
@@ -1794,17 +1795,18 @@ namespace Mono.Linker.Steps
 			MarkMethodsIf (type.Methods, HasOnSerializeOrDeserializeAttribute, new DependencyInfo (DependencyKind.SerializationMethodForType, type), origin);
 		}
 
-		protected internal virtual void MarkTypeVisibleToReflection (TypeReference type, in DependencyInfo reason, in MessageOrigin origin)
+		protected internal virtual TypeDefinition? MarkTypeVisibleToReflection (TypeReference type, TypeDefinition definition, in DependencyInfo reason, in MessageOrigin origin)
 		{
-			TypeDefinition? definition = MarkType (type, reason, origin);
-			if (definition is not null) {
-				// If a type is visible to reflection, we need to stop doing optimization that could cause observable difference
-				// in reflection APIs. This includes APIs like MakeGenericType (where variant castability of the produced type
-				// could be incorrect) or IsAssignableFrom (where assignability of unconstructed types might change).
-				Annotations.MarkRelevantToVariantCasting (definition);
-				Annotations.MarkReflectionUsed (definition);
-				MarkImplicitlyUsedFields (definition, origin);
-			}
+			// If a type is visible to reflection, we need to stop doing optimization that could cause observable difference
+			// in reflection APIs. This includes APIs like MakeGenericType (where variant castability of the produced type
+			// could be incorrect) or IsAssignableFrom (where assignability of unconstructed types might change).
+			Annotations.MarkRelevantToVariantCasting (definition);
+
+			Annotations.MarkReflectionUsed (definition);
+
+			MarkImplicitlyUsedFields (definition, origin);
+
+			return MarkType (type, reason, origin);
 		}
 
 		internal void MarkMethodVisibleToReflection (MethodReference method, in DependencyInfo reason, in MessageOrigin origin)
@@ -2596,8 +2598,6 @@ namespace Mono.Linker.Steps
 			case "MulticastDelegate":
 			case "ValueType":
 			case "Enum":
-			case "Array":
-			case "RuntimeType": // works around https://github.com/dotnet/runtime/issues/110605
 				return td.Namespace == "System";
 			}
 
@@ -3089,8 +3089,6 @@ namespace Mono.Linker.Steps
 				Tracer.AddDirectDependency (method.DeclaringType, new DependencyInfo (DependencyKind.InstantiatedByCtor, method), marked: false);
 			} else if (method.IsStaticConstructor () && Annotations.HasLinkerAttribute<RequiresUnreferencedCodeAttribute> (method))
 				Context.LogWarning (methodOrigin, DiagnosticId.RequiresUnreferencedCodeOnStaticConstructor, method.GetDisplayName ());
-			else if (method == method.Module.EntryPoint && Annotations.HasLinkerAttribute<RequiresUnreferencedCodeAttribute>(method))
-				Context.LogWarning (methodOrigin, DiagnosticId.RequiresUnreferencedCodeOnEntryPoint, method.GetDisplayName ());
 
 			if (method.IsConstructor) {
 				if (!Annotations.ProcessSatelliteAssemblies && KnownMembers.IsSatelliteAssemblyMarker (method))
@@ -3642,7 +3640,9 @@ namespace Mono.Linker.Steps
 					origin = new MessageOrigin (origin, instruction.Offset);
 
 					if (token is TypeReference typeReference) {
-						MarkTypeVisibleToReflection (typeReference, reason, origin);
+						// Error will be reported as part of MarkType
+						if (Context.TryResolve (typeReference) is TypeDefinition type)
+							MarkTypeVisibleToReflection (typeReference, type, reason, origin);
 					} else if (token is MethodReference methodReference) {
 						MarkMethodVisibleToReflection (methodReference, reason, origin);
 					} else {

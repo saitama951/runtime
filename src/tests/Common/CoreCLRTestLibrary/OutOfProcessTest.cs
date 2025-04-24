@@ -47,7 +47,7 @@ namespace TestLibrary
             && !OperatingSystem.IsTvOS()
             && !OperatingSystem.IsAndroid()
             && !OperatingSystem.IsBrowser()
-            && !OperatingSystem.IsWasi();
+            && !OperatingSystem.IsOSPlatform("Wasi");
 
         public static void RunOutOfProcessTest(string assemblyPath, string testPathPrefix)
         {

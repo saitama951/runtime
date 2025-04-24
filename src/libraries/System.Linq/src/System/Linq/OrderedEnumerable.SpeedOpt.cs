@@ -91,7 +91,7 @@ namespace System.Linq
                 TElement[] buffer = _source.ToArray();
                 if (buffer.Length <= minIdx)
                 {
-                    return [];
+                    return new List<TElement>();
                 }
 
                 if (buffer.Length <= maxIdx)
@@ -104,7 +104,7 @@ namespace System.Linq
                     return new List<TElement>(1) { GetEnumerableSorter().ElementAt(buffer, buffer.Length, minIdx) };
                 }
 
-                List<TElement> list = [];
+                List<TElement> list = new();
                 Fill(minIdx, maxIdx, buffer, SetCountAndGetSpan(list, maxIdx - minIdx + 1));
                 return list;
             }
@@ -165,51 +165,55 @@ namespace System.Linq
             public override TElement? TryGetFirst(out bool found)
             {
                 CachingComparer<TElement> comparer = GetComparer();
-                using IEnumerator<TElement> e = _source.GetEnumerator();
-                if (!e.MoveNext())
+                using (IEnumerator<TElement> e = _source.GetEnumerator())
                 {
-                    found = false;
-                    return default;
-                }
-
-                TElement value = e.Current;
-                comparer.SetElement(value);
-                while (e.MoveNext())
-                {
-                    TElement x = e.Current;
-                    if (comparer.Compare(x, true) < 0)
+                    if (!e.MoveNext())
                     {
-                        value = x;
+                        found = false;
+                        return default;
                     }
-                }
 
-                found = true;
-                return value;
+                    TElement value = e.Current;
+                    comparer.SetElement(value);
+                    while (e.MoveNext())
+                    {
+                        TElement x = e.Current;
+                        if (comparer.Compare(x, true) < 0)
+                        {
+                            value = x;
+                        }
+                    }
+
+                    found = true;
+                    return value;
+                }
             }
 
             public override TElement? TryGetLast(out bool found)
             {
-                using IEnumerator<TElement> e = _source.GetEnumerator();
-                if (!e.MoveNext())
+                using (IEnumerator<TElement> e = _source.GetEnumerator())
                 {
-                    found = false;
-                    return default;
-                }
-
-                CachingComparer<TElement> comparer = GetComparer();
-                TElement value = e.Current;
-                comparer.SetElement(value);
-                while (e.MoveNext())
-                {
-                    TElement current = e.Current;
-                    if (comparer.Compare(current, false) >= 0)
+                    if (!e.MoveNext())
                     {
-                        value = current;
+                        found = false;
+                        return default;
                     }
-                }
 
-                found = true;
-                return value;
+                    CachingComparer<TElement> comparer = GetComparer();
+                    TElement value = e.Current;
+                    comparer.SetElement(value);
+                    while (e.MoveNext())
+                    {
+                        TElement current = e.Current;
+                        if (comparer.Compare(current, false) >= 0)
+                        {
+                            value = current;
+                        }
+                    }
+
+                    found = true;
+                    return value;
+                }
             }
 
             public TElement? TryGetLast(int minIdx, int maxIdx, out bool found)
@@ -226,9 +230,6 @@ namespace System.Linq
                 found = false;
                 return default;
             }
-
-            public override bool Contains(TElement value) =>
-                _source.Contains(value);
 
             private TElement Last(TElement[] items)
             {

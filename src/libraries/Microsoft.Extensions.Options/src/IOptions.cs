@@ -6,14 +6,14 @@ using System.Diagnostics.CodeAnalysis;
 namespace Microsoft.Extensions.Options
 {
     /// <summary>
-    /// Retrieves configured <typeparamref name="TOptions"/> instances.
+    /// Used to retrieve configured <typeparamref name="TOptions"/> instances.
     /// </summary>
     /// <typeparam name="TOptions">The type of options being requested.</typeparam>
     public interface IOptions<[DynamicallyAccessedMembers(Options.DynamicallyAccessedMembers)] out TOptions>
         where TOptions : class
     {
         /// <summary>
-        /// Gets the default configured <typeparamref name="TOptions"/> instance.
+        /// The default configured <typeparamref name="TOptions"/> instance
         /// </summary>
         TOptions Value { get; }
     }

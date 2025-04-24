@@ -800,18 +800,14 @@ namespace System.Reflection.Emit
         private static bool IsInstance(CallingConventions callingConvention) =>
             callingConvention.HasFlag(CallingConventions.HasThis) || callingConvention.HasFlag(CallingConventions.ExplicitThis) ? true : false;
 
-        internal static SignatureCallingConvention GetSignatureConvention(CallingConventions callingConventions)
+        internal static SignatureCallingConvention GetSignatureConvention(CallingConventions callingConvention)
         {
             SignatureCallingConvention convention = SignatureCallingConvention.Default;
 
-            if ((callingConventions & CallingConventions.VarArgs) != 0)
+            if ((callingConvention & CallingConventions.VarArgs) != 0)
             {
                 convention = SignatureCallingConvention.VarArgs;
             }
-
-            // CallingConventions.HasThis (0x20) and ExplicitThis (0x40) can use a bitwise OR with SignatureCallingConvention.
-            const byte Mask = (byte)(CallingConventions.HasThis | CallingConventions.ExplicitThis);
-            convention = (SignatureCallingConvention)((byte)convention | (unchecked((byte)callingConventions) & Mask));
 
             return convention;
         }
@@ -1387,20 +1383,6 @@ namespace System.Reflection.Emit
         protected override ISymbolDocumentWriter DefineDocumentCore(string url, Guid language = default)
         {
             return new SymbolDocumentWriter(url, language);
-        }
-
-        internal List<TypeBuilderImpl> GetNestedTypeBuilders(TypeBuilderImpl declaringType)
-        {
-            List<TypeBuilderImpl> nestedTypes = new List<TypeBuilderImpl>();
-            foreach (TypeBuilderImpl typeBuilder in _typeDefinitions)
-            {
-                if (typeBuilder.DeclaringType == declaringType)
-                {
-                    nestedTypes.Add(typeBuilder);
-                }
-            }
-
-            return nestedTypes;
         }
     }
 }

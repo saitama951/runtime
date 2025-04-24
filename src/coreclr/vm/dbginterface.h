@@ -1,7 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 //
-// CLR Debug Interface Header
+// COM+99 Debug Interface Header
 //
 
 
@@ -69,6 +69,7 @@ public:
                             LPCWSTR      psModuleName,    // module file name
                             DWORD        dwModuleName,    // number of characters in file name excludign null
                             Assembly *   pAssembly,       // the assembly the module belongs to
+                            AppDomain *  pAppDomain,      // the AppDomain the module is being loaded into
                             DomainAssembly * pDomainAssembly,
                             BOOL         fAttaching) = 0; // true if this notification is due to a debugger
                                                           // being attached to the process
@@ -79,7 +80,7 @@ public:
     // calls and before any UnloadAssembly or RemoveAppDomainFromIPCBlock calls realted
     // to this module.  On CLR shutdown, we are not guaranteed to get UnloadModule calls for
     // all outstanding loaded modules.
-    virtual void UnloadModule(Module* pRuntimeModule) = 0;
+    virtual void UnloadModule(Module* pRuntimeModule, AppDomain *pAppDomain) = 0;
 
     // Called when a Module* is being destroyed.
     // Specifically, the Module has completed unloading (which may have been done asyncronously), all resources
@@ -92,10 +93,12 @@ public:
 
     virtual BOOL LoadClass(TypeHandle th,
                            mdTypeDef classMetadataToken,
-                           Module *classModule) = 0;
+                           Module *classModule,
+                           AppDomain *pAppDomain) = 0;
 
     virtual void UnloadClass(mdTypeDef classMetadataToken,
-                             Module *classModule) = 0;
+                             Module *classModule,
+                             AppDomain *pAppDomain) = 0;
 
     // Filter we call in 1st-pass to dispatch a CHF callback.
     // pCatchStackAddress really should be a Frame* onto the stack. That way the CHF stack address
@@ -141,7 +144,8 @@ public:
     virtual void SendUserBreakpoint(Thread *thread) = 0;
 
     // Send an UpdateModuleSyms event, and block waiting for the debugger to continue it.
-    virtual void SendUpdateModuleSymsEventAndBlock(Module *pRuntimeModule) = 0;
+    virtual void SendUpdateModuleSymsEventAndBlock(Module *pRuntimeModule,
+                                          AppDomain *pAppDomain) = 0;
 
     //
     // RequestFavor gets the debugger helper thread to call a function. It's
@@ -410,8 +414,6 @@ public:
 #ifndef DACCESS_COMPILE
     virtual HRESULT DeoptimizeMethod(Module* pModule, mdMethodDef methodDef) = 0;
     virtual HRESULT IsMethodDeoptimized(Module *pModule, mdMethodDef methodDef, BOOL *pResult) = 0;
-    virtual void MulticastTraceNextStep(DELEGATEREF pbDel, INT32 count) = 0;
-    virtual void ExternalMethodFixupNextStep(PCODE address) = 0;
 #endif //DACCESS_COMPILE
 };
 

@@ -19,7 +19,7 @@ namespace System.Net.NameResolution.Tests
             Assert.ThrowsAny<SocketException>(() => Dns.EndGetHostByName(asyncObject));
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void DnsObsoleteBeginGetHostByName_IPv4String_ReturnsOnlyGivenIP()
         {
             IAsyncResult asyncObject = Dns.BeginGetHostByName(IPAddress.Loopback.ToString(), null, null);
@@ -106,7 +106,6 @@ namespace System.Net.NameResolution.Tests
         [ActiveIssue("https://github.com/dotnet/runtime/issues/1488", TestPlatforms.OSX)]
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsNotArm64Process))] // [ActiveIssue("https://github.com/dotnet/runtime/issues/27622")]
         [ActiveIssue("https://github.com/dotnet/runtime/issues/51377", TestPlatforms.iOS | TestPlatforms.tvOS | TestPlatforms.MacCatalyst)]
-        [ActiveIssue("https://github.com/dotnet/runtime/issues/107339", TestPlatforms.Wasi)]
         public void DnsObsoleteGetHostByName_EmptyString_ReturnsHostName()
         {
             IPHostEntry entry = Dns.GetHostByName("");

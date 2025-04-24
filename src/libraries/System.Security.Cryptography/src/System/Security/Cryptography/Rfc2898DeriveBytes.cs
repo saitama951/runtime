@@ -29,31 +29,29 @@ namespace System.Security.Cryptography
         /// </summary>
         public HashAlgorithmName HashAlgorithm { get; }
 
-        [Obsolete(Obsoletions.Rfc2898DeriveBytesCtorMessage, DiagnosticId = Obsoletions.Rfc2898DeriveBytesCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
+        [Obsolete(Obsoletions.Rfc2898OutdatedCtorMessage, DiagnosticId = Obsoletions.Rfc2898OutdatedCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         public Rfc2898DeriveBytes(byte[] password, byte[] salt, int iterations)
             : this(password, salt, iterations, HashAlgorithmName.SHA1)
         {
         }
 
-        [Obsolete(Obsoletions.Rfc2898DeriveBytesCtorMessage, DiagnosticId = Obsoletions.Rfc2898DeriveBytesCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         public Rfc2898DeriveBytes(byte[] password, byte[] salt, int iterations, HashAlgorithmName hashAlgorithm)
             : this(password, salt, iterations, hashAlgorithm, clearPassword: false)
         {
         }
 
-        [Obsolete(Obsoletions.Rfc2898DeriveBytesCtorMessage, DiagnosticId = Obsoletions.Rfc2898DeriveBytesCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
+        [Obsolete(Obsoletions.Rfc2898OutdatedCtorMessage, DiagnosticId = Obsoletions.Rfc2898OutdatedCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         public Rfc2898DeriveBytes(string password, byte[] salt)
              : this(password, salt, 1000)
         {
         }
 
-        [Obsolete(Obsoletions.Rfc2898DeriveBytesCtorMessage, DiagnosticId = Obsoletions.Rfc2898DeriveBytesCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
+        [Obsolete(Obsoletions.Rfc2898OutdatedCtorMessage, DiagnosticId = Obsoletions.Rfc2898OutdatedCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         public Rfc2898DeriveBytes(string password, byte[] salt, int iterations)
             : this(password, salt, iterations, HashAlgorithmName.SHA1)
         {
         }
 
-        [Obsolete(Obsoletions.Rfc2898DeriveBytesCtorMessage, DiagnosticId = Obsoletions.Rfc2898DeriveBytesCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         public Rfc2898DeriveBytes(string password, byte[] salt, int iterations, HashAlgorithmName hashAlgorithm)
             : this(
                 Encoding.UTF8.GetBytes(password ?? throw new ArgumentNullException(nameof(password))),
@@ -64,19 +62,18 @@ namespace System.Security.Cryptography
         {
         }
 
-        [Obsolete(Obsoletions.Rfc2898DeriveBytesCtorMessage, DiagnosticId = Obsoletions.Rfc2898DeriveBytesCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
+        [Obsolete(Obsoletions.Rfc2898OutdatedCtorMessage, DiagnosticId = Obsoletions.Rfc2898OutdatedCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         public Rfc2898DeriveBytes(string password, int saltSize)
             : this(password, saltSize, 1000)
         {
         }
 
-        [Obsolete(Obsoletions.Rfc2898DeriveBytesCtorMessage, DiagnosticId = Obsoletions.Rfc2898DeriveBytesCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
+        [Obsolete(Obsoletions.Rfc2898OutdatedCtorMessage, DiagnosticId = Obsoletions.Rfc2898OutdatedCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         public Rfc2898DeriveBytes(string password, int saltSize, int iterations)
             : this(password, saltSize, iterations, HashAlgorithmName.SHA1)
         {
         }
 
-        [Obsolete(Obsoletions.Rfc2898DeriveBytesCtorMessage, DiagnosticId = Obsoletions.Rfc2898DeriveBytesCtorDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         public Rfc2898DeriveBytes(string password, int saltSize, int iterations, HashAlgorithmName hashAlgorithm)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(saltSize);

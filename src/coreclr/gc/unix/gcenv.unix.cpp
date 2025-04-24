@@ -23,21 +23,9 @@
 #include "volatile.h"
 #include "gcconfig.h"
 #include "numasupport.h"
-#include <minipal/thread.h>
 
 #if HAVE_SWAPCTL
 #include <sys/swap.h>
-#endif
-
-#ifdef __linux__
-#include <linux/membarrier.h>
-#include <sys/syscall.h>
-#define membarrier(...) syscall(__NR_membarrier, __VA_ARGS__)
-#elif HAVE_SYS_MEMBARRIER_H
-#include <sys/membarrier.h>
-#ifdef TARGET_BROWSER
-#define membarrier(cmd, flags, cpu_id) 0 // browser/wasm is currently single threaded
-#endif
 #endif
 
 #include <sys/resource.h>
@@ -101,9 +89,25 @@ extern "C"
 
 #endif // __APPLE__
 
-#ifdef __HAIKU__
-#include <OS.h>
-#endif // __HAIKU__
+#ifdef __linux__
+#include <sys/syscall.h> // __NR_membarrier
+// Ensure __NR_membarrier is defined for portable builds.
+# if !defined(__NR_membarrier)
+#  if defined(__amd64__)
+#   define __NR_membarrier  324
+#  elif defined(__i386__)
+#   define __NR_membarrier  375
+#  elif defined(__arm__)
+#   define __NR_membarrier  389
+#  elif defined(__aarch64__)
+#   define __NR_membarrier  283
+#  elif defined(__loongarch64)
+#   define __NR_membarrier  283
+#  else
+#   error Unknown architecture
+#  endif
+# endif
+#endif
 
 #if HAVE_PTHREAD_NP_H
 #include <pthread_np.h>
@@ -139,9 +143,29 @@ typedef cpuset_t cpu_set_t;
 // The cached total number of CPUs that can be used in the OS.
 static uint32_t g_totalCpuCount = 0;
 
+//
+// Helper membarrier function
+//
+#ifdef __NR_membarrier
+# define membarrier(...)  syscall(__NR_membarrier, __VA_ARGS__)
+#else
+# define membarrier(...)  -ENOSYS
+#endif
+
+enum membarrier_cmd
+{
+    MEMBARRIER_CMD_QUERY                                 = 0,
+    MEMBARRIER_CMD_GLOBAL                                = (1 << 0),
+    MEMBARRIER_CMD_GLOBAL_EXPEDITED                      = (1 << 1),
+    MEMBARRIER_CMD_REGISTER_GLOBAL_EXPEDITED             = (1 << 2),
+    MEMBARRIER_CMD_PRIVATE_EXPEDITED                     = (1 << 3),
+    MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED            = (1 << 4),
+    MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE           = (1 << 5),
+    MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE  = (1 << 6)
+};
+
 bool CanFlushUsingMembarrier()
 {
-#if defined(__linux__) || HAVE_SYS_MEMBARRIER_H
 
 #ifdef TARGET_ANDROID
     // Avoid calling membarrier on older Android versions where membarrier
@@ -156,16 +180,15 @@ bool CanFlushUsingMembarrier()
     // Starting with Linux kernel 4.14, process memory barriers can be generated
     // using MEMBARRIER_CMD_PRIVATE_EXPEDITED.
 
-    int mask = membarrier(MEMBARRIER_CMD_QUERY, 0, 0);
+    int mask = membarrier(MEMBARRIER_CMD_QUERY, 0);
 
     if (mask >= 0 &&
         mask & MEMBARRIER_CMD_PRIVATE_EXPEDITED &&
         // Register intent to use the private expedited command.
-        membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED, 0, 0) == 0)
+        membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED, 0) == 0)
     {
         return true;
     }
-#endif
 
     return false;
 }
@@ -368,7 +391,18 @@ void GCToOSInterface::Shutdown()
 //  Numeric id of the current thread, as best we can retrieve it.
 uint64_t GCToOSInterface::GetCurrentThreadIdForLogging()
 {
-    return (uint64_t)minipal_get_current_thread_id();
+#if defined(__linux__)
+    return (uint64_t)syscall(SYS_gettid);
+#elif HAVE_PTHREAD_GETTHREADID_NP
+    return (uint64_t)pthread_getthreadid_np();
+#elif HAVE_PTHREAD_THREADID_NP
+    unsigned long long tid;
+    pthread_threadid_np(pthread_self(), &tid);
+    return (uint64_t)tid;
+#else
+    // Fallback in case we don't know how to get integer thread id on the current platform
+    return (uint64_t)pthread_self();
+#endif
 }
 
 // Get the process ID of the process.
@@ -411,15 +445,12 @@ bool GCToOSInterface::CanGetCurrentProcessorNumber()
 // Flush write buffers of processors that are executing threads of the current process
 void GCToOSInterface::FlushProcessWriteBuffers()
 {
-#if defined(__linux__) || HAVE_SYS_MEMBARRIER_H
     if (s_flushUsingMemBarrier)
     {
-        int status = membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED, 0, 0);
+        int status = membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED, 0);
         assert(status == 0 && "Failed to flush using membarrier");
     }
-    else
-#endif
-    if (g_helperPage != 0)
+    else if (g_helperPage != 0)
     {
         int status = pthread_mutex_lock(&g_flushProcessWriteBuffersMutex);
         assert(status == 0 && "Failed to lock the flushProcessWriteBuffersMutex lock");
@@ -551,11 +582,7 @@ static void* VirtualReserveInner(size_t size, size_t alignment, uint32_t flags, 
     }
 
     size_t alignedSize = size + (alignment - OS_PAGE_SIZE);
-    int mmapFlags = MAP_ANON | MAP_PRIVATE | hugePagesFlag;
-#ifdef __HAIKU__
-    mmapFlags |= MAP_NORESERVE;
-#endif
-    void * pRetVal = mmap(nullptr, alignedSize, PROT_NONE, mmapFlags, -1, 0);
+    void * pRetVal = mmap(nullptr, alignedSize, PROT_NONE, MAP_ANON | MAP_PRIVATE | hugePagesFlag, -1, 0);
 
     if (pRetVal != MAP_FAILED)
     {
@@ -704,11 +731,7 @@ bool GCToOSInterface::VirtualDecommit(void* address, size_t size)
     // that much more clear to the operating system that we no
     // longer need these pages. Also, GC depends on re-committed pages to
     // be zeroed-out.
-    int mmapFlags = MAP_FIXED | MAP_ANON | MAP_PRIVATE;
-#ifdef TARGET_HAIKU
-    mmapFlags |= MAP_NORESERVE;
-#endif
-    bool bRetVal = mmap(address, size, PROT_NONE, mmapFlags, -1, 0) != MAP_FAILED;
+    bool bRetVal = mmap(address, size, PROT_NONE, MAP_FIXED | MAP_ANON | MAP_PRIVATE, -1, 0) != MAP_FAILED;
 
 #ifdef MADV_DONTDUMP
     if (bRetVal)
@@ -1009,7 +1032,7 @@ static uint64_t GetMemorySizeMultiplier(char units)
     return 1;
 }
 
-#if !defined(__APPLE__) && !defined(__HAIKU__)
+#ifndef __APPLE__
 // Try to read the MemAvailable entry from /proc/meminfo.
 // Return true if the /proc/meminfo existed, the entry was present and we were able to parse it.
 static bool ReadMemAvailable(uint64_t* memAvailable)
@@ -1042,7 +1065,7 @@ static bool ReadMemAvailable(uint64_t* memAvailable)
 
     return foundMemAvailable;
 }
-#endif // !defined(__APPLE__) && !defined(__HAIKU__)
+#endif // __APPLE__
 
 // Get size of the largest cache on the processor die
 // Parameters:
@@ -1271,12 +1294,6 @@ uint64_t GetAvailablePhysicalMemory()
     sysctlbyname("vm.stats.vm.v_free_count", &free_count, &sz, NULL, 0);
 
     available = (inactive_count + laundry_count + free_count) * sysconf(_SC_PAGESIZE);
-#elif defined(__HAIKU__)
-    system_info info;
-    if (get_system_info(&info) == B_OK)
-    {
-        available = info.free_memory;
-    }
 #else // Linux
     static volatile bool tryReadMemInfo = true;
 

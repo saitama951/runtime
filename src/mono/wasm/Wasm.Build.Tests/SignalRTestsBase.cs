@@ -5,35 +5,30 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Collections.Specialized;
-using Wasm.Build.Tests;
+using Wasm.Build.Tests.TestAppScenarios;
 using Xunit.Abstractions;
 using Xunit;
 #nullable enable
 
 namespace Wasm.Build.Tests;
 
-public class SignalRTestsBase : WasmTemplateTestsBase
+public class SignalRTestsBase : AppTestBase
 {
     public SignalRTestsBase(ITestOutputHelper output, SharedBuildPerTestClassFixture buildContext)
         : base(output, buildContext)
     {
     }
 
-    protected async Task SignalRPassMessage(string staticWebAssetBasePath, Configuration config, string transport)
+    protected async Task SignalRPassMessage(string staticWebAssetBasePath, string config, string transport)
     {
-        TestAsset asset = new() { Name = "WasmBasicTestApp", RunnableProjectSubPath = "AspNetCoreServer" };
-        ProjectInfo info = CopyTestAsset(config, false, asset, "SignalRClientTests");
-        PublishProject(info, config, new PublishOptions(RuntimeType: RuntimeVariant.MultiThreaded, AssertAppBundle: false));
+        CopyTestAsset("WasmOnAspNetCore", "SignalRClientTests", "AspNetCoreServer");
+        PublishProject(config, runtimeType: RuntimeVariant.MultiThreaded, assertAppBundle: false);
 
-        var result = await RunForPublishWithWebServer(new BrowserRunOptions(
+        var result = await RunSdkStyleAppForBuild(new(
             Configuration: config,
             ServerEnvironment: new Dictionary<string, string> { ["ASPNETCORE_ENVIRONMENT"] = "Development" },
             BrowserPath: staticWebAssetBasePath,
-            BrowserQueryString: new NameValueCollection {
-                { "transport", transport},
-                { "message", "ping" }
-            }));
+            BrowserQueryString: new Dictionary<string, string> { ["transport"] = transport, ["message"] = "ping" } ));
 
         string testOutput = string.Join("\n", result.TestOutput) ?? "";
         Assert.NotEmpty(testOutput);

@@ -221,7 +221,7 @@ namespace System.Text.Json.Serialization.Metadata
         private JsonObjectCreationHandling? _objectCreationHandling;
         internal JsonObjectCreationHandling EffectiveObjectCreationHandling { get; private set; }
 
-        internal string? MemberName { get; set; } // Do not rename (legacy schema generation)
+        internal string? MemberName { get; set; }
         internal MemberTypes MemberType { get; set; }
         internal bool IsVirtual { get; set; }
 
@@ -443,7 +443,7 @@ namespace System.Text.Json.Serialization.Metadata
             }
             else
             {
-                ValidateAndCachePropertyName();
+                CacheNameAsUtf8BytesAndEscapedNameSection();
             }
 
             if (IsRequired)
@@ -472,20 +472,9 @@ namespace System.Text.Json.Serialization.Metadata
         [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
         internal abstract void DetermineReflectionPropertyAccessors(MemberInfo memberInfo, bool useNonPublicAccessors);
 
-        private void ValidateAndCachePropertyName()
+        private void CacheNameAsUtf8BytesAndEscapedNameSection()
         {
             Debug.Assert(Name != null);
-
-            if (Options.ReferenceHandlingStrategy is JsonKnownReferenceHandler.Preserve &&
-                this is { DeclaringType.IsValueType: false, IsIgnored: false, IsExtensionData: false } &&
-                Name is JsonSerializer.IdPropertyName or JsonSerializer.RefPropertyName)
-            {
-                // Validate potential conflicts with reference preservation metadata property names.
-                // Conflicts with polymorphic type discriminators are contextual and need to be
-                // handled separately by the PolymorphicTypeResolver type.
-
-                ThrowHelper.ThrowInvalidOperationException_PropertyConflictsWithMetadataPropertyName(DeclaringType, Name);
-            }
 
             NameAsUtf8Bytes = Encoding.UTF8.GetBytes(Name);
             EscapedNameSection = JsonHelpers.GetEscapedPropertyNameSection(NameAsUtf8Bytes, Options.Encoder);
@@ -681,7 +670,7 @@ namespace System.Text.Json.Serialization.Metadata
                     ThrowHelper.ThrowNotSupportedException_ObjectCreationHandlingPropertyDoesNotSupportParameterizedConstructors();
                 }
 
-                if (Options.ReferenceHandlingStrategy != JsonKnownReferenceHandler.Unspecified)
+                if (Options.ReferenceHandlingStrategy != ReferenceHandlingStrategy.None)
                 {
                     ThrowHelper.ThrowInvalidOperationException_ObjectCreationHandlingPropertyCannotAllowReferenceHandling();
                 }

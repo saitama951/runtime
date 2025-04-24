@@ -17,7 +17,6 @@ namespace System.Runtime.InteropServices.Tests
         [Fact]
         public void GenerateGuidForType_ComObject_ReturnsComGuid()
         {
-            Assert.Equal(new Guid(GuidStr), typeof(DummyObject).GUID);
             Assert.Equal(new Guid(GuidStr), Marshal.GenerateGuidForType(typeof(DummyObject)));
         }
     }

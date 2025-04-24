@@ -6,7 +6,6 @@ using System.Runtime.Versioning;
 using System.Threading;
 
 using Internal.Runtime.Augments;
-using Internal.Runtime.CompilerHelpers;
 
 using Debug = Internal.Runtime.CompilerHelpers.StartupDebug;
 
@@ -67,14 +66,7 @@ namespace Internal.Runtime.CompilerHelpers
 
             Environment.ShutdownCore();
 
-            int exitCode = Environment.ExitCode;
-
-            if (ReachabilityInstrumentationSupport.IsSupported)
-            {
-                ReachabilityInstrumentationSupport.Shutdown();
-            }
-
-            return exitCode;
+            return Environment.ExitCode;
         }
 
 #if TARGET_WINDOWS

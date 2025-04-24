@@ -10,14 +10,12 @@ namespace System.Security.Cryptography
     public sealed partial class AesGcm
     {
         private SafeEvpCipherCtxHandle _ctxHandle;
-        private static readonly KeySizes s_tagByteSizes = new KeySizes(12, 16, 1);
-        private static readonly bool s_isSupported = Interop.OpenSslNoInit.OpenSslIsAvailable;
 
-        public static partial bool IsSupported => s_isSupported;
-        public static partial KeySizes TagByteSizes => s_tagByteSizes;
+        public static bool IsSupported { get; } = Interop.OpenSslNoInit.OpenSslIsAvailable;
+        public static KeySizes TagByteSizes { get; } = new KeySizes(12, 16, 1);
 
         [MemberNotNull(nameof(_ctxHandle))]
-        private partial void ImportKey(ReadOnlySpan<byte> key)
+        private void ImportKey(ReadOnlySpan<byte> key)
         {
             _ctxHandle = Interop.Crypto.EvpCipherCreatePartial(GetCipher(key.Length * 8));
 
@@ -30,12 +28,12 @@ namespace System.Security.Cryptography
             Interop.Crypto.EvpCipherSetGcmNonceLength(_ctxHandle, NonceSize);
         }
 
-        private partial void EncryptCore(
+        private void EncryptCore(
             ReadOnlySpan<byte> nonce,
             ReadOnlySpan<byte> plaintext,
             Span<byte> ciphertext,
             Span<byte> tag,
-            ReadOnlySpan<byte> associatedData)
+            ReadOnlySpan<byte> associatedData = default)
         {
             Interop.Crypto.EvpCipherSetKeyAndIV(
                 _ctxHandle,
@@ -75,7 +73,7 @@ namespace System.Security.Cryptography
             Interop.Crypto.EvpCipherGetGcmTag(_ctxHandle, tag);
         }
 
-        private partial void DecryptCore(
+        private void DecryptCore(
             ReadOnlySpan<byte> nonce,
             ReadOnlySpan<byte> ciphertext,
             ReadOnlySpan<byte> tag,
@@ -134,7 +132,7 @@ namespace System.Security.Cryptography
             }
         }
 
-        public partial void Dispose()
+        public void Dispose()
         {
             _ctxHandle.Dispose();
         }

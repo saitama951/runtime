@@ -26,11 +26,10 @@ namespace System.Text.Json.Serialization.Metadata
         {
             Debug.Assert(IsConfigured);
             JsonSerializerOptions options = Options;
+            var bufferState = new ReadBufferState(options.DefaultBufferSize);
             ReadStack readStack = default;
             readStack.Initialize(this, supportContinuation: true);
             var jsonReaderState = new JsonReaderState(options.GetReaderOptions());
-            // Note: The ReadBufferState ctor rents pooled buffers.
-            ReadBufferState bufferState = new(options.DefaultBufferSize);
 
             try
             {
@@ -59,11 +58,10 @@ namespace System.Text.Json.Serialization.Metadata
         {
             Debug.Assert(IsConfigured);
             JsonSerializerOptions options = Options;
+            var bufferState = new ReadBufferState(options.DefaultBufferSize);
             ReadStack readStack = default;
             readStack.Initialize(this, supportContinuation: true);
             var jsonReaderState = new JsonReaderState(options.GetReaderOptions());
-            // Note: The ReadBufferState ctor rents pooled buffers.
-            ReadBufferState bufferState = new(options.DefaultBufferSize);
 
             try
             {

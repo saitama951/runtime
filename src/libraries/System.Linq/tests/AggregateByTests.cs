@@ -68,7 +68,7 @@ namespace System.Linq.Tests
         {
             IEnumerable<int> source = new ThrowsOnGetEnumerator();
 
-            using var enumerator = source.AggregateBy(x => x, 0, (x, y) => x + y).GetEnumerator();
+            var enumerator = source.AggregateBy(x => x, 0, (x, y) => x + y).GetEnumerator();
 
             Assert.Throws<InvalidOperationException>(() => enumerator.MoveNext());
         }
@@ -78,7 +78,7 @@ namespace System.Linq.Tests
         {
             IEnumerable<int> source = new ThrowsOnMoveNext();
 
-            using var enumerator = source.AggregateBy(x => x, 0, (x, y) => x + y).GetEnumerator();
+            var enumerator = source.AggregateBy(x => x, 0, (x, y) => x + y).GetEnumerator();
 
             Assert.Throws<InvalidOperationException>(() => enumerator.MoveNext());
         }
@@ -88,7 +88,7 @@ namespace System.Linq.Tests
         {
             IEnumerable<int> source = new ThrowsOnCurrentEnumerator();
 
-            using var enumerator = source.AggregateBy(x => x, 0, (x, y) => x + y).GetEnumerator();
+            var enumerator = source.AggregateBy(x => x, 0, (x, y) => x + y).GetEnumerator();
 
             Assert.Throws<InvalidOperationException>(() => enumerator.MoveNext());
         }
@@ -102,7 +102,7 @@ namespace System.Linq.Tests
                 seedSelector: x => 0,
                 func: (x, y) => x + y,
                 comparer: null,
-                expected: []);
+                expected: Enumerable.Empty<KeyValuePair<int,int>>());
 
             Validate(
                 source: Enumerable.Range(0, 10),
@@ -137,7 +137,7 @@ namespace System.Linq.Tests
                 expected: Enumerable.Repeat(5, 1).Select(x => new KeyValuePair<int, int>(x, 100)));
 
             Validate(
-                source: ["Bob", "bob", "tim", "Bob", "Tim"],
+                source: new string[] { "Bob", "bob", "tim", "Bob", "Tim" },
                 keySelector: x => x,
                 seedSelector: x => string.Empty,
                 func: (x, y) => x + y,
@@ -151,7 +151,7 @@ namespace System.Linq.Tests
                 ]);
 
             Validate(
-                source: ["Bob", "bob", "tim", "Bob", "Tim"],
+                source: new string[] { "Bob", "bob", "tim", "Bob", "Tim" },
                 keySelector: x => x,
                 seedSelector: x => string.Empty,
                 func: (x, y) => x + y,
@@ -224,10 +224,10 @@ namespace System.Linq.Tests
                     (group, element) => { group.Add(element); return group; });
 
             IEnumerable<KeyValuePair<bool, List<int>>> oddsEvens = GroupBy(
-                [1, 2, 3, 4],
+                new int[] { 1, 2, 3, 4 },
                 i => i % 2 == 0);
 
-            using var e = oddsEvens.GetEnumerator();
+            var e = oddsEvens.GetEnumerator();
 
             Assert.True(e.MoveNext());
             KeyValuePair<bool, List<int>> oddsItem = e.Current;
@@ -258,10 +258,10 @@ namespace System.Linq.Tests
                     (count, _) => ++count);
 
             IEnumerable<KeyValuePair<bool, long>> oddsEvens = LongCountBy(
-                [1, 2, 3, 4],
+                new int[] { 1, 2, 3, 4 },
                 i => i % 2 == 0);
 
-            using var e = oddsEvens.GetEnumerator();
+            var e = oddsEvens.GetEnumerator();
 
             Assert.True(e.MoveNext());
             KeyValuePair<bool, long> oddsItem = e.Current;

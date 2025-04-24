@@ -7,13 +7,6 @@
 #include "logging.h"
 #include "spmiutil.h"
 #include <stdio.h>
-#ifdef TARGET_UNIX
-#include <sys/types.h>
-#include <dirent.h>
-#include <fnmatch.h>
-#endif
-
-#include <utility>
 
 // Do reads/writes in large 256MB chunks.
 #define BUFFER_SIZE 0x10000000
@@ -43,15 +36,6 @@ char* verbMerge::ConvertWideCharToMultiByte(LPCWSTR wstr)
     int          sizeNeeded = WideCharToMultiByte(codePage, 0, wstr, -1, NULL, 0, NULL, NULL);
     char*        encodedStr = new char[sizeNeeded];
     WideCharToMultiByte(codePage, 0, wstr, -1, encodedStr, sizeNeeded, NULL, NULL);
-    return encodedStr;
-}
-
-WCHAR* verbMerge::ConvertMultiByteToWideChar(LPCSTR str)
-{
-    unsigned int codePage   = CP_UTF8;
-    int          sizeNeeded = MultiByteToWideChar(codePage, 0, str, -1, NULL, 0);
-    WCHAR*       encodedStr = new WCHAR[sizeNeeded];
-    MultiByteToWideChar(codePage, 0, str, -1, encodedStr, sizeNeeded);
     return encodedStr;
 }
 
@@ -160,9 +144,8 @@ int verbMerge::AppendFile(HANDLE hFileOut, LPCWSTR fileFullPath, bool dedup, uns
 // Return true if this is a directory
 //
 // static
-bool verbMerge::DirectoryFilterDirectories(FilterArgType* findData)
+bool verbMerge::DirectoryFilterDirectories(WIN32_FIND_DATAW* findData)
 {
-#ifdef TARGET_WINDOWS
     if ((findData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
     {
 // It's a directory. See if we want to exclude it because of other reasons, such as:
@@ -170,8 +153,11 @@ bool verbMerge::DirectoryFilterDirectories(FilterArgType* findData)
 // 2. system directories
 // 3. hidden directories
 // 4. "." or ".."
+
+#ifndef TARGET_UNIX // FILE_ATTRIBUTE_REPARSE_POINT is not defined in the PAL
         if ((findData->dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0)
             return false;
+#endif // !TARGET_UNIX
         if ((findData->dwFileAttributes & FILE_ATTRIBUTE_SYSTEM) != 0)
             return false;
         if ((findData->dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) != 0)
@@ -184,17 +170,6 @@ bool verbMerge::DirectoryFilterDirectories(FilterArgType* findData)
 
         return true;
     }
-#else // TARGET_WINDOWS
-    if (findData->d_type == DT_DIR)
-    {
-        if (strcmp(findData->d_name, ".") == 0)
-            return false;
-        if (strcmp(findData->d_name, "..") == 0)
-            return false;
-
-        return true;
-    }
-#endif // TARGET_WINDOWS
 
     return false;
 }
@@ -202,13 +177,9 @@ bool verbMerge::DirectoryFilterDirectories(FilterArgType* findData)
 // Return true if this is a file.
 //
 // static
-bool verbMerge::DirectoryFilterFile(FilterArgType* findData)
+bool verbMerge::DirectoryFilterFile(WIN32_FIND_DATAW* findData)
 {
-#ifdef TARGET_WINDOWS
     if ((findData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
-#else // TARGET_WINDOWS
-    if (findData->d_type != DT_DIR)
-#endif // TARGET_WINDOWS
     {
         // This is not a directory, so it must be a file.
         return true;
@@ -218,10 +189,10 @@ bool verbMerge::DirectoryFilterFile(FilterArgType* findData)
 }
 
 // static
-int __cdecl verbMerge::FindData_qsort_helper(const void* p1, const void* p2)
+int __cdecl verbMerge::WIN32_FIND_DATAW_qsort_helper(const void* p1, const void* p2)
 {
-    const FindData* file1 = (FindData*)p1;
-    const FindData* file2 = (FindData*)p2;
+    const WIN32_FIND_DATAW* file1 = (WIN32_FIND_DATAW*)p1;
+    const WIN32_FIND_DATAW* file2 = (WIN32_FIND_DATAW*)p2;
     return u16_strcmp(file1->cFileName, file2->cFileName);
 }
 
@@ -233,18 +204,15 @@ int __cdecl verbMerge::FindData_qsort_helper(const void* p1, const void* p2)
 // If success, fileArray and elemCount are set.
 //
 // static
-int verbMerge::FilterDirectory(LPCWSTR                      dir,
-                               LPCWSTR                      searchPattern,
+int verbMerge::FilterDirectory(LPCWSTR                      searchPattern,
                                DirectoryFilterFunction_t    filter,
-                               /* out */ FindData** ppFileArray,
+                               /* out */ WIN32_FIND_DATAW** ppFileArray,
                                int*                         pElemCount)
 {
-
-
     // First, build up a list, then create an array and sort it after we know how many elements there are.
     struct findDataList
     {
-        findDataList(FindData* newFindData, findDataList* newNext) : findData(std::move(*newFindData)), next(newNext)
+        findDataList(WIN32_FIND_DATAW* newFindData, findDataList* newNext) : findData(*newFindData), next(newNext)
         {
         }
 
@@ -258,72 +226,31 @@ int verbMerge::FilterDirectory(LPCWSTR                      dir,
             }
         }
 
-        FindData findData;
+        WIN32_FIND_DATAW findData;
         findDataList*    next;
     };
 
-    FindData* retArray = nullptr;
+    WIN32_FIND_DATAW* retArray = nullptr;
     findDataList*     first    = nullptr;
 
     int result    = 0; // default to zero == success
     int elemCount = 0;
 
     // NOTE: this function only works on Windows 7 and later.
-
+    WIN32_FIND_DATAW findData;
+    HANDLE           hSearch;
 #ifdef TARGET_UNIX
-    std::string dirUtf8 = ConvertToUtf8(dir);
-    std::string searchPatternUtf8 = ConvertToUtf8(searchPattern);
-
-    DIR* pDir = opendir(dirUtf8.c_str());
-    if (pDir != nullptr)
-    {
-        errno = 0;
-        dirent *pEntry = readdir(pDir);
-        while (pEntry != nullptr)
-        {
-            if ((fnmatch(searchPatternUtf8.c_str(), pEntry->d_name, 0) == 0) && filter(pEntry))
-            {
-                FindData findData(pEntry->d_type, ConvertMultiByteToWideChar(pEntry->d_name));
-                first = new findDataList(&findData, first);
-                ++elemCount;
-            }
-            errno = 0;
-            pEntry = readdir(pDir);
-        }
-
-        if (errno != 0)
-        {
-            LogError("Failed to read directory. errno=%d", errno);
-            result = -1;
-            goto CLEAN_UP;
-        }
-    }
-    else
-    {
-        if (errno == ENOENT)
-        {
-            // This is ok; there was just nothing matching the pattern.
-        }
-        else
-        {
-            std::string searchPatternUtf8 = ConvertToUtf8(searchPattern);
-            LogError("Failed to find pattern '%s'. errno=%d", searchPatternUtf8.c_str(), errno);
-            result = -1;
-        }
-        goto CLEAN_UP;
-    }
-
+    // PAL doesn't have FindFirstFileEx(). So just use FindFirstFile(). The only reason we use
+    // the Ex version is potentially better performance (don't populate short name; use large fetch),
+    // not functionality.
+    hSearch = FindFirstFileW(searchPattern, &findData);
 #else  // !TARGET_UNIX
-    FindData findData;
-    HANDLE   hSearch;
-    LPWSTR   completeSearchPattern = MergePathStrings(dir, searchPattern);
-    hSearch = FindFirstFileExW(completeSearchPattern,
+    hSearch = FindFirstFileExW(searchPattern,
                                FindExInfoBasic, // We don't care about the short names
                                &findData,
                                FindExSearchNameMatch, // standard name matching
                                NULL, FIND_FIRST_EX_LARGE_FETCH);
-
-    delete [] completeSearchPattern;
+#endif // !TARGET_UNIX
 
     if (hSearch == INVALID_HANDLE_VALUE)
     {
@@ -365,39 +292,30 @@ int verbMerge::FilterDirectory(LPCWSTR                      dir,
             break;
         }
     }
-#endif // !TARGET_UNIX
 
     // Now sort the list. Create an array to put everything in.
 
     int i;
 
-    retArray = new FindData[elemCount];
+    retArray = new WIN32_FIND_DATAW[elemCount];
     i        = 0;
     for (findDataList* tmp = first; tmp != nullptr; tmp = tmp->next)
     {
-        retArray[i++] = std::move(tmp->findData);
+        retArray[i++] = tmp->findData;
     }
 
-    qsort(retArray, elemCount, sizeof(retArray[0]), FindData_qsort_helper);
+    qsort(retArray, elemCount, sizeof(retArray[0]), WIN32_FIND_DATAW_qsort_helper);
 
 CLEAN_UP:
 
     findDataList::DeleteList(first);
-#ifdef TARGET_WINDOWS
+
     if ((hSearch != INVALID_HANDLE_VALUE) && !FindClose(hSearch))
     {
         LogError("Failed to close search handle. GetLastError()=%u", GetLastError());
         delete[] retArray;
         return -1;
     }
-#else  // TARGET_WINDOWS
-    if (pDir != nullptr && (closedir(pDir) != 0))
-    {
-        LogError("Failed to close directory. errno=%d", errno);
-        delete[] retArray;
-        return -1;
-    }
-#endif // TARGET_WINDOWS
 
     *ppFileArray = retArray;
     *pElemCount  = elemCount;
@@ -419,9 +337,11 @@ int verbMerge::AppendAllInDir(HANDLE              hFileOut,
     int      result    = 0; // default to zero == success
     LONGLONG totalSize = 0;
 
-    FindData* fileArray = nullptr;
+    LPWSTR searchPattern = MergePathStrings(dir, file);
+
+    _WIN32_FIND_DATAW* fileArray = nullptr;
     int                elemCount = 0;
-    result                       = FilterDirectory(dir, file, DirectoryFilterFile, &fileArray, &elemCount);
+    result                       = FilterDirectory(searchPattern, DirectoryFilterFile, &fileArray, &elemCount);
     if (result != 0)
     {
         goto CLEAN_UP;
@@ -429,9 +349,8 @@ int verbMerge::AppendAllInDir(HANDLE              hFileOut,
 
     for (int i = 0; i < elemCount; i++)
     {
-        const FindData& findData     = fileArray[i];
-        LPWSTR          fileFullPath = MergePathStrings(dir, findData.cFileName);
-
+        const _WIN32_FIND_DATAW& findData     = fileArray[i];
+        LPWSTR                   fileFullPath = MergePathStrings(dir, findData.cFileName);
 #ifdef TARGET_WINDOWS
         if (u16_strlen(fileFullPath) > MAX_PATH) // This path is too long, use \\?\ to access it.
         {
@@ -461,27 +380,10 @@ int verbMerge::AppendAllInDir(HANDLE              hFileOut,
 
             fileFullPath = newBuffer;
         }
-
-        uint64_t fileSize = ((uint64_t)findData.nFileSizeHigh << 32) | findData.nFileSizeLow;
-
-#else  // TARGET_WINDOWS
-        struct stat fileStat;
-        char *fileFullPathUtf8 = ConvertWideCharToMultiByte(fileFullPath);
-        int st = stat(fileFullPathUtf8, &fileStat);
-        if (st != 0)
-        {
-            LogError("Failed to stat file '%s'. errno=%d", fileFullPathUtf8, errno);
-            result = -1;
-            delete[] fileFullPath;
-            delete[] fileFullPathUtf8;
-            goto CLEAN_UP;
-        }
-        delete[] fileFullPathUtf8;
-        uint64_t fileSize = fileStat.st_size;
 #endif // TARGET_WINDOWS
 
         // Is it zero length? If so, skip it.
-        if (fileSize == 0)
+        if ((findData.nFileSizeLow == 0) && (findData.nFileSizeHigh == 0))
         {
             char* fileFullPathAsChar = ConvertWideCharToMultiByte(fileFullPath);
             LogInfo("Skipping zero-length file '%s'", fileFullPathAsChar);
@@ -499,17 +401,19 @@ int verbMerge::AppendAllInDir(HANDLE              hFileOut,
         }
 
         delete[] fileFullPath;
-        totalSize += fileSize;
+        totalSize += ((LONGLONG)findData.nFileSizeHigh << 32) + (LONGLONG)findData.nFileSizeLow;
     }
 
     // If we need to recurse, then search the directory again for directories, and recursively search each one.
     if (recursive)
     {
+        delete[] searchPattern;
         delete[] fileArray;
 
+        searchPattern = MergePathStrings(dir, W("*"));
         fileArray     = nullptr;
         elemCount     = 0;
-        result        = FilterDirectory(dir, W("*"), DirectoryFilterDirectories, &fileArray, &elemCount);
+        result        = FilterDirectory(searchPattern, DirectoryFilterDirectories, &fileArray, &elemCount);
         if (result != 0)
         {
             goto CLEAN_UP;
@@ -518,11 +422,11 @@ int verbMerge::AppendAllInDir(HANDLE              hFileOut,
         LONGLONG dirSize = 0;
         for (int i = 0; i < elemCount; i++)
         {
-            const FindData& findData = fileArray[i];
-            LPWSTR subDir            = MergePathStrings(dir, findData.cFileName);
-            result                   = AppendAllInDir(hFileOut, subDir, file, buffer, bufferSize, recursive, dedup, &dirSize);
-            delete [] subDir;
+            const _WIN32_FIND_DATAW& findData = fileArray[i];
 
+            LPWSTR fileFullPath = MergePathStrings(dir, findData.cFileName);
+            result              = AppendAllInDir(hFileOut, fileFullPath, file, buffer, bufferSize, recursive, dedup, &dirSize);
+            delete[] fileFullPath;
             if (result != 0)
             {
                 // Error was already logged.
@@ -535,6 +439,7 @@ int verbMerge::AppendAllInDir(HANDLE              hFileOut,
 
 CLEAN_UP:
 
+    delete[] searchPattern;
     delete[] fileArray;
 
     if (result == 0)

@@ -205,61 +205,59 @@ namespace System.Diagnostics.PerformanceData
 
                         unsafe
                         {
-                            uint CounterSetInfoSize = checked((uint)sizeof(Interop.PerfCounter.PerfCounterSetInfoStruct)
-                                            + (uint)_idToCounter.Count * (uint)sizeof(Interop.PerfCounter.PerfCounterInfoStruct));
+                            uint CounterSetInfoSize = (uint)sizeof(Interop.PerfCounter.PerfCounterSetInfoStruct)
+                                            + (uint)_idToCounter.Count * (uint)sizeof(Interop.PerfCounter.PerfCounterInfoStruct);
                             uint CounterSetInfoUsed = 0;
-                            Span<byte> CounterSetBuffer = CounterSetInfoSize > 512 ? new byte[(int)CounterSetInfoSize] : stackalloc byte[(int)CounterSetInfoSize];
-                            fixed (byte* pCounterSetBuffer = CounterSetBuffer)
+                            byte* CounterSetBuffer = stackalloc byte[(int)CounterSetInfoSize];
+
+                            Debug.Assert(sizeof(Interop.PerfCounter.PerfCounterSetInfoStruct) == 40);
+                            Debug.Assert(sizeof(Interop.PerfCounter.PerfCounterInfoStruct) == 32);
+
+                            Interop.PerfCounter.PerfCounterSetInfoStruct* CounterSetInfo;
+                            Interop.PerfCounter.PerfCounterInfoStruct* CounterInfo;
+
+                            uint CurrentCounter = 0;
+                            uint CurrentOffset = 0;
+
+                            CounterSetInfo = (Interop.PerfCounter.PerfCounterSetInfoStruct*)CounterSetBuffer;
+                            CounterSetInfo->CounterSetGuid = _counterSet;
+                            CounterSetInfo->ProviderGuid = _providerGuid;
+                            CounterSetInfo->NumCounters = (uint)_idToCounter.Count;
+                            CounterSetInfo->InstanceType = (uint)_instType;
+
+                            foreach (KeyValuePair<int, CounterType> CounterDef in _idToCounter)
                             {
-                                Debug.Assert(sizeof(Interop.PerfCounter.PerfCounterSetInfoStruct) == 40);
-                                Debug.Assert(sizeof(Interop.PerfCounter.PerfCounterInfoStruct) == 32);
-
-                                Interop.PerfCounter.PerfCounterSetInfoStruct* CounterSetInfo;
-                                Interop.PerfCounter.PerfCounterInfoStruct* CounterInfo;
-
-                                uint CurrentCounter = 0;
-                                uint CurrentOffset = 0;
-
-                                CounterSetInfo = (Interop.PerfCounter.PerfCounterSetInfoStruct*)pCounterSetBuffer;
-                                CounterSetInfo->CounterSetGuid = _counterSet;
-                                CounterSetInfo->ProviderGuid = _providerGuid;
-                                CounterSetInfo->NumCounters = (uint)_idToCounter.Count;
-                                CounterSetInfo->InstanceType = (uint)_instType;
-
-                                foreach (KeyValuePair<int, CounterType> CounterDef in _idToCounter)
+                                CounterSetInfoUsed = (uint)sizeof(Interop.PerfCounter.PerfCounterSetInfoStruct)
+                                                + (uint)CurrentCounter * (uint)sizeof(Interop.PerfCounter.PerfCounterInfoStruct);
+                                if (CounterSetInfoUsed < CounterSetInfoSize)
                                 {
-                                    CounterSetInfoUsed = (uint)sizeof(Interop.PerfCounter.PerfCounterSetInfoStruct)
-                                                    + (uint)CurrentCounter * (uint)sizeof(Interop.PerfCounter.PerfCounterInfoStruct);
-                                    if (CounterSetInfoUsed < CounterSetInfoSize)
-                                    {
-                                        CounterInfo = (Interop.PerfCounter.PerfCounterInfoStruct*)(pCounterSetBuffer + CounterSetInfoUsed);
-                                        CounterInfo->CounterId = (uint)CounterDef.Key;
-                                        CounterInfo->CounterType = (uint)CounterDef.Value;
-                                        CounterInfo->Attrib = 0x0000000000000001;   // PERF_ATTRIB_BY_REFERENCE
-                                        CounterInfo->Size = (uint)sizeof(void*); // always use pointer size
-                                        CounterInfo->DetailLevel = 100;                  // PERF_DETAIL_NOVICE
-                                        CounterInfo->Scale = 0;                    // Default scale
-                                        CounterInfo->Offset = CurrentOffset;
+                                    CounterInfo = (Interop.PerfCounter.PerfCounterInfoStruct*)(CounterSetBuffer + CounterSetInfoUsed);
+                                    CounterInfo->CounterId = (uint)CounterDef.Key;
+                                    CounterInfo->CounterType = (uint)CounterDef.Value;
+                                    CounterInfo->Attrib = 0x0000000000000001;   // PERF_ATTRIB_BY_REFERENCE
+                                    CounterInfo->Size = (uint)sizeof(void*); // always use pointer size
+                                    CounterInfo->DetailLevel = 100;                  // PERF_DETAIL_NOVICE
+                                    CounterInfo->Scale = 0;                    // Default scale
+                                    CounterInfo->Offset = CurrentOffset;
 
-                                        CurrentOffset += CounterInfo->Size;
-                                    }
-                                    CurrentCounter++;
+                                    CurrentOffset += CounterInfo->Size;
                                 }
-                                Status = Interop.PerfCounter.PerfSetCounterSetInfo(_provider._hProvider, CounterSetInfo, CounterSetInfoSize);
-
-                                // ERROR_INVALID_PARAMETER, ERROR_ALREADY_EXISTS, ERROR_NOT_ENOUGH_MEMORY, ERROR_OUTOFMEMORY
-                                if (Status != (uint)Interop.Errors.ERROR_SUCCESS)
-                                {
-                                    throw Status switch
-                                    {
-                                        (uint)Interop.Errors.ERROR_ALREADY_EXISTS => new InvalidOperationException(SR.Format(SR.Perflib_Argument_CounterSetAlreadyRegister, _counterSet)),
-
-                                        _ => new Win32Exception((int)Status),
-                                    };
-                                }
-
-                                Interlocked.Increment(ref _provider._counterSet);
+                                CurrentCounter++;
                             }
+                            Status = Interop.PerfCounter.PerfSetCounterSetInfo(_provider._hProvider, CounterSetInfo, CounterSetInfoSize);
+
+                            // ERROR_INVALID_PARAMETER, ERROR_ALREADY_EXISTS, ERROR_NOT_ENOUGH_MEMORY, ERROR_OUTOFMEMORY
+                            if (Status != (uint)Interop.Errors.ERROR_SUCCESS)
+                            {
+                                throw Status switch
+                                {
+                                    (uint)Interop.Errors.ERROR_ALREADY_EXISTS => new InvalidOperationException(SR.Format(SR.Perflib_Argument_CounterSetAlreadyRegister, _counterSet)),
+
+                                    _ => new Win32Exception((int)Status),
+                                };
+                            }
+
+                            Interlocked.Increment(ref _provider._counterSet);
                         }
 
                         _instanceCreated = true;

@@ -10,9 +10,6 @@ namespace System.Runtime.CompilerServices
     /// <summary>Provides an awaitable async enumerable that enables cancelable iteration and configured awaits.</summary>
     [StructLayout(LayoutKind.Auto)]
     public readonly struct ConfiguredCancelableAsyncEnumerable<T>
-#if NET10_0_OR_GREATER
-        where T : allows ref struct
-#endif
     {
         private readonly IAsyncEnumerable<T> _enumerable;
         private readonly CancellationToken _cancellationToken;
@@ -26,7 +23,7 @@ namespace System.Runtime.CompilerServices
         }
 
         /// <summary>Configures how awaits on the tasks returned from an async iteration will be performed.</summary>
-        /// <param name="continueOnCapturedContext"><see langword="true" /> to capture and marshal back to the current context; otherwise, <see langword="false" />.</param>
+        /// <param name="continueOnCapturedContext">Whether to capture and marshal back to the current context.</param>
         /// <returns>The configured enumerable.</returns>
         /// <remarks>This will replace any previous value set by <see cref="ConfigureAwait(bool)"/> for this iteration.</remarks>
         public ConfiguredCancelableAsyncEnumerable<T> ConfigureAwait(bool continueOnCapturedContext) =>

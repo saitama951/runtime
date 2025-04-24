@@ -7,7 +7,6 @@ using System.Formats.Asn1;
 using System.IO;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Asn1;
-using System.Security.Cryptography.Asn1.Pkcs7;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.Pkcs.Asn1;
 using System.Security.Cryptography.X509Certificates;
@@ -79,7 +78,7 @@ namespace Internal.Cryptography.Pal.AnyOS
 
             if (unprotectedAttributes != null && unprotectedAttributes.Count > 0)
             {
-                List<AttributeAsn> attrList = PkcsHelpers.BuildAttributes(unprotectedAttributes);
+                List<AttributeAsn> attrList = CmsSigner.BuildAttributes(unprotectedAttributes);
 
                 envelopedData.UnprotectedAttributes = PkcsHelpers.NormalizeAttributeSet(attrList.ToArray());
             }

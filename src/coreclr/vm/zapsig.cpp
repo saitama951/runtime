@@ -579,7 +579,7 @@ ModuleBase *ZapSig::DecodeModuleFromIndex(Module *fromModule,
         }
         else
         {
-            pAssembly = fromModule->LoadAssembly(RidToToken(index, mdtAssemblyRef));
+            pAssembly = fromModule->LoadAssembly(RidToToken(index, mdtAssemblyRef))->GetAssembly();
         }
     }
     else

@@ -36,6 +36,7 @@ if (CLR_CMAKE_TARGET_ARCH_AMD64 AND CLR_CMAKE_TARGET_WIN32)
     ../vxsort/smallsort/bitonic_sort.AVX512.int64_t.generated.cpp
     ../vxsort/smallsort/bitonic_sort.AVX512.int32_t.generated.cpp
     ../vxsort/smallsort/avx2_load_mask_tables.cpp
+    ${CLR_SRC_NATIVE_DIR}/minipal/cpufeatures.c
 )
 endif (CLR_CMAKE_TARGET_ARCH_AMD64 AND CLR_CMAKE_TARGET_WIN32)
 
@@ -44,9 +45,7 @@ if(CLR_CMAKE_TARGET_WIN32)
     ${STATIC_MT_CRT_LIB}
     ${STATIC_MT_VCRT_LIB}
     kernel32.lib
-    advapi32.lib
-    minipal
-  )
+    advapi32.lib)
 endif(CLR_CMAKE_TARGET_WIN32)
 
 add_definitions(-DVERIFY_HEAP)

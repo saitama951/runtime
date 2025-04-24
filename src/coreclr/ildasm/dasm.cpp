@@ -1414,7 +1414,7 @@ mdToken ResolveReflectionNotation(BYTE* dataPtr,
             if(mAsmRefs)
             {
                 mdToken tkResScope = 0;
-                mdToken tk=TokenFromRid(1, mdtAssemblyRef), tkmax=TokenFromRid(mAsmRefs, mdtAssemblyRef);
+                mdToken tk=TokenFromRid(mdtAssemblyRef,1), tkmax=TokenFromRid(mdtAssemblyRef,mAsmRefs);
                 LPCSTR szAsmRefName;
                 // these are dummies
                 const void* pPKT, *pHash;
@@ -2088,9 +2088,6 @@ BYTE* PrettyPrintCABlobValue(PCCOR_SIGNATURE &typePtr,
 
 #ifdef LOGGING
             case ELEMENT_TYPE_INTERNAL :
-            case ELEMENT_TYPE_CMOD_INTERNAL :
-                typePtr += 1;
-                Reiterate = TRUE;
 #endif // LOGGING
                 return NULL;
 
@@ -5157,10 +5154,10 @@ void DumpCodeManager(IMAGE_COR20_HEADER *CORHeader, void* GUICookie)
     ULONG iCount = VAL32(CORHeader->CodeManagerTable.Size) / sizeof(GUID);
     for (ULONG i=0;  i<iCount;  i++)
     {
-        CHAR         rcguid[MINIPAL_GUID_BUFFER_LEN];
+        CHAR         rcguid[GUID_STR_BUFFER_LEN];
         GUID         Guid = *pcm;
         SwapGuid(&Guid);
-        minipal_guid_as_string(Guid, rcguid, MINIPAL_GUID_BUFFER_LEN);
+        GuidToLPSTR(Guid, rcguid);
         sprintf_s(szString,SZSTRING_SIZE,"//   [0x%08x]    %s", i, rcguid);
         printLine(GUICookie,szStr);
         pcm++;
@@ -5700,7 +5697,7 @@ void DumpHeader(IMAGE_COR20_HEADER *CORHeader, void* GUICookie)
         sprintf_s(szString,SZSTRING_SIZE,"// Addr. of entry point:           0x%08x", VAL32(pOptHeader->AddressOfEntryPoint));
         printLine(GUICookie,szStr);
         dwAddrOfEntryPoint = VAL32(pOptHeader->AddressOfEntryPoint);
-        dwEntryPointSize = 12;
+        dwEntryPointSize = (VAL16(pCOFF->Machine)==IMAGE_FILE_MACHINE_IA64) ? 48 : 12;
         sprintf_s(szString,SZSTRING_SIZE,"// Base of code:                   0x%08x", VAL32(pOptHeader->BaseOfCode));
         printLine(GUICookie,szStr);
         sprintf_s(szString,SZSTRING_SIZE,"// Image base:                     0x%016I64x", VAL64(pOptHeader->ImageBase));
@@ -6689,7 +6686,11 @@ void DumpEATEntries(void* GUICookie,
                             }
                             else
                             {
-                                ULONGLONG ullTokRVA = VAL64(*((ULONGLONG*)(pCont+2)));
+                                ULONGLONG ullTokRVA;
+                                if(pNTHeader64->FileHeader.Machine == IMAGE_FILE_MACHINE_IA64)
+                                    ullTokRVA = VAL64(*((ULONGLONG*)(pCont+8)));
+                                else
+                                    ullTokRVA = VAL64(*((ULONGLONG*)(pCont+2)));
 
                                 dwTokRVA =(DWORD)(ullTokRVA - VAL64((DWORD)pOptHeader64->ImageBase));
                             }

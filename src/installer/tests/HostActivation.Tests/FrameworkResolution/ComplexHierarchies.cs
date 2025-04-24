@@ -6,8 +6,6 @@ using Microsoft.DotNet.Cli.Build.Framework;
 using System;
 using Xunit;
 
-using static Microsoft.DotNet.CoreSetup.Test.Constants;
-
 namespace Microsoft.DotNet.CoreSetup.Test.HostActivation.FrameworkResolution
 {
     public class ComplexHierarchies :

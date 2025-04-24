@@ -815,6 +815,11 @@ namespace System.Globalization
                 return null;
             }
 #if TARGET_BROWSER
+            // populate fields for which ICU does not provide data in Hybrid mode
+            if (GlobalizationMode.Hybrid && !string.IsNullOrEmpty(culture._sName))
+            {
+                culture = JSLoadCultureInfoFromBrowser(culture._sName, culture);
+            }
             culture.JSInitLocaleInfo();
 #endif
 
@@ -1538,6 +1543,13 @@ namespace System.Globalization
                         _iFirstDayOfWeek = GetLocaleInfoNative(LocaleNumberData.FirstDayOfWeek);
                     }
                     else
+#elif TARGET_BROWSER
+                    if (GlobalizationMode.Hybrid)
+                    {
+                        Debug.Assert(_sName != null, "[FirstDayOfWeek] Expected _sName to be populated already");
+                        _iFirstDayOfWeek = GetFirstDayOfWeek(_sName);
+                    }
+                    else
 #endif
                     {
                         _iFirstDayOfWeek = ShouldUseUserOverrideNlsData ? NlsGetFirstDayOfWeek() : IcuGetLocaleInfo(LocaleNumberData.FirstDayOfWeek);
@@ -1557,7 +1569,17 @@ namespace System.Globalization
             {
                 if (_iFirstWeekOfYear == undef)
                 {
-                    _iFirstWeekOfYear = GetLocaleInfoCoreUserOverride(LocaleNumberData.FirstWeekOfYear);
+#if TARGET_BROWSER
+                    if (GlobalizationMode.Hybrid)
+                    {
+                        Debug.Assert(_sName != null, "[CalendarWeekRule] Expected _sName to be populated already");
+                        _iFirstWeekOfYear = GetFirstWeekOfYear(_sName);
+                    }
+                    else
+#endif
+                    {
+                        _iFirstWeekOfYear = GetLocaleInfoCoreUserOverride(LocaleNumberData.FirstWeekOfYear);
+                    }
                 }
                 return _iFirstWeekOfYear;
             }

@@ -99,7 +99,8 @@ namespace System
                     throw new ArgumentOutOfRangeException(nameof(dayOfWeek), SR.ArgumentOutOfRange_DayOfWeek);
                 }
 
-                if (timeOfDay.Ticks >= TimeSpan.TicksPerDay || (ulong)timeOfDay.Ticks % TimeSpan.TicksPerMillisecond != 0)
+                timeOfDay.GetDate(out int timeOfDayYear, out int timeOfDayMonth, out int timeOfDayDay);
+                if (timeOfDayYear != 1 || timeOfDayMonth != 1 || timeOfDayDay != 1 || (timeOfDay.Ticks % TimeSpan.TicksPerMillisecond != 0))
                 {
                     throw new ArgumentException(SR.Argument_DateTimeHasTicks, nameof(timeOfDay));
                 }

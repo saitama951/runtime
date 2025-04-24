@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.IO;
-using System.Threading.Tasks;
 using Wasm.Build.Tests;
 using Xunit;
 using Xunit.Abstractions;
@@ -11,7 +10,7 @@ using Xunit.Abstractions;
 
 namespace Wasm.Build.Templates.Tests
 {
-    public class NativeBuildTests : WasmTemplateTestsBase
+    public class NativeBuildTests : WasmTemplateTestBase
     {
         public NativeBuildTests(ITestOutputHelper output, SharedBuildPerTestClassFixture buildContext)
             : base(output, buildContext)
@@ -23,7 +22,8 @@ namespace Wasm.Build.Templates.Tests
         [InlineData(false)]
         public void BuildWithUndefinedNativeSymbol(bool allowUndefined)
         {
-            Configuration config = Configuration.Release;
+            string id = $"UndefinedNativeSymbol_{(allowUndefined ? "allowed" : "disabled")}_{GetRandomId()}";
+
             string code = @"
                 using System;
                 using System.Runtime.InteropServices;
@@ -34,50 +34,68 @@ namespace Wasm.Build.Templates.Tests
                 [DllImport(""undefined_xyz"")] static extern void call();
             ";
 
-            string extraItems = @$"<NativeFileReference Include=""undefined_xyz.c"" />";
-            string extraProperties = allowUndefined ? $"<WasmAllowUndefinedSymbols>true</WasmAllowUndefinedSymbols>" : "";
-            ProjectInfo info = CreateWasmTemplateProject(
-                Template.WasmBrowser,
-                config,
-                aot: false,
-                $"UndefinedNativeSymbol_{(allowUndefined ? "allowed" : "disabled")}",
-                extraItems: extraItems,
-                extraProperties: extraProperties
-            );
-            UpdateFile("Program.cs", code);
-            File.Copy(Path.Combine(BuildEnvironment.TestAssetsPath, "native-libs", "undefined-symbol.c"), Path.Combine(_projectDir, "undefined_xyz.c"));
-            var buildOptions = new BuildOptions(ExpectSuccess: allowUndefined, AssertAppBundle: false);
-            (string _, string buildOutput) = BuildProject(info, config, buildOptions, isNativeBuild: true);
+            string projectPath = CreateWasmTemplateProject(id);
 
-            if (!allowUndefined)
+            AddItemsPropertiesToProject(
+                projectPath,
+                extraItems: @$"<NativeFileReference Include=""undefined_xyz.c"" />",
+                extraProperties: allowUndefined ? $"<WasmAllowUndefinedSymbols>true</WasmAllowUndefinedSymbols>" : null
+            );
+
+            File.WriteAllText(Path.Combine(_projectDir!, "Program.cs"), code);
+            File.Copy(Path.Combine(BuildEnvironment.TestAssetsPath, "native-libs", "undefined-symbol.c"), Path.Combine(_projectDir!, "undefined_xyz.c"));
+
+            CommandResult result = new DotNetCommand(s_buildEnv, _testOutput)
+                .WithWorkingDirectory(_projectDir!)
+                .WithEnvironmentVariable("NUGET_PACKAGES", _nugetPackagesDir)
+                .ExecuteWithCapturedOutput("build", "-c Release");
+
+            if (allowUndefined)
             {
-                Assert.Contains("undefined symbol: sgfg", buildOutput);
-                Assert.Contains("Use '-p:WasmAllowUndefinedSymbols=true' to allow undefined symbols", buildOutput);
+                Assert.True(result.ExitCode == 0, "Expected build to succeed");
+            }
+            else
+            {
+                Assert.False(result.ExitCode == 0, "Expected build to fail");
+                Assert.Contains("undefined symbol: sgfg", result.Output);
+                Assert.Contains("Use '-p:WasmAllowUndefinedSymbols=true' to allow undefined symbols", result.Output);
             }
         }
 
         [Theory]
-        [InlineData(Configuration.Debug)]
-        [InlineData(Configuration.Release)]
-        public async Task ProjectWithDllImportsRequiringMarshalIlGen_ArrayTypeParameter(Configuration config)
+        [InlineData("Debug")]
+        [InlineData("Release")]
+        public void ProjectWithDllImportsRequiringMarshalIlGen_ArrayTypeParameter(string config)
         {
-            string nativeSourceFilename = "incompatible_type.c";
-            string extraItems = "<NativeFileReference Include=\"" + nativeSourceFilename + "\" />";
-            ProjectInfo info = CreateWasmTemplateProject(
-                Template.WasmBrowser,
-                config,
-                aot: false,
-                "dllimport_incompatible",
-                extraItems: extraItems
-            );
-            string nativeCode = "void call_needing_marhsal_ilgen(void *x) {}";
-            File.WriteAllText(path: Path.Combine(_projectDir, nativeSourceFilename), nativeCode);
-            UpdateBrowserMainJs();
-            ReplaceFile("Program.cs", Path.Combine(BuildEnvironment.TestAssetsPath, "marshal_ilgen_test.cs"));
+            string id = $"dllimport_incompatible_{GetRandomId()}";
+            string projectPath = CreateWasmTemplateProject(id, template: "wasmconsole");
 
-            (string _, string buildOutput) = BuildProject(info, config, new BuildOptions(AssertAppBundle: false), isNativeBuild: true);
-            var runOutput = await RunForBuildWithDotnetRun(new BrowserRunOptions(config, ExpectedExitCode: 42));
-            Assert.Contains("call_needing_marhsal_ilgen got called", runOutput.TestOutput);
+            string nativeSourceFilename = "incompatible_type.c";
+            string nativeCode = "void call_needing_marhsal_ilgen(void *x) {}";
+            File.WriteAllText(path: Path.Combine(_projectDir!, nativeSourceFilename), nativeCode);
+
+            AddItemsPropertiesToProject(
+                projectPath,
+                extraItems: "<NativeFileReference Include=\"" + nativeSourceFilename + "\" />"
+            );
+
+            File.Copy(Path.Combine(BuildEnvironment.TestAssetsPath, "marshal_ilgen_test.cs"),
+                                    Path.Combine(_projectDir!, "Program.cs"),
+                                    overwrite: true);
+
+            CommandResult result = new DotNetCommand(s_buildEnv, _testOutput)
+                .WithWorkingDirectory(_projectDir!)
+                .WithEnvironmentVariable("NUGET_PACKAGES", _nugetPackagesDir)
+                .ExecuteWithCapturedOutput("build", $"-c {config} -bl");
+
+            Assert.True(result.ExitCode == 0, "Expected build to succeed");
+
+            CommandResult res = new RunCommand(s_buildEnv, _testOutput)
+                                        .WithWorkingDirectory(_projectDir!)
+                                        .ExecuteWithCapturedOutput($"run --no-silent --no-build -c {config}")
+                                        .EnsureSuccessful();
+            Assert.Contains("Hello, Console!", res.Output);
+            Assert.Contains("Hello, World! Greetings from node version", res.Output);
         }
     }
 }

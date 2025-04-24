@@ -885,9 +885,6 @@ namespace System
                     {
                         throw new Win32Exception();
                     }
-                    // InitializeTerminalAndSignalHandling will reset the terminal on a normal exit.
-                    // This also resets it for termination due to an unhandled exception.
-                    AppDomain.CurrentDomain.UnhandledException += (_, _) => { Interop.Sys.UninitializeTerminal(); };
 
                     s_terminalHandle = !Console.IsOutputRedirected ? Interop.Sys.FileDescriptors.STDOUT_FILENO :
                                        !Console.IsInputRedirected  ? Interop.Sys.FileDescriptors.STDIN_FILENO :

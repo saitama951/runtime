@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit;
 /*******************************************************************/
 /* Test: RootMem
 /* Purpose: Test if Root class manage memory correctly against GC
@@ -13,7 +12,7 @@ namespace DefaultNamespace {
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
 
-    public class RootMem
+    internal class RootMem
     {
         internal long [] l;
         internal static GCHandle [] root;
@@ -25,8 +24,7 @@ namespace DefaultNamespace {
         {
         }
 
-        [Fact]
-        public static int TestEntryPoint()
+        public static int Main()
         {
             int iSize = 1000;
             Object [] arVar = new Object[iSize];

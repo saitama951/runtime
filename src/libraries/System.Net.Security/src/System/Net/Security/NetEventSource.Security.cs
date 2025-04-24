@@ -189,7 +189,6 @@ namespace System.Net
         private void UsingCachedCredential(int sslStreamHash) =>
             WriteEvent(UsingCachedCredentialId, sslStreamHash);
 
-#pragma warning disable SYSLIB0058 // Use NegotiatedCipherSuite.
         [Event(SspiSelectedCipherSuitId, Keywords = Keywords.Default, Level = EventLevel.Informational)]
         public void SspiSelectedCipherSuite(
             string process,
@@ -205,7 +204,6 @@ namespace System.Net
                 process, (int)sslProtocol, (int)cipherAlgorithm, cipherStrength,
                 (int)hashAlgorithm, hashStrength, (int)keyExchangeAlgorithm, keyExchangeStrength);
         }
-#pragma warning restore SYSLIB0058 // Use NegotiatedCipherSuite.
 
         [NonEvent]
         public void RemoteCertificateError(SslStream SslStream, string message) =>

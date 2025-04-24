@@ -108,10 +108,8 @@ namespace System.Security.Cryptography.X509Certificates
             // CRLDistributionPoints
             writer.PopSequence();
 
-            return writer.Encode(critical, static (critical, encoded) =>
-            {
-                return new X509Extension(Oids.CrlDistributionPointsOid, encoded, critical);
-            });
+            byte[] encoded = writer.Encode();
+            return new X509Extension(Oids.CrlDistributionPointsOid, encoded, critical);
         }
     }
 }

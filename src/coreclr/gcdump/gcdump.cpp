@@ -10,9 +10,9 @@
  * to the standard code-manager spec.
  */
 
-#if !defined(TARGET_UNIX) && !defined(SOS_INCLUDE)
+#ifndef TARGET_UNIX
 #include "utilcode.h"           // For _ASSERTE()
-#endif
+#endif //!TARGET_UNIX
 #include "gcdump.h"
 
 /*****************************************************************************/

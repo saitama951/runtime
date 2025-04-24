@@ -652,6 +652,7 @@ namespace System.Buffers
             Array = 0x1,
             MemoryManager = 0x2,
             String = 0x3,
+            Empty = 0x4
         }
     }
 

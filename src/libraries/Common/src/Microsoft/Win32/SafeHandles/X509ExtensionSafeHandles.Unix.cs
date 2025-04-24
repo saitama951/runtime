@@ -26,4 +26,24 @@ namespace Microsoft.Win32.SafeHandles
             get { return handle == IntPtr.Zero; }
         }
     }
+
+    internal sealed class SafeEkuExtensionHandle : SafeHandle
+    {
+        public SafeEkuExtensionHandle() :
+            base(IntPtr.Zero, ownsHandle: true)
+        {
+        }
+
+        protected override bool ReleaseHandle()
+        {
+            Interop.Crypto.ExtendedKeyUsageDestroy(handle);
+            SetHandle(IntPtr.Zero);
+            return true;
+        }
+
+        public override bool IsInvalid
+        {
+            get { return handle == IntPtr.Zero; }
+        }
+    }
 }

@@ -13,7 +13,9 @@ namespace System.Diagnostics.Tracing
     /// namely EventCounter, PollingCounter, IncrementingEventCounter, and IncrementingPollingCounter.
     /// </summary>
 #if !ES_BUILD_STANDALONE
+#if !FEATURE_WASM_PERFTRACING
     [UnsupportedOSPlatform("browser")]
+#endif
 #endif
     public abstract class DiagnosticCounter : IDisposable
     {

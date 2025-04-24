@@ -2,16 +2,14 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 //Regression test for Dev 10 bug 479239: GC hangs on x86 rather than throwing OOM
-
+ 
 using System;
 using System.Runtime;
-using Xunit;
 
-public class TestClass
+class TestClass
 {
-    [Fact]
-    public static void TestEntryPoint()
-    {
+	public static int Main()
+	{
         ByteArrayList list = new ByteArrayList();
 
 
@@ -28,7 +26,8 @@ public class TestClass
 
         Console.Write("NodesAllocated: ");
         Console.WriteLine(list.NodeCount);
-    }
+        return 100;
+	}
 
     class ByteArrayList
     {
@@ -40,12 +39,12 @@ public class TestClass
 
             public Node(int Size)
             {
-            data = new byte[Size];
-            size = Size;
+              data = new byte[Size];
+              size = Size;
             }
 
         }
-    
+       
         Node head;
 
         public int NodeCount = 0;
@@ -69,4 +68,4 @@ public class TestClass
         }
     }
 
-}           
+}			

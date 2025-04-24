@@ -7,7 +7,6 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
-using Xunit;
 
 public class Test_IsAlive {
     public static int[] array;
@@ -22,8 +21,7 @@ public class Test_IsAlive {
         array = null;
     }
     
-    [Fact]
-    public static int TestEntryPoint() {
+    public static int Main() {
         CreateArray();
 
         WeakReference weak = new WeakReference(array);

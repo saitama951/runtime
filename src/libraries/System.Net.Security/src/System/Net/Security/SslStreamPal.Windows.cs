@@ -353,11 +353,10 @@ namespace System.Net.Security
                 secureCredential.dwSessionLifespan = -1;
             }
 
-            Interop.Crypt32.CERT_CONTEXT* certificateHandle;
             if (certificate != null)
             {
                 secureCredential.cCreds = 1;
-                certificateHandle = (Interop.Crypt32.CERT_CONTEXT*)certificate.Handle;
+                Interop.Crypt32.CERT_CONTEXT* certificateHandle = (Interop.Crypt32.CERT_CONTEXT*)certificate.Handle;
                 secureCredential.paCred = &certificateHandle;
             }
 
@@ -435,21 +434,19 @@ namespace System.Net.Security
                 credential.dwSessionLifespan = -1;
             }
 
-            Interop.Crypt32.CERT_CONTEXT* certificateHandle;
             if (certificate != null)
             {
                 credential.cCreds = 1;
-                certificateHandle = (Interop.Crypt32.CERT_CONTEXT*)certificate.Handle;
+                Interop.Crypt32.CERT_CONTEXT* certificateHandle = (Interop.Crypt32.CERT_CONTEXT*)certificate.Handle;
                 credential.paCred = &certificateHandle;
             }
 
             if (NetEventSource.Log.IsEnabled()) NetEventSource.Info($"flags=({flags}), ProtocolFlags=({protocolFlags}), EncryptionPolicy={policy}");
 
-            Interop.SspiCli.TLS_PARAMETERS tlsParameters;
             if (protocolFlags != 0)
             {
                 // If we were asked to do specific protocol we need to fill TLS_PARAMETERS.
-                tlsParameters = default;
+                Interop.SspiCli.TLS_PARAMETERS tlsParameters = default;
                 tlsParameters.grbitDisabledProtocols = (uint)protocolFlags ^ uint.MaxValue;
 
                 credential.cTlsParameters = 1;

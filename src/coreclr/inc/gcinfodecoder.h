@@ -16,10 +16,6 @@
 #ifndef _GC_INFO_DECODER_
 #define _GC_INFO_DECODER_
 
-#ifdef SOS_INCLUDE
-#define DECODE_OLD_FORMATS
-#endif
-
 #define _max(a, b) (((a) > (b)) ? (a) : (b))
 #define _min(a, b) (((a) < (b)) ? (a) : (b))
 
@@ -226,7 +222,7 @@ enum GcInfoDecoderFlags
     DECODE_PROLOG_LENGTH         = 0x400,   // length of the prolog (used to avoid reporting generics context)
     DECODE_EDIT_AND_CONTINUE     = 0x800,
     DECODE_REVERSE_PINVOKE_VAR   = 0x1000,
-    DECODE_RETURN_KIND           = 0x2000,  // Unused starting with v4 format
+    DECODE_RETURN_KIND           = 0x2000,
 #if defined(TARGET_ARM) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64) || defined(TARGET_RISCV64)
     DECODE_HAS_TAILCALLS         = 0x4000,
 #endif // TARGET_ARM || TARGET_ARM64 || TARGET_LOONGARCH64
@@ -252,6 +248,7 @@ enum GcInfoHeaderFlags
     GC_INFO_HAS_EDIT_AND_CONTINUE_INFO = 0x100,
     GC_INFO_REVERSE_PINVOKE_FRAME = 0x200,
 
+    GC_INFO_FLAGS_BIT_SIZE_VERSION_1    = 9,
     GC_INFO_FLAGS_BIT_SIZE              = 10,
 };
 
@@ -469,8 +466,6 @@ struct GcSlotDesc
     GcSlotFlags Flags;
 };
 
-
-template <typename GcInfoEncoding>
 class GcSlotDecoder
 {
 public:
@@ -513,13 +508,12 @@ private:
 };
 
 #ifdef USE_GC_INFO_DECODER
-template <typename GcInfoEncoding>
-class TGcInfoDecoder
+class GcInfoDecoder
 {
 public:
 
     // If you are not interested in interruptibility or gc lifetime information, pass 0 as instructionOffset
-    TGcInfoDecoder(
+    GcInfoDecoder(
             GCInfoToken gcInfoToken,
             GcInfoDecoderFlags flags = DECODE_EVERYTHING,
             UINT32 instructionOffset = 0
@@ -534,12 +528,14 @@ public:
 
 #ifdef PARTIALLY_INTERRUPTIBLE_GC_SUPPORTED
     bool IsSafePoint();
-    bool CouldBeSafePoint();
+    bool AreSafePointsInterruptible();
+    bool IsInterruptibleSafePoint();
+    bool CouldBeInterruptibleSafePoint();
 
-    // This is used for gcinfodumper
+    // This is used for gccoverage
     bool IsSafePoint(UINT32 codeOffset);
 
-    typedef void EnumerateSafePointsCallback (TGcInfoDecoder<GcInfoEncoding> * decoder, UINT32 offset, void * hCallback);
+    typedef void EnumerateSafePointsCallback (GcInfoDecoder* decoder, UINT32 offset, void * hCallback);
     void EnumerateSafePoints(EnumerateSafePointsCallback * pCallback, void * hCallback);
 
 #endif
@@ -601,10 +597,6 @@ public:
     UINT32  GetSizeOfStackParameterArea();
 #endif // FIXED_STACK_PARAMETER_SCRATCH_AREA
 
-    inline UINT32 Version()
-    {
-        return m_Version;
-    }
 
 private:
     BitStreamReader m_Reader;
@@ -625,7 +617,6 @@ private:
 #ifdef TARGET_ARM64
     UINT32  m_SizeOfEditAndContinueFixedStackFrame;
 #endif
-    // Unused starting with v4 format
     ReturnKind m_ReturnKind;
 #ifdef PARTIALLY_INTERRUPTIBLE_GC_SUPPORTED
     UINT32  m_NumSafePoints;
@@ -644,24 +635,6 @@ private:
     PTR_CBYTE m_GcInfoAddress;
 #endif
     UINT32 m_Version;
-
-    inline UINT32 NormalizeCodeOffset(UINT32 offset)
-    {
-#ifdef DECODE_OLD_FORMATS
-        if (Version() < 4)
-            return offset;
-#endif
-        return GcInfoEncoding::NORMALIZE_CODE_OFFSET(offset);
-    }
-
-    inline UINT32 DenormalizeCodeOffset(UINT32 offset)
-    {
-#ifdef DECODE_OLD_FORMATS
-        if (Version() < 4)
-            return offset;
-#endif
-        return GcInfoEncoding::DENORMALIZE_CODE_OFFSET(offset);
-    }
 
     bool PredecodeFatHeader(int remainingFlags);
 
@@ -693,7 +666,7 @@ private:
     bool IsScratchStackSlot(INT32 spOffset, GcStackSlotBase spBase, PREGDISPLAY pRD);
 
     void ReportUntrackedSlots(
-                GcSlotDecoder<GcInfoEncoding>&      slotDecoder,
+                GcSlotDecoder&      slotDecoder,
                 PREGDISPLAY         pRD,
                 unsigned            flags,
                 GCEnumCallback      pCallBack,
@@ -721,7 +694,7 @@ private:
 
 
     inline void ReportSlotToGC(
-                    GcSlotDecoder<GcInfoEncoding>&      slotDecoder,
+                    GcSlotDecoder&      slotDecoder,
                     UINT32              slotIndex,
                     PREGDISPLAY         pRD,
                     bool                reportScratchSlots,
@@ -778,9 +751,6 @@ private:
         }
     }
 };
-
-typedef TGcInfoDecoder<TargetGcInfoEncoding> GcInfoDecoder;
-
 #endif // USE_GC_INFO_DECODER
 
 

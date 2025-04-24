@@ -350,6 +350,11 @@ GPTR_DECL(MethodTable,      g_pBaseCOMObject);
 #endif
 
 GPTR_DECL(MethodTable,      g_pIDynamicInterfaceCastableInterface);
+
+#ifdef FEATURE_ICASTABLE
+GPTR_DECL(MethodTable,      g_pICastableInterface);
+#endif // FEATURE_ICASTABLE
+
 GPTR_DECL(MethodDesc,       g_pObjectFinalizerMD);
 
 #ifdef FEATURE_INTEROP_DEBUGGING
@@ -361,6 +366,7 @@ GVAL_DECL(DWORD,            g_TlsIndex);
 GPTR_DECL(MethodTable,      g_pEHClass);
 GPTR_DECL(MethodTable,      g_pExceptionServicesInternalCallsClass);
 GPTR_DECL(MethodTable,      g_pStackFrameIteratorClass);
+GVAL_DECL(bool,             g_isNewExceptionHandlingEnabled);
 #endif
 
 // Full path to the managed entry assembly - stored for ease of identifying the entry asssembly for diagnostics
@@ -404,18 +410,12 @@ GPTR_DECL(StressLog, g_pStressLog);
 
 
 //
-// Support for the CLR Debugger.
+// Support for the COM+ Debugger.
 //
 GPTR_DECL(DebugInterface,     g_pDebugInterface);
 GVAL_DECL(DWORD,              g_CORDebuggerControlFlags);
 #ifdef DEBUGGING_SUPPORTED
 GPTR_DECL(EEDbgInterfaceImpl, g_pEEDbgInterfaceImpl);
-
-#ifndef DACCESS_COMPILE
-GVAL_DECL(DWORD, g_multicastDelegateTraceActiveCount);
-GVAL_DECL(DWORD, g_externalMethodFixupTraceActiveCount);
-#endif // DACCESS_COMPILE
-
 #endif // DEBUGGING_SUPPORTED
 
 #ifdef PROFILING_SUPPORTED

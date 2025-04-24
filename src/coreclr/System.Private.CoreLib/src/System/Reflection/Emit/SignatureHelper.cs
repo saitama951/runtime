@@ -64,12 +64,11 @@ namespace System.Reflection.Emit
                 intCall |= MdSigCallingConvention.Generic;
             }
 
-            const byte Mask = (byte)(CallingConventions.HasThis | CallingConventions.ExplicitThis);
-            intCall = (MdSigCallingConvention)((byte)intCall | (unchecked((byte)callingConvention) & Mask));
+            if ((callingConvention & CallingConventions.HasThis) == CallingConventions.HasThis)
+                intCall |= MdSigCallingConvention.HasThis;
 
             sigHelp = new SignatureHelper(scope, intCall, cGenericParam, returnType,
-                requiredReturnTypeCustomModifiers, optionalReturnTypeCustomModifiers);
-
+                                            requiredReturnTypeCustomModifiers, optionalReturnTypeCustomModifiers);
             sigHelp.AddArguments(parameterTypes, requiredParameterTypeCustomModifiers, optionalParameterTypeCustomModifiers);
 
             return sigHelp;
@@ -152,12 +151,11 @@ namespace System.Reflection.Emit
 
             MdSigCallingConvention intCall = MdSigCallingConvention.Property;
 
-            const byte Mask = (byte)(CallingConventions.HasThis | CallingConventions.ExplicitThis);
-            intCall = (MdSigCallingConvention)((byte)intCall | (unchecked((byte)callingConvention) & Mask));
+            if ((callingConvention & CallingConventions.HasThis) == CallingConventions.HasThis)
+                intCall |= MdSigCallingConvention.HasThis;
 
             sigHelp = new SignatureHelper(mod, intCall,
                 returnType, requiredReturnTypeCustomModifiers, optionalReturnTypeCustomModifiers);
-
             sigHelp.AddArguments(parameterTypes, requiredParameterTypeCustomModifiers, optionalParameterTypeCustomModifiers);
 
             return sigHelp;
@@ -430,7 +428,7 @@ namespace System.Reflection.Emit
 
                 if (clsArgument is RuntimeType)
                 {
-                    type = ((RuntimeType)clsArgument).GetCorElementType();
+                    type = RuntimeTypeHandle.GetCorElementType((RuntimeType)clsArgument);
 
                     // GetCorElementType returns CorElementType.ELEMENT_TYPE_CLASS for both object and string
                     if (type == CorElementType.ELEMENT_TYPE_CLASS)

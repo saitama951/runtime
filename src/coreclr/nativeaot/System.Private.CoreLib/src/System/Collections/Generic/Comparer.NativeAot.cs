@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 #nullable enable
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
@@ -13,6 +12,9 @@ namespace System.Collections.Generic
 {
     public abstract partial class Comparer<T> : IComparer, IComparer<T>
     {
+        // The AOT compiler can flip this to false under certain circumstances.
+        private static bool SupportsGenericIComparableInterfaces => true;
+
         [Intrinsic]
         private static Comparer<T> Create()
         {
@@ -21,7 +23,11 @@ namespace System.Collections.Generic
             // This body serves as a fallback when instantiation-specific implementation is unavailable.
             // If that happens, the compiler ensures we generate data structures to make the fallback work
             // when this method is compiled.
-            return Unsafe.As<Comparer<T>>(ComparerHelpers.GetComparer(typeof(T).TypeHandle));
+            if (SupportsGenericIComparableInterfaces)
+            {
+                return Unsafe.As<Comparer<T>>(ComparerHelpers.GetComparer(typeof(T).TypeHandle));
+            }
+            return new ObjectComparer<T>();
         }
 
         public static Comparer<T> Default { [Intrinsic] get; } = Create();

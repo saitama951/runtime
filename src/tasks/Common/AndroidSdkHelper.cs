@@ -42,17 +42,12 @@ internal sealed class AndroidSdkHelper
 
     public string AndroidJarPath => Path.Combine(_androidSdkPath, "platforms", $"android-{_buildApiLevel}", "android.jar");
 
-    public string BuildApiLevel => _buildApiLevel;
-
     public bool HasD8 => File.Exists(D8Path);
-    public string D8Path => GetToolPath("d8", isBatToolOnWindows: true);
-    public string DxPath => GetToolPath("dx", isBatToolOnWindows: true);
-    public string AaptPath => GetToolPath("aapt");
-    public string ZipalignPath => GetToolPath("zipalign");
-    public string ApksignerPath => GetToolPath("apksigner", isBatToolOnWindows: true);
+    public string D8Path => getToolPath("d8");
+    public string DxPath => getToolPath("dx");
 
-    private string GetToolPath(string tool, bool isBatToolOnWindows = false)
-        => Path.Combine(_buildToolsPath, tool + (Utils.IsWindows() && isBatToolOnWindows ? ".bat" : ""));
+    private string getToolPath(string tool)
+        => Path.Combine(_buildToolsPath, tool);
 
     /// <summary>
     /// Scan android SDK for api levels (ignore preview versions)

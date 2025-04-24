@@ -6,7 +6,6 @@ using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Xml;
 using OLEDB.Test.ModuleCore;
 
@@ -77,7 +76,6 @@ namespace System.Xml.XmlDiff
         private bool _bIgnoreChildOrder;
         private bool _bIgnoreComments;
         private bool _bIgnoreWhitespace;
-        private bool _bNormalizeSpaces;
         private bool _bIgnoreDTD;
         private bool _bIgnoreNS;
         private bool _bIgnorePrefix;
@@ -93,7 +91,6 @@ namespace System.Xml.XmlDiff
             _bIgnoreChildOrder = false;
             _bIgnoreComments = false;
             _bIgnoreWhitespace = false;
-            _bNormalizeSpaces = false;
             _bIgnoreDTD = false;
             _bCDataAsText = false;
         }
@@ -111,7 +108,6 @@ namespace System.Xml.XmlDiff
                 this.IgnorePrefix = (((int)value & (int)(XmlDiffOption.IgnorePrefix)) > 0);
                 this.CDataAsText = (((int)value & (int)(XmlDiffOption.CDataAsText)) > 0);
                 this.NormalizeNewline = (((int)value & (int)(XmlDiffOption.NormalizeNewline)) > 0);
-                this.NormalizeSpaces = (((int)value) & ((int)XmlDiffOption.NormalizeSpaces)) > 0;
             }
         }
         public override XmlDiffNodeType NodeType { get { return XmlDiffNodeType.Document; } }
@@ -138,12 +134,6 @@ namespace System.Xml.XmlDiff
         {
             get { return this._bIgnoreWhitespace; }
             set { this._bIgnoreWhitespace = value; }
-        }
-
-        internal bool NormalizeSpaces
-        {
-            get { return _bNormalizeSpaces; }
-            set { _bNormalizeSpaces = value; }
         }
 
         public bool IgnoreDTD
@@ -513,7 +503,7 @@ namespace System.Xml.XmlDiff
 
         private void LoadTextNode(XmlDiffNode parent, XmlReader reader, PositionInfo pInfo, XmlDiffNodeType nt)
         {
-            XmlDiffCharacterData textNode = new XmlDiffCharacterData(reader.Value, nt, this.NormalizeNewline, this.NormalizeSpaces, this.IgnoreWhitespace);
+            XmlDiffCharacterData textNode = new XmlDiffCharacterData(reader.Value, nt, this.NormalizeNewline);
             textNode.LineNumber = pInfo.LineNumber;
             textNode.LinePosition = pInfo.LinePosition;
             InsertChild(parent, textNode);
@@ -521,7 +511,7 @@ namespace System.Xml.XmlDiff
 
         private void LoadTextNode(XmlDiffNode parent, string text, PositionInfo pInfo, XmlDiffNodeType nt)
         {
-            XmlDiffCharacterData textNode = new XmlDiffCharacterData(text, nt, this.NormalizeNewline, this.NormalizeSpaces, this.IgnoreWhitespace);
+            XmlDiffCharacterData textNode = new XmlDiffCharacterData(text, nt, this.NormalizeNewline);
             textNode.LineNumber = pInfo.LineNumber;
             textNode.LinePosition = pInfo.LinePosition;
             InsertChild(parent, textNode);
@@ -529,7 +519,7 @@ namespace System.Xml.XmlDiff
 
         private void LoadTopLevelAttribute(XmlDiffNode parent, string text, PositionInfo pInfo, XmlDiffNodeType nt)
         {
-            XmlDiffCharacterData textNode = new XmlDiffCharacterData(text, nt, this.NormalizeNewline, this.NormalizeSpaces, this.IgnoreWhitespace);
+            XmlDiffCharacterData textNode = new XmlDiffCharacterData(text, nt, this.NormalizeNewline);
             textNode.LineNumber = pInfo.LineNumber;
             textNode.LinePosition = pInfo.LinePosition;
             InsertTopLevelAttributeAsText(parent, textNode);
@@ -1560,19 +1550,15 @@ namespace System.Xml.XmlDiff
     {
         private string _value;
         private XmlDiffNodeType _nodetype;
-        public XmlDiffCharacterData(string value, XmlDiffNodeType nt, bool normalizeNewline, bool normalizeSpaces, bool ignoreWhitespace)
+        public XmlDiffCharacterData(string value, XmlDiffNodeType nt, bool NormalizeNewline)
             : base()
         {
-            if (normalizeNewline)
-                value = value.Replace("\n", "").Replace("\r", "");
-
-            if (normalizeSpaces)
-                value = Regex.Replace(value, XmlDiffAdvancedOptions.SpaceStripPattern, " ");
-
-            if (ignoreWhitespace)
-                value = value.Trim();
-
             this._value = value;
+            if (NormalizeNewline)
+            {
+                this._value = this._value.Replace("\n", "");
+                this._value = this._value.Replace("\r", "");
+            }
             this._nodetype = nt;
         }
 
@@ -1620,7 +1606,7 @@ namespace System.Xml.XmlDiff
     {
         private string _name;
         public XmlDiffProcessingInstruction(string name, string value)
-            : base(value, XmlDiffNodeType.PI, normalizeNewline: false, normalizeSpaces: false, ignoreWhitespace: false)
+            : base(value, XmlDiffNodeType.PI, false)
         {
             this._name = name;
         }

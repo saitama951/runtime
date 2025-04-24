@@ -343,8 +343,8 @@ HRESULT EditAndContinueModule::UpdateMethod(MethodDesc *pMethod)
             module,
             tkMethod,
             AssemblyIterationFlags(kIncludeLoaded | kIncludeExecution));
-        CollectibleAssemblyHolder<Assembly *> pAssembly;
-        while (it.Next(pAssembly.This()))
+        CollectibleAssemblyHolder<DomainAssembly *> pDomainAssembly;
+        while (it.Next(pDomainAssembly.This()))
         {
             MethodDesc* pMD = it.Current();
             pMD->ResetCodeEntryPointForEnC();
@@ -551,7 +551,7 @@ PCODE EditAndContinueModule::JitUpdatedFunction( MethodDesc *pMD,
     // so that gc can crawl the stack and do the right thing.
     _ASSERTE(pOrigContext);
     Thread *pCurThread = GetThread();
-    ResumableFrame resFrame(pOrigContext);
+    FrameWithCookie<ResumableFrame> resFrame(pOrigContext);
     resFrame.Push(pCurThread);
 
     CONTEXT *pCtxTemp = NULL;

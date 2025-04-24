@@ -56,7 +56,7 @@ namespace ILLink.CodeFix
 				syntaxGenerator.LiteralExpression ("<Pending>"));
 
 			// [UnconditionalSuppressWarning (category, id, Justification = "<Pending>")]
-			return [ruleCategory, ruleId, suppressionJustification];
+			return new[] { ruleCategory, ruleId, suppressionJustification };
 		}
 	}
 }

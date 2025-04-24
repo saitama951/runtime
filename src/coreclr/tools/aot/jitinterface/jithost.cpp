@@ -9,13 +9,13 @@ class JitConfigProvider
 {
 public:
     virtual int STDMETHODCALLTYPE getIntConfigValue(
-        const char* name, 
+        const wchar_t* name, 
         int defaultValue
         ) = 0;
 
     virtual int STDMETHODCALLTYPE getStringConfigValue(
-        const char* name,
-        char* retBuffer,
+        const wchar_t* name,
+        wchar_t* retBuffer,
         int retBufferLength
         ) = 0;
 };
@@ -46,27 +46,25 @@ public:
     }
 
     virtual int getIntConfigValue(
-        const char* name, 
+        const wchar_t* name, 
         int defaultValue
         )
     {
         return pConfigProvider->getIntConfigValue(name, defaultValue);
     }
 
-    virtual const char* getStringConfigValue(
-        const char* name
+    virtual const wchar_t* getStringConfigValue(
+        const wchar_t* name
         )
     {
         // Find out the required length of the buffer
-        int numRequired = pConfigProvider->getStringConfigValue(name, nullptr, 0);
-        if (numRequired == 0)
-        {
+        int numCharacters = pConfigProvider->getStringConfigValue(name, nullptr, 0);
+        if (numCharacters == 0)
             return nullptr;
-        }
 
-        // getStringConfigValue returns required buffer size
-        char* retBuffer = (char*)calloc(numRequired, sizeof(char));
-        pConfigProvider->getStringConfigValue(name, retBuffer, numRequired);
+        // Allocate extra char for the null terminator
+        wchar_t* retBuffer = (wchar_t*)calloc(numCharacters + 1, sizeof(wchar_t));
+        pConfigProvider->getStringConfigValue(name, retBuffer, numCharacters);
 
         return retBuffer;
     }

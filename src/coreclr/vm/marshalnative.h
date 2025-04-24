@@ -111,7 +111,7 @@ extern "C" void QCALLTYPE MarshalNative_GetTypedObjectForIUnknown(IUnknown* pUnk
 extern "C" IUnknown* QCALLTYPE MarshalNative_CreateAggregatedObject(IUnknown* pOuter, QCall::ObjectHandleOnStack o);
 
 //====================================================================
-// Free unused RCWs in the current CLR context.
+// Free unused RCWs in the current COM+ context.
 //====================================================================
 extern "C" void QCALLTYPE MarshalNative_CleanupUnusedObjectsInCurrentContext();
 

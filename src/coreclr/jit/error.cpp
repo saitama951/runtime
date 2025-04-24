@@ -15,7 +15,6 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 #pragma hdrstop
 #endif
 #include "compiler.h"
-#include "minipal/log.h"
 
 #if MEASURE_FATAL
 unsigned fatal_badCode;
@@ -299,7 +298,7 @@ extern "C" void __cdecl assertAbort(const char* why, const char* file, unsigned 
         // leading to additional asserts, or (2) tell the VM that the AltJit wants to skip this function,
         // thus falling back to the fallback JIT. Setting DOTNET_AltJitSkipOnAssert=1 chooses this "skip"
         // to the fallback JIT behavior. This is useful when doing ASM diffs, where we only want to see
-        // the first assert for any function, but we don't want to kill the whole process on the
+        // the first assert for any function, but we don't want to kill the whole ngen process on the
         // first assert (which would happen if you used DOTNET_NoGuiOnAssert=1 for example).
         if (JitConfig.AltJitSkipOnAssert() != 0)
         {
@@ -319,14 +318,7 @@ int vflogf(FILE* file, const char* fmt, va_list args)
     // 0-length string means flush
     if (fmt[0] == '\0')
     {
-        if (file == procstdout())
-        {
-            minipal_log_flush_verbose();
-        }
-        else
-        {
-            fflush(file);
-        }
+        fflush(file);
         return 0;
     }
 
@@ -339,15 +331,8 @@ int vflogf(FILE* file, const char* fmt, va_list args)
         OutputDebugStringA(buffer);
     }
 
-    if (file == procstdout())
-    {
-        minipal_log_write_verbose(buffer);
-    }
-    else
-    {
-        fputs(&buffer[0], file);
-    }
-
+    // We use fputs here so that this executes as fast a possible
+    fputs(&buffer[0], file);
     return written;
 }
 

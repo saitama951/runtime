@@ -15,7 +15,6 @@ using Xunit.Abstractions;
 
 namespace System.Net.Sockets.Tests
 {
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support UnixDomainSocket")]
     public class UnixDomainSocketTest
     {
         private readonly ITestOutputHelper _log;

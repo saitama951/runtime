@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Runtime.CompilerServices;
 using static System.Globalization.GregorianCalendar;
 
 namespace System.Globalization
@@ -25,7 +24,7 @@ namespace System.Globalization
                 return GetWeeksInYear(date.Year - 1);
             }
 
-            if (week > WeeksInShortYear && GetWeeksInYear(date.Year) == WeeksInShortYear)
+            if (week > GetWeeksInYear(date.Year))
             {
                 // If a week number of 53 is obtained, one must check that
                 // the date is not actually in week 1 of the following year.
@@ -35,40 +34,26 @@ namespace System.Globalization
             return week;
         }
 
-        /// <summary>
-        /// Calculates the ISO week number of a given Gregorian date.
-        /// </summary>
-        /// <param name="date">A date in the Gregorian calendar.</param>
-        /// <returns>A number between 1 and 53 representing the ISO week number of the given Gregorian date.</returns>
-        public static int GetWeekOfYear(DateOnly date) => GetWeekOfYear(date.GetEquivalentDateTime());
-
         public static int GetYear(DateTime date)
         {
             int week = GetWeekNumber(date);
-            int year = date.Year;
 
             if (week < MinWeek)
             {
                 // If the week number obtained equals 0, it means that the
                 // given date belongs to the preceding (week-based) year.
-                year--;
+                return date.Year - 1;
             }
-            else if (week > WeeksInShortYear && GetWeeksInYear(year) == WeeksInShortYear)
+
+            if (week > GetWeeksInYear(date.Year))
             {
                 // If a week number of 53 is obtained, one must check that
                 // the date is not actually in week 1 of the following year.
-                year++;
+                return date.Year + 1;
             }
 
-            return year;
+            return date.Year;
         }
-
-        /// <summary>
-        /// Calculates the ISO week-numbering year (also called ISO year informally) mapped to the input Gregorian date.
-        /// </summary>
-        /// <param name="date">A date in the Gregorian calendar.</param>
-        /// <returns>The ISO week-numbering year, between 1 and 9999</returns>
-        public static int GetYear(DateOnly date) => GetYear(date.GetEquivalentDateTime());
 
         // The year parameter represents an ISO week-numbering year (also called ISO year informally).
         // Each week's year is the Gregorian year in which the Thursday falls.
@@ -101,17 +86,12 @@ namespace System.Globalization
         {
             if (year < MinYear || year > MaxYear)
             {
-                ThrowHelper.ThrowArgumentOutOfRange_Year();
+                throw new ArgumentOutOfRangeException(nameof(year), SR.ArgumentOutOfRange_Year);
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            static uint P(uint y)
-            {
-                uint cent = y / 100;
-                return (y + (y / 4) - cent + cent / 4) % 7;
-            }
+            static int P(int y) => (y + (y / 4) - (y / 100) + (y / 400)) % 7;
 
-            if (P((uint)year) == 4 || P((uint)year - 1) == 3)
+            if (P(year) == 4 || P(year - 1) == 3)
             {
                 return WeeksInLongYear;
             }
@@ -133,7 +113,7 @@ namespace System.Globalization
         {
             if (year < MinYear || year > MaxYear)
             {
-                ThrowHelper.ThrowArgumentOutOfRange_Year();
+                throw new ArgumentOutOfRangeException(nameof(year), SR.ArgumentOutOfRange_Year);
             }
 
             if (week < MinWeek || week > MaxWeek)
@@ -155,18 +135,8 @@ namespace System.Globalization
 
             int ordinal = (week * 7) + GetWeekday(dayOfWeek) - correction;
 
-            return jan4.AddTicks((ordinal - 4) * TimeSpan.TicksPerDay);
+            return new DateTime(year, month: 1, day: 1).AddDays(ordinal - 1);
         }
-
-
-        /// <summary>
-        /// Maps the ISO week date represented by a specified ISO year, week number, and day of week to the equivalent Gregorian date.
-        /// </summary>
-        /// <param name="year">An ISO week-numbering year (also called an ISO year informally).</param>
-        /// <param name="week">The ISO week number in the given ISO week-numbering year.</param>
-        /// <param name="dayOfWeek">The day of week inside the given ISO week.</param>
-        /// <returns>The Gregorian date equivalent to the input ISO week date.</returns>
-        public static DateOnly ToDateOnly(int year, int week, DayOfWeek dayOfWeek) => DateOnly.FromDateTime(ToDateTime(year, week, dayOfWeek));
 
         // From https://en.wikipedia.org/wiki/ISO_week_date#Calculating_the_week_number_of_a_given_date:
         //
@@ -178,7 +148,7 @@ namespace System.Globalization
         // If a week number of 53 is obtained, one must check that the date is not actually in week 1 of the following year.
         private static int GetWeekNumber(DateTime date)
         {
-            return (int)((uint)(date.DayOfYear - GetWeekday(date.DayOfWeek) + 10) / 7);
+            return (date.DayOfYear - GetWeekday(date.DayOfWeek) + 10) / 7;
         }
 
         // Day of week in ISO is represented by an integer from 1 through 7, beginning with Monday and ending with Sunday.

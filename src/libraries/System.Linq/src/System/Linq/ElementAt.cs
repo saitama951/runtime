@@ -23,7 +23,9 @@ namespace System.Linq
 
             bool found;
             TSource? element =
-                !IsSizeOptimized && source is Iterator<TSource> iterator ? iterator.TryGetElementAt(index, out found) :
+#if !OPTIMIZE_FOR_SIZE
+                source is Iterator<TSource> iterator ? iterator.TryGetElementAt(index, out found) :
+#endif
                 TryGetElementAtNonIterator(source, index, out found);
 
             if (!found)
@@ -121,7 +123,9 @@ namespace System.Linq
             }
 
             return
-                !IsSizeOptimized && source is Iterator<TSource> iterator ? iterator.TryGetElementAt(index, out found) :
+#if !OPTIMIZE_FOR_SIZE
+                source is Iterator<TSource> iterator ? iterator.TryGetElementAt(index, out found) :
+#endif
                 TryGetElementAtNonIterator(source, index, out found);
         }
 

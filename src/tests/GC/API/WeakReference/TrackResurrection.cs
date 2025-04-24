@@ -11,11 +11,9 @@
 
 
 using System;
-using Xunit;
 
 public class Test_TrackResurrection {
-    [Fact]
-    public static int TestEntryPoint() {
+    public static int Main() {
         int[] array = new int[50];
         Object obj = new Object();
 

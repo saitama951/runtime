@@ -48,11 +48,9 @@ namespace System.Security.Cryptography.Pkcs
             return PkcsPal.Instance.GetEncodedMessageType(encodedMessage);
         }
 
-#if NET || NETSTANDARD2_1
         public static Oid GetContentType(ReadOnlySpan<byte> encodedMessage)
         {
             return PkcsPal.Instance.GetEncodedMessageType(encodedMessage);
         }
-#endif
     }
 }

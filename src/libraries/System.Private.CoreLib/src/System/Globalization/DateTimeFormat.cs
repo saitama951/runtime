@@ -1313,7 +1313,7 @@ namespace System
         //   012345678901234567890123456789012
         //   ---------------------------------
         //   05:30:45.7680000
-        internal static unsafe bool TryFormatTimeOnlyO<TChar>(TimeOnly value, Span<TChar> destination, out int charsWritten) where TChar : unmanaged, IUtfChar<TChar>
+        internal static unsafe bool TryFormatTimeOnlyO<TChar>(int hour, int minute, int second, long fraction, Span<TChar> destination, out int charsWritten) where TChar : unmanaged, IUtfChar<TChar>
         {
             if (destination.Length < 16)
             {
@@ -1322,7 +1322,6 @@ namespace System
             }
 
             charsWritten = 16;
-            value.ToDateTime().GetTimePrecise(out int hour, out int minute, out int second, out int fraction);
 
             fixed (TChar* dest = &MemoryMarshal.GetReference(destination))
             {
@@ -1341,7 +1340,7 @@ namespace System
         //   012345678901234567890123456789012
         //   ---------------------------------
         //   05:30:45
-        internal static unsafe bool TryFormatTimeOnlyR<TChar>(TimeOnly value, Span<TChar> destination, out int charsWritten) where TChar : unmanaged, IUtfChar<TChar>
+        internal static unsafe bool TryFormatTimeOnlyR<TChar>(int hour, int minute, int second, Span<TChar> destination, out int charsWritten) where TChar : unmanaged, IUtfChar<TChar>
         {
             if (destination.Length < 8)
             {
@@ -1350,7 +1349,6 @@ namespace System
             }
 
             charsWritten = 8;
-            value.ToDateTime().GetTime(out int hour, out int minute, out int second);
 
             fixed (TChar* dest = &MemoryMarshal.GetReference(destination))
             {
@@ -1368,7 +1366,7 @@ namespace System
         //   012345678901234567890123456789012
         //   ---------------------------------
         //   2017-06-12
-        internal static unsafe bool TryFormatDateOnlyO<TChar>(DateOnly value, Span<TChar> destination, out int charsWritten) where TChar : unmanaged, IUtfChar<TChar>
+        internal static unsafe bool TryFormatDateOnlyO<TChar>(int year, int month, int day, Span<TChar> destination, out int charsWritten) where TChar : unmanaged, IUtfChar<TChar>
         {
             if (destination.Length < 10)
             {
@@ -1377,7 +1375,6 @@ namespace System
             }
 
             charsWritten = 10;
-            (int year, int month, int day) = value;
 
             fixed (TChar* dest = &MemoryMarshal.GetReference(destination))
             {
@@ -1395,7 +1392,7 @@ namespace System
         //   01234567890123456789012345678
         //   -----------------------------
         //   Tue, 03 Jan 2017
-        internal static unsafe bool TryFormatDateOnlyR<TChar>(DateOnly value, Span<TChar> destination, out int charsWritten) where TChar : unmanaged, IUtfChar<TChar>
+        internal static unsafe bool TryFormatDateOnlyR<TChar>(DayOfWeek dayOfWeek, int year, int month, int day, Span<TChar> destination, out int charsWritten) where TChar : unmanaged, IUtfChar<TChar>
         {
             if (destination.Length < 16)
             {
@@ -1404,9 +1401,9 @@ namespace System
             }
 
             charsWritten = 16;
-            (int year, int month, int day) = value;
 
-            string dayAbbrev = s_invariantAbbreviatedDayNames[(int)value.DayOfWeek];
+            Debug.Assert((uint)dayOfWeek < 7);
+            string dayAbbrev = s_invariantAbbreviatedDayNames[(int)dayOfWeek];
             Debug.Assert(dayAbbrev.Length == 3);
 
             string monthAbbrev = s_invariantAbbreviatedMonthNames[month - 1];
@@ -1470,6 +1467,7 @@ namespace System
             charsWritten = charsRequired;
 
             dateTime.GetDate(out int year, out int month, out int day);
+            dateTime.GetTimePrecise(out int hour, out int minute, out int second, out int tick);
 
             fixed (TChar* dest = &MemoryMarshal.GetReference(destination))
             {
@@ -1479,7 +1477,6 @@ namespace System
                 dest[7] = TChar.CastFrom('-');
                 Number.WriteTwoDigits((uint)day, dest + 8);
                 dest[10] = TChar.CastFrom('T');
-                dateTime.GetTimePrecise(out int hour, out int minute, out int second, out int tick);
                 Number.WriteTwoDigits((uint)hour, dest + 11);
                 dest[13] = TChar.CastFrom(':');
                 Number.WriteTwoDigits((uint)minute, dest + 14);
@@ -1530,6 +1527,7 @@ namespace System
             charsWritten = FormatSLength;
 
             dateTime.GetDate(out int year, out int month, out int day);
+            dateTime.GetTime(out int hour, out int minute, out int second);
 
             fixed (TChar* dest = &MemoryMarshal.GetReference(destination))
             {
@@ -1539,7 +1537,6 @@ namespace System
                 dest[7] = TChar.CastFrom('-');
                 Number.WriteTwoDigits((uint)day, dest + 8);
                 dest[10] = TChar.CastFrom('T');
-                dateTime.GetTime(out int hour, out int minute, out int second);
                 Number.WriteTwoDigits((uint)hour, dest + 11);
                 dest[13] = TChar.CastFrom(':');
                 Number.WriteTwoDigits((uint)minute, dest + 14);
@@ -1570,6 +1567,7 @@ namespace System
             }
 
             dateTime.GetDate(out int year, out int month, out int day);
+            dateTime.GetTime(out int hour, out int minute, out int second);
 
             fixed (TChar* dest = &MemoryMarshal.GetReference(destination))
             {
@@ -1579,7 +1577,6 @@ namespace System
                 dest[7] = TChar.CastFrom('-');
                 Number.WriteTwoDigits((uint)day, dest + 8);
                 dest[10] = TChar.CastFrom(' ');
-                dateTime.GetTime(out int hour, out int minute, out int second);
                 Number.WriteTwoDigits((uint)hour, dest + 11);
                 dest[13] = TChar.CastFrom(':');
                 Number.WriteTwoDigits((uint)minute, dest + 14);
@@ -1612,6 +1609,7 @@ namespace System
             }
 
             dateTime.GetDate(out int year, out int month, out int day);
+            dateTime.GetTime(out int hour, out int minute, out int second);
 
             string dayAbbrev = s_invariantAbbreviatedDayNames[(int)dateTime.DayOfWeek];
             Debug.Assert(dayAbbrev.Length == 3);
@@ -1636,7 +1634,6 @@ namespace System
                 dest[11] = TChar.CastFrom(' ');
                 Number.WriteFourDigits((uint)year, dest + 12);
                 dest[16] = TChar.CastFrom(' ');
-                dateTime.GetTime(out int hour, out int minute, out int second);
                 Number.WriteTwoDigits((uint)hour, dest + 17);
                 dest[19] = TChar.CastFrom(':');
                 Number.WriteTwoDigits((uint)minute, dest + 20);
@@ -1677,6 +1674,7 @@ namespace System
             bytesWritten = bytesRequired;
 
             value.GetDate(out int year, out int month, out int day);
+            value.GetTime(out int hour, out int minute, out int second);
 
             fixed (TChar* dest = &MemoryMarshal.GetReference(destination))
             {
@@ -1687,7 +1685,6 @@ namespace System
                 Number.WriteFourDigits((uint)year, dest + 6);
                 dest[10] = TChar.CastFrom(' ');
 
-                value.GetTime(out int hour, out int minute, out int second);
                 Number.WriteTwoDigits((uint)hour, dest + 11);
                 dest[13] = TChar.CastFrom(':');
                 Number.WriteTwoDigits((uint)minute, dest + 14);

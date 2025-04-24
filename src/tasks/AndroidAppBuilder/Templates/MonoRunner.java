@@ -74,7 +74,7 @@ public class MonoRunner extends Instrumentation
         start();
     }
 
-    public static void initializeRuntime(String entryPointLibName, Context context) {
+    public static int initialize(String entryPointLibName, String[] args, Context context) {
         String filesDir = context.getFilesDir().getAbsolutePath();
         String cacheDir = context.getCacheDir().getAbsolutePath();
 
@@ -90,24 +90,9 @@ public class MonoRunner extends Instrumentation
         // unzip libs and test files to filesDir
         unzipAssets(context, filesDir, "assets.zip");
 
-        // set environment variables
-        setEnv("HOME", filesDir);
-        setEnv("TMPDIR", cacheDir);
-        setEnv("TEST_RESULTS_DIR", testResultsDir);
-
-        Log.i("DOTNET", "MonoRunner initializeRuntime, entryPointLibName=" + entryPointLibName);
+        Log.i("DOTNET", "MonoRunner initialize,, entryPointLibName=" + entryPointLibName);
         int localDateTimeOffset = getLocalDateTimeOffset();
-        int rv = initRuntime(filesDir, entryPointLibName, localDateTimeOffset);
-        if (rv != 0) {
-            Log.e("DOTNET", "Failed to initialize runtime, return-code=" + rv);
-            freeNativeResources();
-            System.exit(rv);
-        }
-    }
-
-    public static int executeEntryPoint(String entryPointLibName, String[] args) {
-        int rv = execEntryPoint(entryPointLibName, args);
-        return rv;
+        return initRuntime(filesDir, cacheDir, testResultsDir, entryPointLibName, args, localDateTimeOffset);
     }
 
     @Override
@@ -119,9 +104,7 @@ public class MonoRunner extends Instrumentation
             finish(1, null);
             return;
         }
-
-        initializeRuntime(entryPointLibName, getContext());
-        int retcode = executeEntryPoint(entryPointLibName, argsToForward);
+        int retcode = initialize(entryPointLibName, argsToForward, getContext());
 
         Log.i("DOTNET", "MonoRunner finished, return-code=" + retcode);
         result.putInt("return-code", retcode);
@@ -136,44 +119,35 @@ public class MonoRunner extends Instrumentation
         finish(retcode, result);
     }
 
-    @Override
-    public void onDestroy() {
-        Log.i("DOTNET", "MonoRunner onDestroy");
-        super.onDestroy();
-        // Cleanup native resources
-        freeNativeResources();
-    }
-
     static void unzipAssets(Context context, String toPath, String zipName) {
         AssetManager assetManager = context.getAssets();
-        try (InputStream inputStream = assetManager.open(zipName);
-            ZipInputStream zipInputStream = new ZipInputStream(new BufferedInputStream(inputStream))) {
-
+        try {
+            InputStream inputStream = assetManager.open(zipName);
+            ZipInputStream zipInputStream = new ZipInputStream(new BufferedInputStream(inputStream));
             ZipEntry zipEntry;
             byte[] buffer = new byte[4096];
             while ((zipEntry = zipInputStream.getNextEntry()) != null) {
                 String fileOrDirectory = zipEntry.getName();
-                File file = new File(toPath, fileOrDirectory);
-                File parent = new File(file.getParent());
-
+                Uri.Builder builder = new Uri.Builder();
+                builder.scheme("file");
+                builder.appendPath(toPath);
+                builder.appendPath(fileOrDirectory);
+                String fullToPath = builder.build().getPath();
                 if (zipEntry.isDirectory()) {
-                    file.mkdirs();
+                    File directory = new File(fullToPath);
+                    directory.mkdirs();
                     continue;
                 }
-                else if (!parent.exists()) {
-                    parent.mkdirs();
-                }
-
-                String fullToPath = file.getAbsolutePath();
                 Log.i("DOTNET", "Extracting asset to " + fullToPath);
-
                 int count = 0;
                 FileOutputStream fileOutputStream = new FileOutputStream(fullToPath);
                 while ((count = zipInputStream.read(buffer)) != -1) {
                     fileOutputStream.write(buffer, 0, count);
                 }
+                fileOutputStream.close();
                 zipInputStream.closeEntry();
             }
+            zipInputStream.close();
         } catch (IOException e) {
             Log.e("DOTNET", e.getLocalizedMessage());
         }
@@ -188,11 +162,7 @@ public class MonoRunner extends Instrumentation
         }
     }
 
+    static native int initRuntime(String libsDir, String cacheDir, String testResultsDir, String entryPointLibName, String[] args, int local_date_time_offset);
+
     static native int setEnv(String key, String value);
-
-    static native int initRuntime(String libsDir, String entryPointLibName, int local_date_time_offset);
-
-    static native int execEntryPoint(String entryPointLibName, String[] args);
-
-    static native void freeNativeResources();
 }

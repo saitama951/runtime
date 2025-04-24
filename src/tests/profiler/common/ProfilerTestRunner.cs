@@ -150,7 +150,7 @@ namespace Profiler.Tests
             {
                 profilerName = $"{ProfilerName}.dll";
             }
-            else if ((TestLibrary.Utilities.IsLinux) || (TestLibrary.Utilities.IsFreeBSD))
+            else if (TestLibrary.Utilities.IsLinux)
             {
                 profilerName = $"lib{ProfilerName}.so";
             }

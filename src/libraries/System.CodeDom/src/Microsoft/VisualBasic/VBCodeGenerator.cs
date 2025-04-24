@@ -577,6 +577,9 @@ namespace Microsoft.VisualBasic
                 case MemberAttributes.Override:
                     Output.Write("Overrides ");
                     break;
+                case MemberAttributes.Private:
+                    Output.Write("Private ");
+                    break;
                 default:
                     switch (attributes & MemberAttributes.AccessMask)
                     {

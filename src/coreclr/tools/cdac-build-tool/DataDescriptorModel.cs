@@ -84,16 +84,14 @@ public class DataDescriptorModel
     public class Builder
     {
         private string _baseline;
-        private readonly string _baselinesDir;
         private bool _baselineParsed;
         private readonly Dictionary<string, TypeModelBuilder> _types = new();
         private readonly Dictionary<string, GlobalBuilder> _globals = new();
         private readonly Dictionary<string, ContractBuilder> _contracts = new();
-        public Builder(string baselinesDir)
+        public Builder()
         {
             _baseline = string.Empty;
             _baselineParsed = false;
-            _baselinesDir = baselinesDir;
         }
 
         public uint PlatformFlags {get; set;}
@@ -153,8 +151,7 @@ public class DataDescriptorModel
             {
                 throw new InvalidOperationException($"Baseline already set to {_baseline} cannot set to {baseline}");
             }
-            var baselines = new DirectoryBaselines(_baselinesDir);
-            if (baselines.BaselineNames.Contains(baseline))
+            if (EmbeddedBaselines.BaselineNames.Contains(baseline))
             {
                 _baseline = baseline;
             }

@@ -139,7 +139,9 @@ namespace System
 
                 while (buffer.Length >= sizeof(ulong))
                 {
-                    MemoryMarshal.Write(buffer, BitOperations.RotateLeft(s1 * 5, 7) * 9);
+                    Unsafe.WriteUnaligned(
+                        ref MemoryMarshal.GetReference(buffer),
+                        BitOperations.RotateLeft(s1 * 5, 7) * 9);
 
                     // Update PRNG state.
                     ulong t = s1 << 17;

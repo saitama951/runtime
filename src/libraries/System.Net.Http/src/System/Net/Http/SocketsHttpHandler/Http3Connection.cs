@@ -95,15 +95,11 @@ namespace System.Net.Http
 
             _connection = connection;
 
-            // Avoid capturing the initial request's ExecutionContext for the entire lifetime of the new connection.
-            using (ExecutionContext.SuppressFlow())
-            {
-                // Errors are observed via Abort().
-                _sendSettingsTask = SendSettingsAsync();
+            // Errors are observed via Abort().
+            _sendSettingsTask = SendSettingsAsync();
 
-                // This process is cleaned up when _connection is disposed, and errors are observed via Abort().
-                _ = AcceptStreamsAsync();
-            }
+            // This process is cleaned up when _connection is disposed, and errors are observed via Abort().
+            _ = AcceptStreamsAsync();
         }
 
         /// <summary>
@@ -364,9 +360,7 @@ namespace System.Net.Http
             }
 
             // Stop sending requests to this connection.
-            // Do not dispose the connection when invalidating as the rest of this method does exactly that:
-            //   set up _firstRejectedStreamId, close the connection with proper error code and CheckForShutdown.
-            _pool.InvalidateHttp3Connection(this, dispose: false);
+            _pool.InvalidateHttp3Connection(this);
 
             long connectionResetErrorCode = (abortException as HttpProtocolException)?.ErrorCode ?? (long)Http3ErrorCode.InternalError;
 
@@ -399,9 +393,7 @@ namespace System.Net.Http
             }
 
             // Stop sending requests to this connection.
-            // Do not dispose the connection when invalidating as the rest of this method does exactly that:
-            //   set up _firstRejectedStreamId to the stream id from GO_AWAY frame and CheckForShutdown.
-            _pool.InvalidateHttp3Connection(this, dispose: false);
+            _pool.InvalidateHttp3Connection(this);
 
             var streamsToGoAway = new List<Http3RequestStream>();
 

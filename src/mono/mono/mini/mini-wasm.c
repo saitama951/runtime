@@ -453,7 +453,6 @@ G_BEGIN_DECLS
 #ifdef DISABLE_THREADS
 EMSCRIPTEN_KEEPALIVE void mono_wasm_execute_timer (void);
 EMSCRIPTEN_KEEPALIVE void mono_background_exec (void);
-EMSCRIPTEN_KEEPALIVE void mono_wasm_ds_exec (void);
 extern void mono_wasm_schedule_timer (int shortestDueTimeMs);
 #else
 extern void mono_target_thread_schedule_synchronization_context(MonoNativeThreadId target_thread);
@@ -755,7 +754,7 @@ mono_wasm_enable_debugging (int log_level)
 	mono_wasm_debug_level = log_level;
 }
 
-MONO_API int
+int
 mono_wasm_get_debug_level (void)
 {
 	return mono_wasm_debug_level;

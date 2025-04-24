@@ -715,6 +715,10 @@ public:
     BOOL GetModulePath(VMPTR_Module vmModule,
                        IStringHolder *  pStrFilename);
 
+    // Get the full path and file name to the ngen image for the module (if any).
+    BOOL GetModuleNGenPath(VMPTR_Module vmModule,
+                           IStringHolder *  pStrFilename);
+
     // Implementation of IDacDbiInterface::GetModuleSimpleName
     void GetModuleSimpleName(VMPTR_Module vmModule, IStringHolder * pStrFilename);
 
@@ -1099,11 +1103,19 @@ private:
                                       TargetBuffer * pIL);
 
 public:
-    // API for picking up the info needed for a debugger to look up an image from its search path.
+    // APIs for picking up the info needed for a debugger to look up an ngen image or IL image
+    // from it's search path.
     bool GetMetaDataFileInfoFromPEFile(VMPTR_PEAssembly vmPEAssembly,
                                        DWORD &dwTimeStamp,
                                        DWORD &dwSize,
+                                       bool  &isNGEN,
                                        IStringHolder* pStrFilename);
+
+    bool GetILImageInfoFromNgenPEFile(VMPTR_PEAssembly vmPEAssembly,
+                                      DWORD &dwTimeStamp,
+                                      DWORD &dwSize,
+                                      IStringHolder* pStrFilename);
+
 };
 
 

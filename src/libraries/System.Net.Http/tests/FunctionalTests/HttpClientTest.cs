@@ -126,107 +126,34 @@ namespace System.Net.Http.Functional.Tests
         }
 
         [Theory]
-        [InlineData(1, 2)]
-        [InlineData(1, 127)]
-        [InlineData(254, 255)]
-        [InlineData(10, 256)]
-        [InlineData(1, 440)]
-        [InlineData(2, 1)]
-        [InlineData(2, 2)]
-        [InlineData(1000, 1000)]
-        [InlineData(1000, int.MaxValue)]
-        [InlineData(1000, int.MaxValue * 2L)]
-        [InlineData(int.MaxValue, int.MaxValue + 1L)]
-        public async Task MaxResponseContentBufferSize_ThrowsIfTooSmallForContent(long maxSize, long contentLength)
+        [InlineData(1, 2, true)]
+        [InlineData(1, 127, true)]
+        [InlineData(254, 255, true)]
+        [InlineData(10, 256, true)]
+        [InlineData(1, 440, true)]
+        [InlineData(2, 1, false)]
+        [InlineData(2, 2, false)]
+        [InlineData(1000, 1000, false)]
+        public async Task MaxResponseContentBufferSize_ThrowsIfTooSmallForContent(int maxSize, int contentLength, bool exceptionExpected)
         {
-            bool exceptionExpected = maxSize < contentLength;
-
-            await TestAsync(client => client.GetStringAsync(CreateFakeUri()));
-            await TestAsync(client => client.GetByteArrayAsync(CreateFakeUri()));
-            await TestAsync(client => client.GetAsync(CreateFakeUri()));
-            await TestAsync(client => client.PostAsync(CreateFakeUri(), new StringContent("foo")));
-            await TestAsync(client => client.SendAsync(new HttpRequestMessage(HttpMethod.Get, CreateFakeUri())));
-
-            await TestAsync(async client =>
+            var content = new CustomContent(async s =>
             {
-                using HttpResponseMessage response = await client.GetAsync(CreateFakeUri(), HttpCompletionOption.ResponseHeadersRead);
-                await response.Content.LoadIntoBufferAsync(maxSize);
+                await s.WriteAsync(TestHelper.GenerateRandomContent(contentLength));
             });
 
-            // Methods on HttpContent don't know about HttpClient's MaxResponseContentBufferSize, so they won't throw.
-            exceptionExpected = false;
+            var handler = new CustomResponseHandler((r, c) => Task.FromResult(new HttpResponseMessage() { Content = content }));
 
-            if (contentLength > 1000)
+            using (var client = new HttpClient(handler))
             {
-                // While the test would could with larger sizes, avoid allocating such buffers.
-                return;
-            }
+                client.MaxResponseContentBufferSize = maxSize;
 
-            await TestAsync(async client =>
-            {
-                using HttpResponseMessage response = await client.GetAsync(CreateFakeUri(), HttpCompletionOption.ResponseHeadersRead);
-                await response.Content.LoadIntoBufferAsync();
-            });
-
-            await TestAsync(async client =>
-            {
-                using HttpResponseMessage response = await client.GetAsync(CreateFakeUri(), HttpCompletionOption.ResponseHeadersRead);
-                await response.Content.ReadAsStringAsync();
-            });
-
-            await TestAsync(async client =>
-            {
-                using HttpResponseMessage response = await client.GetAsync(CreateFakeUri(), HttpCompletionOption.ResponseHeadersRead);
-                await response.Content.ReadAsByteArrayAsync();
-            });
-
-            await TestAsync(async client =>
-            {
-                using HttpResponseMessage response = await client.GetAsync(CreateFakeUri(), HttpCompletionOption.ResponseHeadersRead);
-                using Stream stream = await response.Content.ReadAsStreamAsync();
-                await stream.CopyToAsync(Stream.Null);
-            });
-
-            async Task TestAsync(Func<HttpClient, Task> clientAction)
-            {
-                foreach (bool setContentLength in BoolValues)
+                if (exceptionExpected)
                 {
-                    if (!setContentLength && contentLength > 1000)
-                    {
-                        // While the test could work with larger sizes, avoid allocating such buffers.
-                        continue;
-                    }
-
-                    bool wroteContent = false;
-
-                    var content = new CustomContent(async s =>
-                    {
-                        wroteContent = true;
-                        Assert.True(contentLength <= 1000);
-                        await s.WriteAsync(TestHelper.GenerateRandomContent((int)contentLength));
-                    });
-
-                    if (setContentLength)
-                    {
-                        content.Headers.ContentLength = contentLength;
-                    }
-
-                    var handler = new CustomResponseHandler((r, c) => Task.FromResult(new HttpResponseMessage() { Content = content }));
-
-                    using var client = new HttpClient(handler);
-                    client.MaxResponseContentBufferSize = maxSize;
-
-                    if (exceptionExpected)
-                    {
-                        HttpRequestException ex = await Assert.ThrowsAsync<HttpRequestException>(() => clientAction(client));
-                        Assert.Equal(HttpRequestError.ConfigurationLimitExceeded, ex.HttpRequestError);
-                        Assert.NotEqual(setContentLength, wroteContent);
-                    }
-                    else
-                    {
-                        await clientAction(client);
-                        Assert.True(wroteContent);
-                    }
+                    await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAsync(CreateFakeUri()));
+                }
+                else
+                {
+                    await client.GetAsync(CreateFakeUri());
                 }
             }
         }

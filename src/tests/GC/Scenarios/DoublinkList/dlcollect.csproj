@@ -1,17 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Needed for GCStressIncompatible, GC.WaitForPendingFinalizers -->
-    <RequiresProcessIsolation>true</RequiresProcessIsolation>
-
-    <!-- Test needs explicit Main as it uses command-line parameters -->
-    <ReferenceXUnitWrapperGenerator>false</ReferenceXUnitWrapperGenerator>
-
+    <OutputType>Exe</OutputType>
     <GCStressIncompatible>true</GCStressIncompatible>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="dlcollect.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="DoubLinkList.csproj" />
+    <ProjectReference Include="DoubLink.csproj" />
   </ItemGroup>
 </Project>

@@ -253,7 +253,7 @@ class MulticoreJitModuleEnumerator
 
 public:
     HRESULT EnumerateLoadedModules(AppDomain * pDomain);
-    HRESULT HandleAssembly(Assembly * pAssembly);
+    HRESULT HandleAssembly(DomainAssembly * pAssembly);
 };
 
 
@@ -306,7 +306,7 @@ private:
 
     HRESULT ReadCheckFile(const WCHAR * pFileName);
 
-    Assembly * LoadAssembly(SString & assemblyName);
+    DomainAssembly * LoadAssembly(SString & assemblyName);
 
 public:
 
@@ -631,6 +631,8 @@ private:
     void RecordMethodInfo(unsigned moduleIndex, MethodDesc * pMethod, bool application);
     unsigned RecordModuleInfo(Module * pModule);
     void RecordOrUpdateModuleInfo(FileLoadLevel needLevel, unsigned moduleIndex);
+
+    void AddAllModulesInAsm(DomainAssembly * pAssembly);
 
     HRESULT WriteOutput(IStream * pStream);
 

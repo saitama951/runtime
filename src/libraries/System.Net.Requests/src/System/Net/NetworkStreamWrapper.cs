@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Diagnostics;
 using System.IO;
-using System.Net.Security;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,7 +11,6 @@ namespace System.Net
     internal class NetworkStreamWrapper : Stream
     {
         private NetworkStream _networkStream;
-        private SslStream? _sslStream;
 
         internal NetworkStreamWrapper(NetworkStream stream)
         {
@@ -24,7 +21,7 @@ namespace System.Net
         {
             get
             {
-                return _sslStream != null;
+                return (_networkStream is TlsStream);
             }
         }
 
@@ -44,17 +41,15 @@ namespace System.Net
             }
         }
 
-        internal Stream Stream
+        internal NetworkStream NetworkStream
         {
             get
             {
-                return (Stream?)_sslStream ?? _networkStream;
+                return _networkStream;
             }
             set
             {
-                // The setter is only used to upgrade to secure connection by wrapping the _networkStream
-                Debug.Assert(value is SslStream, "Expected SslStream");
-                _sslStream = (SslStream)value;
+                _networkStream = value;
             }
         }
 
@@ -62,7 +57,7 @@ namespace System.Net
         {
             get
             {
-                return Stream.CanRead;
+                return _networkStream.CanRead;
             }
         }
 
@@ -70,7 +65,7 @@ namespace System.Net
         {
             get
             {
-                return Stream.CanSeek;
+                return _networkStream.CanSeek;
             }
         }
 
@@ -78,7 +73,7 @@ namespace System.Net
         {
             get
             {
-                return Stream.CanWrite;
+                return _networkStream.CanWrite;
             }
         }
 
@@ -86,7 +81,7 @@ namespace System.Net
         {
             get
             {
-                return Stream.CanTimeout;
+                return _networkStream.CanTimeout;
             }
         }
 
@@ -94,11 +89,11 @@ namespace System.Net
         {
             get
             {
-                return Stream.ReadTimeout;
+                return _networkStream.ReadTimeout;
             }
             set
             {
-                Stream.ReadTimeout = value;
+                _networkStream.ReadTimeout = value;
             }
         }
 
@@ -106,11 +101,11 @@ namespace System.Net
         {
             get
             {
-                return Stream.WriteTimeout;
+                return _networkStream.WriteTimeout;
             }
             set
             {
-                Stream.WriteTimeout = value;
+                _networkStream.WriteTimeout = value;
             }
         }
 
@@ -118,7 +113,7 @@ namespace System.Net
         {
             get
             {
-                return Stream.Length;
+                return _networkStream.Length;
             }
         }
 
@@ -126,27 +121,27 @@ namespace System.Net
         {
             get
             {
-                return Stream.Position;
+                return _networkStream.Position;
             }
             set
             {
-                Stream.Position = value;
+                _networkStream.Position = value;
             }
         }
 
         public override long Seek(long offset, SeekOrigin origin)
         {
-            return Stream.Seek(offset, origin);
+            return _networkStream.Seek(offset, origin);
         }
 
         public override int Read(byte[] buffer, int offset, int size)
         {
-            return Stream.Read(buffer, offset, size);
+            return _networkStream.Read(buffer, offset, size);
         }
 
         public override void Write(byte[] buffer, int offset, int size)
         {
-            Stream.Write(buffer, offset, size);
+            _networkStream.Write(buffer, offset, size);
         }
 
         protected override void Dispose(bool disposing)
@@ -167,7 +162,7 @@ namespace System.Net
 
         internal void CloseSocket()
         {
-            Stream.Close();
+            _networkStream.Close();
         }
 
         public void Close(int timeout)
@@ -177,63 +172,63 @@ namespace System.Net
 
         public override IAsyncResult BeginRead(byte[] buffer, int offset, int size, AsyncCallback? callback, object? state)
         {
-            return Stream.BeginRead(buffer, offset, size, callback, state);
+            return _networkStream.BeginRead(buffer, offset, size, callback, state);
         }
 
         public override int EndRead(IAsyncResult asyncResult)
         {
-            return Stream.EndRead(asyncResult);
+            return _networkStream.EndRead(asyncResult);
         }
 
         public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            return Stream.ReadAsync(buffer, offset, count, cancellationToken);
+            return _networkStream.ReadAsync(buffer, offset, count, cancellationToken);
         }
 
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
-            return Stream.ReadAsync(buffer, cancellationToken);
+            return _networkStream.ReadAsync(buffer, cancellationToken);
         }
 
         public override IAsyncResult BeginWrite(byte[] buffer, int offset, int size, AsyncCallback? callback, object? state)
         {
-            return Stream.BeginWrite(buffer, offset, size, callback, state);
+            return _networkStream.BeginWrite(buffer, offset, size, callback, state);
         }
 
         public override void EndWrite(IAsyncResult asyncResult)
         {
-            Stream.EndWrite(asyncResult);
+            _networkStream.EndWrite(asyncResult);
         }
 
         public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            return Stream.WriteAsync(buffer, offset, count, cancellationToken);
+            return _networkStream.WriteAsync(buffer, offset, count, cancellationToken);
         }
 
         public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
         {
-            return Stream.WriteAsync(buffer, cancellationToken);
+            return _networkStream.WriteAsync(buffer, cancellationToken);
         }
 
         public override void Flush()
         {
-            Stream.Flush();
+            _networkStream.Flush();
         }
 
         public override Task FlushAsync(CancellationToken cancellationToken)
         {
-            return Stream.FlushAsync(cancellationToken);
+            return _networkStream.FlushAsync(cancellationToken);
         }
 
         public override void SetLength(long value)
         {
-            Stream.SetLength(value);
+            _networkStream.SetLength(value);
         }
 
         internal void SetSocketTimeoutOption(int timeout)
         {
-            Stream.ReadTimeout = timeout;
-            Stream.WriteTimeout = timeout;
+            _networkStream.ReadTimeout = timeout;
+            _networkStream.WriteTimeout = timeout;
         }
     }
 } // System.Net

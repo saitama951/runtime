@@ -65,9 +65,10 @@ usage()
   echo ""
 
   echo "Libraries settings:"
+  echo "  --allconfigurations        Build packages for all build configurations."
   echo "  --coverage                 Collect code coverage when testing."
-  echo "  --framework (-f)           Build framework: net10.0 or net481."
-  echo "                             [Default: net10.0]"
+  echo "  --framework (-f)           Build framework: net9.0 or net48."
+  echo "                             [Default: net9.0]"
   echo "  --testnobuild              Skip building tests when invoking -test."
   echo "  --testscope                Test scope, allowed values: innerloop, outerloop, all."
   echo ""
@@ -140,7 +141,7 @@ initDistroRid()
     local isCrossBuild="$3"
 
     # Only pass ROOTFS_DIR if __DoCrossArchBuild is specified and the current platform is not an Apple platform (that doesn't use rootfs)
-    if [[ $isCrossBuild == 1 && "$targetOs" != "osx" && "$targetOs" != "android" && "$targetOs" != "ios" && "$targetOs" != "iossimulator" && "$targetOs" != "tvos" && "$targetOs" != "tvossimulator" && "$targetOs" != "maccatalyst" ]]; then
+    if [[ $isCrossBuild == 1 && "$targetOs" != "osx" && "$targetOs" != "ios" && "$targetOs" != "iossimulator" && "$targetOs" != "tvos" && "$targetOs" != "tvossimulator" && "$targetOs" != "maccatalyst" ]]; then
         passedRootfsDir=${ROOTFS_DIR}
     fi
     initDistroRidGlobal "${targetOs}" "${targetArch}" "${passedRootfsDir}"
@@ -307,8 +308,8 @@ while [[ $# > 0 ]]; do
       shift 2
       ;;
 
-     -pack)
-      arguments="$arguments --pack /p:BuildAllConfigurations=true"
+     -allconfigurations)
+      arguments="$arguments /p:BuildAllConfigurations=true"
       shift 1
       ;;
 
@@ -542,10 +543,6 @@ fi
 if [[ "$os" == "browser" ]]; then
     # override default arch for Browser, we only support wasm
     arch=wasm
-    # because on docker instance without swap file, MSBuild nodes need to make some room for LLVM
-    # https://github.com/dotnet/runtime/issues/113724
-    # this is hexa percentage: 46-> 70%
-    export DOTNET_GCHeapHardLimitPercent="46"
 fi
 if [[ "$os" == "wasi" ]]; then
     # override default arch for wasi, we only support wasm
@@ -553,7 +550,7 @@ if [[ "$os" == "wasi" ]]; then
 fi
 
 if [[ "${TreatWarningsAsErrors:-}" == "false" ]]; then
-    arguments="$arguments -warnAsError false"
+    arguments="$arguments -warnAsError 0"
 fi
 
 # disable terminal logger for now: https://github.com/dotnet/runtime/issues/97211

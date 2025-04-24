@@ -16,9 +16,9 @@ namespace System.Collections.Immutable
     [DebuggerDisplay("Count = {Count}")]
     [DebuggerTypeProxy(typeof(ImmutableEnumerableDebuggerProxy<>))]
 #if NET
-    public sealed partial class ImmutableHashSet<T> : IImmutableSet<T>, IReadOnlyCollection<T>, ICollection<T>, ISet<T>, IReadOnlySet<T>, ICollection, IStrongEnumerable<T, ImmutableHashSet<T>.Enumerator>
+    public sealed partial class ImmutableHashSet<T> : IImmutableSet<T>, IHashKeyCollection<T>, IReadOnlyCollection<T>, ICollection<T>, ISet<T>, IReadOnlySet<T>, ICollection, IStrongEnumerable<T, ImmutableHashSet<T>.Enumerator>
 #else
-    public sealed partial class ImmutableHashSet<T> : IImmutableSet<T>, IReadOnlyCollection<T>, ICollection<T>, ISet<T>, ICollection, IStrongEnumerable<T, ImmutableHashSet<T>.Enumerator>
+    public sealed partial class ImmutableHashSet<T> : IImmutableSet<T>, IHashKeyCollection<T>, IReadOnlyCollection<T>, ICollection<T>, ISet<T>, ICollection, IStrongEnumerable<T, ImmutableHashSet<T>.Enumerator>
 #endif
     {
         /// <summary>
@@ -102,6 +102,8 @@ namespace System.Collections.Immutable
             get { return this.Count == 0; }
         }
 
+        #region IHashKeyCollection<T> Properties
+
         /// <summary>
         /// See the <see cref="IImmutableSet{T}"/> interface.
         /// </summary>
@@ -109,6 +111,8 @@ namespace System.Collections.Immutable
         {
             get { return _equalityComparer; }
         }
+
+        #endregion
 
         #region IImmutableSet<T> Properties
 
@@ -147,6 +151,14 @@ namespace System.Collections.Immutable
         }
 
         #endregion
+
+        /// <summary>
+        /// Gets the root node (for testing purposes).
+        /// </summary>
+        internal IBinaryTree Root
+        {
+            get { return _root; }
+        }
 
         /// <summary>
         /// Gets a data structure that captures the current state of this map, as an input into a query or mutating function.

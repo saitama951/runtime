@@ -8,13 +8,15 @@ namespace System.Security.Cryptography
     internal struct PinAndClear : IDisposable
     {
         private byte[] _data;
-        private PinnedGCHandle<byte[]> _gcHandle;
+        private GCHandle _gcHandle;
 
         internal static PinAndClear Track(byte[] data)
         {
             return new PinAndClear
             {
-                _gcHandle = new PinnedGCHandle<byte[]>(data),
+                _gcHandle = GCHandle.Alloc(
+                    data,
+                    GCHandleType.Pinned),
                 _data = data,
             };
         }
@@ -22,7 +24,7 @@ namespace System.Security.Cryptography
         public void Dispose()
         {
             Array.Clear(_data);
-            _gcHandle.Dispose();
+            _gcHandle.Free();
         }
     }
 }

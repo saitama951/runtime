@@ -19,6 +19,19 @@ namespace Internal.IL.Stubs
             Debug.Assert(((MetadataType)method.OwningType).Name == "RuntimeHelpers");
             string methodName = method.Name;
 
+            if (methodName == "GetMethodTable")
+            {
+                ILEmitter emit = new ILEmitter();
+                ILCodeStream codeStream = emit.NewCodeStream();
+                codeStream.EmitLdArg(0);
+                codeStream.Emit(ILOpcode.ldflda, emit.NewToken(method.Context.SystemModule.GetKnownType("System.Runtime.CompilerServices", "RawData").GetField("Data")));
+                codeStream.EmitLdc(-method.Context.Target.PointerSize);
+                codeStream.Emit(ILOpcode.add);
+                codeStream.Emit(ILOpcode.ldind_i);
+                codeStream.Emit(ILOpcode.ret);
+                return emit.Link(method);
+            }
+
             // All the methods handled below are per-instantiation generic methods
             if (method.Instantiation.Length != 1 || method.IsTypicalMethodDefinition)
                 return null;
@@ -30,7 +43,11 @@ namespace Internal.IL.Stubs
                 return null;
 
             bool result;
-            if (methodName == "IsBitwiseEquatable")
+            if (methodName == "IsReference")
+            {
+                result = elementType.IsGCPointer;
+            }
+            else if (methodName == "IsBitwiseEquatable")
             {
                 // Ideally we could detect automatically whether a type is trivially equatable
                 // (i.e., its operator == could be implemented via memcmp). But for now we'll

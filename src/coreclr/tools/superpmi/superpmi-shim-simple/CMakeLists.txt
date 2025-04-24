@@ -53,6 +53,7 @@ if(CLR_CMAKE_HOST_UNIX)
         utilcodestaticnohost
         mscorrc
         coreclrpal
+        palrt
         coreclrminipal
     )
 else()

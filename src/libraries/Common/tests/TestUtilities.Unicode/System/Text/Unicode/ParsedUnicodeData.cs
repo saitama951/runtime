@@ -137,21 +137,10 @@ namespace System.Text.Unicode
                 {
                     if (value.IsSingleCodePoint)
                     {
-                        // Single code point of format "XXXX ; <Name>"
-                        // It is possible to get a * at the end of the line, to add one codepoint to previously added range.
-                        // example:
-                        //     18B00..18CD5  ; KHITAN SMALL SCRIPT CHARACTER-*   <<<< IsSingleCodePoint is false
-                        //     18CFF         ; KHITAN SMALL SCRIPT CHARACTER-*   <<<< IsSingleCodePoint is true
+                        // Single code point of format "XXXX ; <Name>" (name shouldn't end with '*')
 
-                        if (value.PropName.EndsWith('*'))
-                        {
-                            string baseName = value.PropName[..^1];
-                            dict.Add(value.FirstCodePoint, $"{baseName}{value.FirstCodePoint:X4}");
-                        }
-                        else
-                        {
-                            dict.Add(value.FirstCodePoint, value.PropName);
-                        }
+                        Assert.False(value.PropName.EndsWith('*'));
+                        dict.Add(value.FirstCodePoint, value.PropName);
                     }
                     else
                     {

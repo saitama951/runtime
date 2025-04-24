@@ -472,7 +472,7 @@ namespace System.Security.Cryptography.X509Certificates
                     return false;
                 }
 
-                byte[]? certKeyParameters = cert.KeyAlgorithmParameters;
+                byte[] certKeyParameters = cert.KeyAlgorithmParameters;
 
                 switch (certAlgorithm)
                 {
@@ -488,7 +488,6 @@ namespace System.Security.Cryptography.X509Certificates
                     case Oids.EcDiffieHellman:
                         return
                             publicKeyInfo.Algorithm.Parameters.HasValue &&
-                            certKeyParameters is not null &&
                             publicKeyInfo.Algorithm.Parameters.Value.Span.SequenceEqual(certKeyParameters);
                 }
 
@@ -498,8 +497,7 @@ namespace System.Security.Cryptography.X509Certificates
                     return (certKeyParameters?.Length ?? 0) == 0;
                 }
 
-                return certKeyParameters is not null &&
-                    publicKeyInfo.Algorithm.Parameters.Value.Span.SequenceEqual(certKeyParameters);
+                return publicKeyInfo.Algorithm.Parameters.Value.Span.SequenceEqual(certKeyParameters);
             }
 
             private static void ExtractPublicKey(

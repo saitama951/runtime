@@ -4,12 +4,10 @@
 // Tests GC.GetGeneration(null)..should throw exception: System.ArgumentNullException
 
 using System;
-using Xunit;
 
 public class Test_GetGeneration_fail
 {
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         Object obj1 = new Object();
 

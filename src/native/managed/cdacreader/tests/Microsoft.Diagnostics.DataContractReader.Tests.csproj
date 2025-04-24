@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TargetFramework>$(NetCoreAppToolCurrent)</TargetFramework>
@@ -9,10 +9,8 @@
   <Import Project="..\..\subproject.props" />
 
   <ItemGroup>
-    <ProjectReference Include="..\src\cdacreader.csproj" AdditionalProperties="$(SplitSubprojectProps)" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Moq" Version="$(MoqVersion)" />
+      <ProjectReference Include="..\src\cdacreader.csproj"
+                        AdditionalProperties="$(SplitSubprojectProps)"/>
   </ItemGroup>
 
 </Project>

@@ -5,3 +5,4 @@ if (CLR_CMAKE_HOST_UNIX)
 else (CLR_CMAKE_HOST_UNIX)
     add_subdirectory(Windows)
 endif (CLR_CMAKE_HOST_UNIX)
+

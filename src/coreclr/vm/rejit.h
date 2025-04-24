@@ -114,6 +114,7 @@ public:
     static CORJIT_FLAGS JitFlagsFromProfCodegenFlags(DWORD dwCodegenFlags);
 
     static ReJITID GetReJitId(PTR_MethodDesc pMD, PCODE pCodeStart);
+    static ReJITID GetReJitIdNoLock(PTR_MethodDesc pMD, PCODE pCodeStart);
     static HRESULT GetReJITIDs(PTR_MethodDesc pMD, ULONG cReJitIds, ULONG * pcReJitIds, ReJITID reJitIds[]);
 
 #ifdef FEATURE_REJIT

@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Needed for CLRTestTargetUnsupported, GCStressIncompatible -->
-    <RequiresProcessIsolation>true</RequiresProcessIsolation>
+    <OutputType>Exe</OutputType>
     <CLRTestExecutionArguments />
     <GCStressIncompatible>true</GCStressIncompatible>
     <!-- Consider enable it for Mono whenever the implementation is ready -->

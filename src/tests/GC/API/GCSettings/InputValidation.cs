@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime;
-using Xunit;
 
 //Testing what GC Latency Modes can be set, depending on what is the original GC setting
 public class InputValidation
@@ -13,8 +12,7 @@ public class InputValidation
     static bool server = false;
     static bool nonConcurrent = false;
 
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         //Detect on what config we are running
         if (!DetectInitialMode())

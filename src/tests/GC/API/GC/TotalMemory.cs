@@ -4,12 +4,10 @@
 // Tests GC.TotalMemory
 
 using System;
-using Xunit;
 
 public class Test_TotalMemory {
 
-    [Fact]
-    public static int TestEntryPoint() {
+    public static int Main() {
 
         GC.Collect();
         GC.Collect();

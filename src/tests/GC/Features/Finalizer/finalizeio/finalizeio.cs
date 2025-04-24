@@ -6,7 +6,6 @@
 using System;
 using System.IO;
 using System.Runtime.CompilerServices;
-using Xunit;
 
 public class Test_finalizeio {
 
@@ -52,8 +51,7 @@ public class Test_finalizeio {
         }
     }
 
-    [Fact]
-    public static int TestEntryPoint() {
+    public static int Main() {
         CreateObj temp = new CreateObj();
 
         using (StreamWriter writer = File.CreateText("temp.txt"))

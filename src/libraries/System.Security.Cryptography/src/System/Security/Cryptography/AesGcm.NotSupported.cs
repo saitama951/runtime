@@ -7,39 +7,39 @@ namespace System.Security.Cryptography
 {
     public partial class AesGcm
     {
-        public static partial bool IsSupported => false;
-        public static partial KeySizes TagByteSizes => new KeySizes(12, 16, 1);
+        public static bool IsSupported => false;
+        public static KeySizes TagByteSizes { get; } = new KeySizes(12, 16, 1);
 
 #pragma warning disable CA1822, IDE0060
-        private partial void ImportKey(ReadOnlySpan<byte> key)
+        private void ImportKey(ReadOnlySpan<byte> key)
         {
             Debug.Fail("Instance ctor should fail before we reach this point.");
             throw new NotImplementedException();
         }
 
-        private partial void EncryptCore(
+        private void EncryptCore(
             ReadOnlySpan<byte> nonce,
             ReadOnlySpan<byte> plaintext,
             Span<byte> ciphertext,
             Span<byte> tag,
-            ReadOnlySpan<byte> associatedData)
+            ReadOnlySpan<byte> associatedData = default)
         {
             Debug.Fail("Instance ctor should fail before we reach this point.");
             throw new NotImplementedException();
         }
 
-        private partial void DecryptCore(
+        private void DecryptCore(
             ReadOnlySpan<byte> nonce,
             ReadOnlySpan<byte> ciphertext,
             ReadOnlySpan<byte> tag,
             Span<byte> plaintext,
-            ReadOnlySpan<byte> associatedData)
+            ReadOnlySpan<byte> associatedData = default)
         {
             Debug.Fail("Instance ctor should fail before we reach this point.");
             throw new NotImplementedException();
         }
 
-        public partial void Dispose()
+        public void Dispose()
         {
             Debug.Fail("Instance ctor should fail before we reach this point.");
             // no-op

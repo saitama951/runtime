@@ -53,28 +53,26 @@
 // following format:
 //    {
 //        BEGIN_PROFILER_CALLBACK(CORProfilerTrackAppDomainLoads());
-//        // call the ProfControlBlock callback wrapper
-//        (&g_profControlBlock)->AppDomainCreationStarted(MyAppDomainID);
+//        g_profControlBlock.pProfInterface->AppDomainCreationStarted(MyAppDomainID);
 //        END_PROFILER_CALLBACK();
 //    }
-// The BEGIN / END macros evaluates the expression argument (CORProfiler*). This is a
+// The BEGIN / END macros do the following:
+// * Evaluate the expression argument (e.g., CORProfilerTrackAppDomainLoads()). This is a
 //     "dirty read" as the profiler could be detached at any moment during or after that
 //     evaluation.
-//
-// The ProfControlBlock callback wrappers call DoOneProfilerIteration, doing the following:
-// * Pushes a code:EvacuationCounterHolder on the stack for the ProfilerInfo, which
-//     increments the per-thread evacuation counter (not interlocked).
-// * Checks the profiler status (code:ProfilerStatus) to see if the profiler is active.
-// * Evaluates the ProfControlBlock condition func (e.g. IsProfilerTrackingAppDomainLoads).
-// * If true, invokes the callback func (e.g. AppDomainCreationStartedHelper) which in turn
-//     calls the EEToProfInterfaceImpl implementation where the profiler is guaranteed to
-//     remain loaded, because the evacuation counter remains nonzero (again, see below).
-// * Once the DoOneProfilerIteration block is exited, the evacuation counter is decremented
-//     and the profiler is unpinned and allowed to detach.
+// * If true, push a code:EvacuationCounterHolder on the stack, which increments the
+//     per-thread evacuation counter (not interlocked).
+// * Re-evaluate the expression argument. This time, it's a "clean read" (see below for
+//     why).
+// * If still true, execute the statements inside the BEGIN/END block. Inside that block,
+//     the profiler is guaranteed to remain loaded, because the evacuation counter
+//     remains nonzero (again, see below).
+// * Once the BEGIN/END block is exited, the evacuation counter is decremented, and the
+//     profiler is unpinned and allowed to detach.
 //
 // READER / WRITER COORDINATION
 //
-// The above ensures that a reader never touches EEToProfInterfaceImpl and
+// The above ensures that a reader never touches g_profControlBlock.pProfInterface and
 // all it embodies (including the profiler DLL code and callback implementations) unless
 // the reader was able to increment its thread's evacuation counter AND re-verify that
 // the profiler's status is still active (the status check is included in the macro's
@@ -317,7 +315,6 @@ void ProfilingAPIUtility::LogProfEventVA(
 
     AppendSupplementaryInformation(iStringResourceID, &messageToLog);
 
-#ifdef FEATURE_EVENT_TRACE
     if (EventEnabledProfilerMessage())
     {
         StackSString messageToLogUtf16;
@@ -326,7 +323,6 @@ void ProfilingAPIUtility::LogProfEventVA(
         // Write to ETW and EventPipe with the message
         FireEtwProfilerMessage(GetClrInstanceId(), messageToLogUtf16.GetUnicode());
     }
-#endif //FEATURE_EVENT_TRACE
 
     // Output debug strings for diagnostic messages.
     OutputDebugStringUtf8(messageToLog.GetUTF8());
@@ -707,8 +703,8 @@ HRESULT ProfilingAPIUtility::AttemptLoadProfilerForStartup()
         return hr;
     }
 
-    char clsidUtf8[MINIPAL_GUID_BUFFER_LEN];
-    minipal_guid_as_string(clsid, clsidUtf8, MINIPAL_GUID_BUFFER_LEN);
+    char clsidUtf8[GUID_STR_BUFFER_LEN];
+    GuidToLPSTR(clsid, clsidUtf8);
     hr = LoadProfiler(
         kStartupLoad,
         &clsid,
@@ -741,8 +737,8 @@ HRESULT ProfilingAPIUtility::AttemptLoadDelayedStartupProfilers()
         LOG((LF_CORPROF, LL_INFO10, "**PROF: Profiler loading from GUID/Path stored from the IPC channel."));
         CLSID *pClsid = &(item->guid);
 
-        char clsidUtf8[MINIPAL_GUID_BUFFER_LEN];
-        minipal_guid_as_string(*pClsid, clsidUtf8, MINIPAL_GUID_BUFFER_LEN);
+        char clsidUtf8[GUID_STR_BUFFER_LEN];
+        GuidToLPSTR(*pClsid, clsidUtf8);
         HRESULT hr = LoadProfiler(
             kStartupLoad,
             pClsid,
@@ -824,8 +820,8 @@ HRESULT ProfilingAPIUtility::AttemptLoadProfilerList()
             continue;
         }
 
-        char clsidUtf8[MINIPAL_GUID_BUFFER_LEN];
-        minipal_guid_as_string(clsid, clsidUtf8, MINIPAL_GUID_BUFFER_LEN);
+        char clsidUtf8[GUID_STR_BUFFER_LEN];
+        GuidToLPSTR(clsid, clsidUtf8);
         hr = LoadProfiler(
             kStartupLoad,
             &clsid,

@@ -358,49 +358,25 @@ HRESULT CallConv::TryGetUnmanagedCallingConventionFromModOpt(
     _ASSERTE(pWalk <= pSig + cSig);
 
     CallConvBuilder& callConvBuilder = *builder;
-    while ((pWalk < (pSig + cSig)) && ((*pWalk == ELEMENT_TYPE_CMOD_OPT) || (*pWalk == ELEMENT_TYPE_CMOD_REQD) || (*pWalk == ELEMENT_TYPE_CMOD_INTERNAL)))
+    while ((pWalk < (pSig + cSig)) && ((*pWalk == ELEMENT_TYPE_CMOD_OPT) || (*pWalk == ELEMENT_TYPE_CMOD_REQD)))
     {
-        CORINFO_MODULE_HANDLE tokenLookupModule = pModule;
+        BOOL fIsOptional = (*pWalk == ELEMENT_TYPE_CMOD_OPT);
+
+        pWalk++;
+        if (pWalk + CorSigUncompressedDataSize(pWalk) > pSig + cSig)
+        {
+            *errorResID = BFA_BAD_SIGNATURE;
+            return COR_E_BADIMAGEFORMAT; // Bad formatting
+        }
+
         mdToken tk;
+        pWalk += CorSigUncompressToken(pWalk, &tk);
+
+        if (!fIsOptional)
+            continue;
+
         LPCSTR typeNamespace;
         LPCSTR typeName;
-        if (*pWalk == ELEMENT_TYPE_CMOD_INTERNAL)
-        {
-            // Skip internal modifiers
-            pWalk++;
-            if (pWalk + 1 + sizeof(void*) > pSig + cSig)
-            {
-                *errorResID = BFA_BAD_SIGNATURE;
-                return COR_E_BADIMAGEFORMAT; // Bad formatting
-            }
-
-            BOOL required = *pWalk++ != 0;
-            void* pType;
-            pWalk += CorSigUncompressPointer(pWalk, &pType);
-            TypeHandle type = TypeHandle::FromPtr(pType);
-            
-            if (!required)
-                continue;
-            
-            tokenLookupModule = GetScopeHandle(type.GetModule());
-            tk = type.GetCl();
-        }
-        else
-        {
-            BOOL fIsOptional = (*pWalk == ELEMENT_TYPE_CMOD_OPT);
-
-            pWalk++;
-            if (pWalk + CorSigUncompressedDataSize(pWalk) > pSig + cSig)
-            {
-                *errorResID = BFA_BAD_SIGNATURE;
-                return COR_E_BADIMAGEFORMAT; // Bad formatting
-            }
-
-            pWalk += CorSigUncompressToken(pWalk, &tk);
-
-            if (!fIsOptional)
-                continue;
-        }
 
         // Check for CallConv types specified in modopt
         if (FAILED(GetNameOfTypeRefOrDef(pModule, tk, &typeNamespace, &typeName)))
@@ -514,14 +490,21 @@ bool CallConv::TryGetCallingConventionFromUnmanagedCallersOnly(_In_ MethodDesc* 
     BYTE* pData = NULL;
     LONG cData = 0;
 
+    bool nativeCallableInternalData = false;
     HRESULT hr = pMD->GetCustomAttribute(WellKnownAttribute::UnmanagedCallersOnly, (const VOID **)(&pData), (ULONG *)&cData);
+    if (hr == S_FALSE)
+    {
+        hr = pMD->GetCustomAttribute(WellKnownAttribute::NativeCallableInternal, (const VOID **)(&pData), (ULONG *)&cData);
+        nativeCallableInternalData = SUCCEEDED(hr);
+    }
+
     IfFailThrow(hr);
 
     _ASSERTE(cData > 0);
 
     CustomAttributeParser ca(pData, cData);
 
-    // UnmanagedCallersOnly each
+    // UnmanagedCallersOnly and NativeCallableInternal each
     // have optional named arguments.
     CaNamedArg namedArgs[2];
 
@@ -529,8 +512,15 @@ bool CallConv::TryGetCallingConventionFromUnmanagedCallersOnly(_In_ MethodDesc* 
     CaType caCallConvs;
 
     // Define attribute specific optional named properties
-    caCallConvs.Init(SERIALIZATION_TYPE_SZARRAY, SERIALIZATION_TYPE_TYPE, SERIALIZATION_TYPE_UNDEFINED, NULL, 0);
-    namedArgs[0].Init("CallConvs", SERIALIZATION_TYPE_SZARRAY, caCallConvs);
+    if (nativeCallableInternalData)
+    {
+        namedArgs[0].InitI4FieldEnum("CallingConvention", "System.Runtime.InteropServices.CallingConvention", (ULONG)(CorPinvokeMap)0);
+    }
+    else
+    {
+        caCallConvs.Init(SERIALIZATION_TYPE_SZARRAY, SERIALIZATION_TYPE_TYPE, SERIALIZATION_TYPE_UNDEFINED, NULL, 0);
+        namedArgs[0].Init("CallConvs", SERIALIZATION_TYPE_SZARRAY, caCallConvs);
+    }
 
     // Define common optional named properties
     CaTypeCtor caEntryPoint(SERIALIZATION_TYPE_STRING);
@@ -552,17 +542,25 @@ bool CallConv::TryGetCallingConventionFromUnmanagedCallersOnly(_In_ MethodDesc* 
     if (namedArgs[0].val.type.tag == SERIALIZATION_TYPE_UNDEFINED)
         return false;
 
-    CallConvBuilder builder;
-    if (!TryGetCallingConventionFromTypeArray(&namedArgs[0].val, &builder))
+    CorInfoCallConvExtension callConvLocal;
+    if (nativeCallableInternalData)
     {
-        // We found a second base calling convention.
-        return false;
+        callConvLocal = (CorInfoCallConvExtension)(namedArgs[0].val.u4 << 8);
     }
-
-    CorInfoCallConvExtension callConvLocal = builder.GetCurrentCallConv();
-    if (callConvLocal == CallConvBuilder::UnsetValue)
+    else
     {
-        callConvLocal = CallConv::GetDefaultUnmanagedCallingConvention();
+        CallConvBuilder builder;
+        if (!TryGetCallingConventionFromTypeArray(&namedArgs[0].val, &builder))
+        {
+            // We found a second base calling convention.
+            return false;
+        }
+
+        callConvLocal = builder.GetCurrentCallConv();
+        if (callConvLocal == CallConvBuilder::UnsetValue)
+        {
+            callConvLocal = CallConv::GetDefaultUnmanagedCallingConvention();
+        }
     }
 
     *pCallConv = callConvLocal;

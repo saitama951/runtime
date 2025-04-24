@@ -93,7 +93,7 @@ namespace Internal.TypeSystem.NoMetadata
         {
             get
             {
-                return NameAndSignature.GetName();
+                return _nameAndSignature.Name;
             }
         }
 
@@ -163,7 +163,7 @@ namespace Internal.TypeSystem.NoMetadata
 
         public override string ToString()
         {
-            string result = OwningType.ToString() + ".Method(" + Name + ")";
+            string result = OwningType.ToString() + ".Method(" + NameAndSignature.Name + ")";
             return result;
         }
 #endif

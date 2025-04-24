@@ -39,10 +39,7 @@ namespace System.Security.Cryptography.X509Certificates
                 return Interop.AndroidCrypto.X509ExportPkcs7(certHandles);
             }
 
-            protected override byte[] ExportPkcs8(
-                ICertificatePalCore certificatePal,
-                PbeParameters pbeParameters,
-                ReadOnlySpan<char> password)
+            protected override byte[] ExportPkcs8(ICertificatePalCore certificatePal, ReadOnlySpan<char> password)
             {
                 Debug.Assert(certificatePal.HasPrivateKey);
                 SafeKeyHandle? privateKey = ((AndroidCertificatePal)certificatePal).PrivateKeyHandle;
@@ -65,7 +62,7 @@ namespace System.Security.Cryptography.X509Certificates
 
                 using (algorithm)
                 {
-                    return algorithm.ExportEncryptedPkcs8PrivateKey(password, pbeParameters);
+                    return algorithm.ExportEncryptedPkcs8PrivateKey(password, s_windowsPbe);
                 }
             }
         }

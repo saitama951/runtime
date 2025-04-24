@@ -932,7 +932,8 @@ tHP28fj0LUop/QFojSZPsaPAW6JvoQ0t4hd6WoyX6z7FsA==
         }
 
         [Fact]
-        public static void ChainWithEmptySubjectAndCritialSan()
+        [SkipOnPlatform(TestPlatforms.Android, "Chain building on Android fails with an empty subject")]
+        public static void ChainWithEmptySubject()
         {
             using (var cert = new X509Certificate2(TestData.EmptySubjectCertificate))
             using (var issuer = new X509Certificate2(TestData.EmptySubjectIssuerCertificate))

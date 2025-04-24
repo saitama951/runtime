@@ -32,32 +32,34 @@ namespace System.Linq
             public TElement? TryGetLast(Func<TElement, bool> predicate, out bool found)
             {
                 CachingComparer<TElement> comparer = GetComparer();
-                using IEnumerator<TElement> e = _source.GetEnumerator();
-                TElement value;
-                do
+                using (IEnumerator<TElement> e = _source.GetEnumerator())
                 {
-                    if (!e.MoveNext())
+                    TElement value;
+                    do
                     {
-                        found = false;
-                        return default;
+                        if (!e.MoveNext())
+                        {
+                            found = false;
+                            return default;
+                        }
+
+                        value = e.Current;
+                    }
+                    while (!predicate(value));
+
+                    comparer.SetElement(value);
+                    while (e.MoveNext())
+                    {
+                        TElement x = e.Current;
+                        if (predicate(x) && comparer.Compare(x, false) >= 0)
+                        {
+                            value = x;
+                        }
                     }
 
-                    value = e.Current;
+                    found = true;
+                    return value;
                 }
-                while (!predicate(value));
-
-                comparer.SetElement(value);
-                while (e.MoveNext())
-                {
-                    TElement x = e.Current;
-                    if (predicate(x) && comparer.Compare(x, false) >= 0)
-                    {
-                        value = x;
-                    }
-                }
-
-                found = true;
-                return value;
             }
         }
 

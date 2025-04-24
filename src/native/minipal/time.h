@@ -12,10 +12,10 @@ extern "C"
 #endif // __cplusplus
 
     // Returns current count of high resolution monotonically increasing timer ticks
-    int64_t minipal_hires_ticks(void);
+    int64_t minipal_hires_ticks();
 
     // Returns the frequency of high resolution timer ticks in Hz
-    int64_t minipal_hires_tick_frequency(void);
+    int64_t minipal_hires_tick_frequency();
 
     // Delays execution of current thread by `usecs` microseconds.
     // The delay is best-effort and may take longer than desired.

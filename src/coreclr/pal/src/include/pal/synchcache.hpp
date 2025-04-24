@@ -2,6 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 /*++
+
+
+
 Module Name:
 
     include/pal/synchcache.hpp
@@ -9,13 +12,16 @@ Module Name:
 Abstract:
     Simple look-aside cache for unused objects with default
     constructor or no constructor
+
+
+
 --*/
 
 #ifndef _SYNCH_CACHE_H_
 #define _SYNCH_CACHE_H_
 
 #include "pal/thread.hpp"
-#include <new>
+#include "pal/malloc.hpp"
 
 namespace CorUnix
 {
@@ -110,7 +116,7 @@ namespace CorUnix
 
             for (j=i;j<n;j++)
             {
-                pvObjRaw = (void *) new(std::nothrow) USynchCacheStackNode();
+                pvObjRaw = (void *) InternalNew<USynchCacheStackNode>();
                 if (NULL == pvObjRaw)
                     break;
 #ifdef _DEBUG
@@ -153,7 +159,7 @@ namespace CorUnix
             }
             else
             {
-                delete (char *)pNode;
+                InternalDelete((char *)pNode);
             }
             Unlock(pthrCurrent);
         }
@@ -178,7 +184,7 @@ namespace CorUnix
             {
                 pTemp = pNode;
                 pNode = pNode->next;
-                delete (char *)pTemp;
+                InternalDelete((char *)pTemp);
             }
         }
     };
@@ -199,7 +205,7 @@ namespace CorUnix
 
         static const int MaxDepth       = 256;
         static const int PreAllocFactor = 10; // Everytime a Get finds no available
-                                              // cached raw instances, it preallocates
+                                              // cached raw intances, it preallocates
                                               // MaxDepth/PreAllocFactor new raw
                                               // instances and store them into the
                                               // cache before continuing

@@ -1,25 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk" DefaultTargets="Publish;PublishItemsOutputGroup">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <CrossHostArch Condition="'$(_BuildAnyCrossArch)' == 'true'">$(BuildArchitecture)</CrossHostArch>
-    <_IsPublishing>true</_IsPublishing>
-    <RuntimeIdentifier>$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
-    <PublishDir>$(RuntimeBinDir)$(BuildArchitecture)/crossgen2/</PublishDir>
-    <SelfContained>true</SelfContained>
-    <PublishTrimmed>true</PublishTrimmed>
-    <!--
-      Publish with AOT on Windows as Single file doesn't work well when an app has to include DiaSymReader.Native.
-      Publish single-file elsewhere so we don't need to adjust our "AOT in build" logic to handle targeting the SDK RID.
-    -->
-    <PublishAot Condition="$(NETCoreSdkPortableRuntimeIdentifier.StartsWith('win-'))">true</PublishAot>
-    <PublishSingleFile Condition="'$(PublishAot)' != 'true'">true</PublishSingleFile>
-    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <CrossHostArch Condition="'$(CrossBuild)' == 'true' or '$(TargetArchitecture)' != '$(BuildArchitecture)' or '$(HostOS)' != '$(TargetOS)' or '$(EnableNativeSanitizers)' != ''">$(BuildArchitecture)</CrossHostArch>
+    <OutputPath>$(RuntimeBinDir)/$(BuildArchitecture)/crossgen2/tools</OutputPath>
+    <TargetFramework>$(NetCoreAppToolCurrent)</TargetFramework>
   </PropertyGroup>
-
-  <PropertyGroup Condition="'$(CrossBuild)' != 'true' or ('$(StageOneBuild)' != 'true' and '$(StageTwoBuild)' != 'true')">
-    <PublishReadyToRun>true</PublishReadyToRun>
-    <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
-  </PropertyGroup>
-
   <Import Project="crossgen2.props" />
-
 </Project>

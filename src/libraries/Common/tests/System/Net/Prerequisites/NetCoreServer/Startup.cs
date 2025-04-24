@@ -10,6 +10,10 @@ using Microsoft.Extensions.Configuration;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Exporter.Geneva;
+using System.Diagnostics.Metrics;
+using Microsoft.AspNetCore.Http;
+using System.Threading.Tasks;
+using System.Diagnostics;
 using System.Collections.Generic;
 #endif
 
@@ -27,8 +31,7 @@ namespace NetCoreServer
         public void ConfigureServices(IServiceCollection services)
         {
 #if GENEVA_TELEMETRY
-            services.AddOpenTelemetry()
-                .WithMetrics((builder) => builder
+            services.AddOpenTelemetryMetrics((builder) => builder
                 .AddAspNetCoreInstrumentation()
                 .AddGenevaMetricExporter(options =>
                 {

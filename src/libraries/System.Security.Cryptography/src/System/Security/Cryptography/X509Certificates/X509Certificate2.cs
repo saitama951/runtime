@@ -318,15 +318,11 @@ namespace System.Security.Cryptography.X509Certificates
                 if (publicKey == null)
                 {
                     string keyAlgorithmOid = GetKeyAlgorithm();
-                    byte[]? parameters = Pal.KeyAlgorithmParameters;
+                    byte[] parameters = Pal.KeyAlgorithmParameters;
                     byte[] keyValue = Pal.PublicKeyValue;
                     Oid oid = new Oid(keyAlgorithmOid);
                     // PublicKey can use skipCopy because AsnEncodedData creates a defensive copy of the values.
-                    publicKey = _lazyPublicKey = new PublicKey(
-                        oid,
-                        parameters is null ? null : new AsnEncodedData(oid, parameters),
-                        new AsnEncodedData(oid, keyValue),
-                        skipCopy: true);
+                    publicKey = _lazyPublicKey = new PublicKey(oid, new AsnEncodedData(oid, parameters), new AsnEncodedData(oid, keyValue), skipCopy: true);
                 }
 
                 return publicKey;
@@ -595,11 +591,7 @@ namespace System.Security.Cryptography.X509Certificates
 
                 sb.Append("  ");
                 sb.Append("Parameters: ");
-
-                if (pubKey.EncodedParameters is AsnEncodedData parameters)
-                {
-                    sb.Append(parameters.Format(true));
-                }
+                sb.Append(pubKey.EncodedParameters.Format(true));
             }
             catch (CryptographicException)
             {
@@ -1088,7 +1080,7 @@ namespace System.Security.Cryptography.X509Certificates
         [UnsupportedOSPlatform("browser")]
         public static X509Certificate2 CreateFromPem(ReadOnlySpan<char> certPem)
         {
-            foreach ((ReadOnlySpan<char> contents, PemFields fields) in PemEnumerator.Utf16(certPem))
+            foreach ((ReadOnlySpan<char> contents, PemFields fields) in new PemEnumerator(certPem))
             {
                 ReadOnlySpan<char> label = contents[fields.Label];
 
@@ -1440,7 +1432,7 @@ namespace System.Security.Cryptography.X509Certificates
             Func<TAlg> factory,
             Func<TAlg, X509Certificate2> import) where TAlg : AsymmetricAlgorithm
         {
-            foreach ((ReadOnlySpan<char> contents, PemFields fields) in PemEnumerator.Utf16(keyPem))
+            foreach ((ReadOnlySpan<char> contents, PemFields fields) in new PemEnumerator(keyPem))
             {
                 ReadOnlySpan<char> label = contents[fields.Label];
 
@@ -1474,7 +1466,7 @@ namespace System.Security.Cryptography.X509Certificates
             Func<TAlg> factory,
             Func<TAlg, X509Certificate2> import) where TAlg : AsymmetricAlgorithm
         {
-            foreach ((ReadOnlySpan<char> contents, PemFields fields) in PemEnumerator.Utf16(keyPem))
+            foreach ((ReadOnlySpan<char> contents, PemFields fields) in new PemEnumerator(keyPem))
             {
                 ReadOnlySpan<char> label = contents[fields.Label];
 
@@ -1504,7 +1496,7 @@ namespace System.Security.Cryptography.X509Certificates
         internal static X509Extension? CreateCustomExtensionIfAny(string? oidValue) =>
             oidValue switch
             {
-                Oids.BasicConstraints => LegacyBasicConstraintsDecoder.IsSupported ? new X509BasicConstraintsExtension() : null,
+                Oids.BasicConstraints => X509Pal.Instance.SupportsLegacyBasicConstraintsExtension ? new X509BasicConstraintsExtension() : null,
                 Oids.BasicConstraints2 => new X509BasicConstraintsExtension(),
                 Oids.KeyUsage => new X509KeyUsageExtension(),
                 Oids.EnhancedKeyUsage => new X509EnhancedKeyUsageExtension(),

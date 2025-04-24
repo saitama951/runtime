@@ -5,7 +5,6 @@
 
 using System;
 using System.Runtime.CompilerServices;
-using Xunit;
 
 
 public class Bug426480
@@ -34,8 +33,7 @@ public class Bug426480
     }
 
     [MethodImplAttribute(MethodImplOptions.NoInlining)]
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         try
         {

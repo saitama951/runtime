@@ -36,7 +36,7 @@ namespace System
         }
 #endif
 
-#if FEATURE_PERFTRACING && !TARGET_BROWSER
+#if FEATURE_PERFTRACING
         internal static void LogSwitchValues(RuntimeEventSource ev)
         {
             if (s_switches is not null)

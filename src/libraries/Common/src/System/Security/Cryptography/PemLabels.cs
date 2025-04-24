@@ -15,8 +15,5 @@ namespace System.Security.Cryptography
         internal const string Pkcs7Certificate = "PKCS7";
         internal const string X509CertificateRevocationList = "X509 CRL";
         internal const string Pkcs10CertificateRequest = "CERTIFICATE REQUEST";
-
-        internal static ReadOnlySpan<byte> X509CertificateUtf8 => "CERTIFICATE"u8;
-        internal static ReadOnlySpan<byte> Pkcs7CertificateUtf8 => "PKCS7"u8;
     }
 }

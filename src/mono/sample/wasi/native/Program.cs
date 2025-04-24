@@ -4,8 +4,6 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace Sample;
-
 public unsafe class Test
 {
     [UnmanagedCallersOnly(EntryPoint = "ManagedFunc")]

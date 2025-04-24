@@ -511,9 +511,9 @@ OBJECTREF TypeDesc::GetManagedClassObject()
     }
     CONTRACTL_END;
 
-    if (_exposedClassObject == 0)
+    if (m_hExposedClassObject == 0)
     {
-        TypeHandle(this).AllocateManagedClassObject(&_exposedClassObject);
+        TypeHandle(this).AllocateManagedClassObject(&m_hExposedClassObject);
     }
     return GetManagedClassObjectIfExists();
 }
@@ -527,9 +527,9 @@ ClassLoadLevel TypeDesc::GetLoadLevel()
     STATIC_CONTRACT_FORBID_FAULT;
     SUPPORTS_DAC;
 
-    if (_typeAndFlags & TypeDesc::enum_flag_IsNotFullyLoaded)
+    if (m_typeAndFlags & TypeDesc::enum_flag_IsNotFullyLoaded)
     {
-        if (_typeAndFlags & TypeDesc::enum_flag_DependenciesLoaded)
+        if (m_typeAndFlags & TypeDesc::enum_flag_DependenciesLoaded)
         {
             return CLASS_DEPENDENCIES_LOADED;
         }
@@ -640,7 +640,7 @@ void TypeDesc::DoFullyLoad(Generics::RecursionGraph *pVisited, ClassLoadLevel le
     switch (level)
     {
         case CLASS_DEPENDENCIES_LOADED:
-            InterlockedOr((LONG*)&_typeAndFlags, TypeDesc::enum_flag_DependenciesLoaded);
+            InterlockedOr((LONG*)&m_typeAndFlags, TypeDesc::enum_flag_DependenciesLoaded);
             break;
 
         case CLASS_LOADED:
@@ -1455,7 +1455,7 @@ BOOL TypeVarTypeDesc::SatisfiesConstraints(SigTypeContext *pTypeContextOfConstra
 
         if ((specialConstraints & gpDefaultConstructorConstraint) != 0)
         {
-            if (thArg.IsTypeDesc() || (!thArg.AsMethodTable()->HasExplicitOrImplicitPublicDefaultConstructor() || thArg.IsAbstract()))
+            if (thArg.IsTypeDesc() || (!thArg.AsMethodTable()->HasExplicitOrImplicitPublicDefaultConstructor()))
                 return FALSE;
         }
 

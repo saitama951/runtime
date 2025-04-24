@@ -29,10 +29,6 @@ namespace System
             throw new ArgumentException(SR.Argument_InputAndDestinationSpanMustNotOverlap, "destination");
 
         [DoesNotReturn]
-        public static void ThrowArgument_DestinationSpansMustNotOverlap() =>
-            throw new ArgumentException(SR.Argument_DestinationSpansMustNotOverlap);
-
-        [DoesNotReturn]
         internal static void ThrowArrayTypeMismatchException()
         {
             throw new ArrayTypeMismatchException();
@@ -231,18 +227,6 @@ namespace System
         internal static void ThrowArgument_CannotReshapeNonContiguousOrDense()
         {
             throw new ArgumentException(SR.Argument_CannotReshapeNonContiguousOrDense);
-        }
-
-        [DoesNotReturn]
-        internal static void ThrowArgument_MinGreaterThanMax()
-        {
-            throw new ArgumentException(SR.Argument_MinGreaterThanMax);
-        }
-
-        [DoesNotReturn]
-        internal static void ThrowArithmetic_NaN()
-        {
-            throw new ArithmeticException(SR.Arithmetic_NaN);
         }
     }
 }

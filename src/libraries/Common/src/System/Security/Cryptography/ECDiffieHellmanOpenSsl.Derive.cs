@@ -92,15 +92,7 @@ namespace System.Security.Cryptography
 
             using (SafeEcKeyHandle ecKey = Interop.Crypto.EvpPkeyGetEcKey(_key.Value))
             {
-                if (ecKey == null || ecKey.IsInvalid)
-                {
-                    // This may happen when EVP_PKEY was created by provider and getting EC_KEY is not possible.
-                    thisIsNamed = Interop.Crypto.EvpPKeyHasCurveName(_key.Value);
-                }
-                else
-                {
-                    thisIsNamed = Interop.Crypto.EcKeyHasCurveName(ecKey);
-                }
+                thisIsNamed = Interop.Crypto.EcKeyHasCurveName(ecKey);
             }
 
             ECDiffieHellmanOpenSslPublicKey? otherKey = otherPartyPublicKey as ECDiffieHellmanOpenSslPublicKey;

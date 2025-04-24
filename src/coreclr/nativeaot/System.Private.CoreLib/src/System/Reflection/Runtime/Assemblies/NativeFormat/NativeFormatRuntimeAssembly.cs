@@ -20,17 +20,21 @@ namespace System.Reflection.Runtime.Assemblies.NativeFormat
 {
     internal sealed partial class NativeFormatRuntimeAssembly : RuntimeAssemblyInfo
     {
-        private NativeFormatRuntimeAssembly(MetadataReader reader, ScopeDefinitionHandle scope)
+        private NativeFormatRuntimeAssembly(MetadataReader reader, ScopeDefinitionHandle scope, IEnumerable<QScopeDefinition> overflowScopes)
         {
             Scope = new QScopeDefinition(reader, scope);
+            OverflowScopes = overflowScopes;
         }
 
         public sealed override IEnumerable<CustomAttributeData> CustomAttributes
         {
             get
             {
-                foreach (CustomAttributeData cad in RuntimeCustomAttributeData.GetCustomAttributes(Scope.Reader, Scope.ScopeDefinition.CustomAttributes))
-                    yield return cad;
+                foreach (QScopeDefinition scope in AllScopes)
+                {
+                    foreach (CustomAttributeData cad in RuntimeCustomAttributeData.GetCustomAttributes(scope.Reader, scope.ScopeDefinition.CustomAttributes))
+                        yield return cad;
+                }
             }
         }
 
@@ -39,14 +43,17 @@ namespace System.Reflection.Runtime.Assemblies.NativeFormat
             [RequiresUnreferencedCode("Types might be removed")]
             get
             {
-                MetadataReader reader = Scope.Reader;
-                ScopeDefinition scopeDefinition = Scope.ScopeDefinition;
-                IEnumerable<NamespaceDefinitionHandle> topLevelNamespaceHandles = new NamespaceDefinitionHandle[] { scopeDefinition.RootNamespaceDefinition };
-                IEnumerable<NamespaceDefinitionHandle> allNamespaceHandles = reader.GetTransitiveNamespaces(topLevelNamespaceHandles);
-                IEnumerable<TypeDefinitionHandle> allTopLevelTypes = reader.GetTopLevelTypes(allNamespaceHandles);
-                IEnumerable<TypeDefinitionHandle> allTypes = reader.GetTransitiveTypes(allTopLevelTypes, publicOnly: false);
-                foreach (TypeDefinitionHandle typeDefinitionHandle in allTypes)
-                    yield return (TypeInfo)typeDefinitionHandle.GetNamedType(reader).ToType();
+                foreach (QScopeDefinition scope in AllScopes)
+                {
+                    MetadataReader reader = scope.Reader;
+                    ScopeDefinition scopeDefinition = scope.ScopeDefinition;
+                    IEnumerable<NamespaceDefinitionHandle> topLevelNamespaceHandles = new NamespaceDefinitionHandle[] { scopeDefinition.RootNamespaceDefinition };
+                    IEnumerable<NamespaceDefinitionHandle> allNamespaceHandles = reader.GetTransitiveNamespaces(topLevelNamespaceHandles);
+                    IEnumerable<TypeDefinitionHandle> allTopLevelTypes = reader.GetTopLevelTypes(allNamespaceHandles);
+                    IEnumerable<TypeDefinitionHandle> allTypes = reader.GetTransitiveTypes(allTopLevelTypes, publicOnly: false);
+                    foreach (TypeDefinitionHandle typeDefinitionHandle in allTypes)
+                        yield return (TypeInfo)typeDefinitionHandle.GetNamedType(reader).ToType();
+                }
             }
         }
 
@@ -55,14 +62,17 @@ namespace System.Reflection.Runtime.Assemblies.NativeFormat
             [RequiresUnreferencedCode("Types might be removed")]
             get
             {
-                MetadataReader reader = Scope.Reader;
-                ScopeDefinition scopeDefinition = Scope.ScopeDefinition;
-                IEnumerable<NamespaceDefinitionHandle> topLevelNamespaceHandles = new NamespaceDefinitionHandle[] { scopeDefinition.RootNamespaceDefinition };
-                IEnumerable<NamespaceDefinitionHandle> allNamespaceHandles = reader.GetTransitiveNamespaces(topLevelNamespaceHandles);
-                IEnumerable<TypeDefinitionHandle> allTopLevelTypes = reader.GetTopLevelTypes(allNamespaceHandles);
-                IEnumerable<TypeDefinitionHandle> allTypes = reader.GetTransitiveTypes(allTopLevelTypes, publicOnly: true);
-                foreach (TypeDefinitionHandle typeDefinitionHandle in allTypes)
-                    yield return typeDefinitionHandle.ResolveTypeDefinition(reader).ToType();
+                foreach (QScopeDefinition scope in AllScopes)
+                {
+                    MetadataReader reader = scope.Reader;
+                    ScopeDefinition scopeDefinition = scope.ScopeDefinition;
+                    IEnumerable<NamespaceDefinitionHandle> topLevelNamespaceHandles = new NamespaceDefinitionHandle[] { scopeDefinition.RootNamespaceDefinition };
+                    IEnumerable<NamespaceDefinitionHandle> allNamespaceHandles = reader.GetTransitiveNamespaces(topLevelNamespaceHandles);
+                    IEnumerable<TypeDefinitionHandle> allTopLevelTypes = reader.GetTopLevelTypes(allNamespaceHandles);
+                    IEnumerable<TypeDefinitionHandle> allTypes = reader.GetTransitiveTypes(allTopLevelTypes, publicOnly: true);
+                    foreach (TypeDefinitionHandle typeDefinitionHandle in allTypes)
+                        yield return typeDefinitionHandle.ResolveTypeDefinition(reader).ToType();
+                }
             }
         }
 
@@ -70,16 +80,22 @@ namespace System.Reflection.Runtime.Assemblies.NativeFormat
         {
             get
             {
-                MetadataReader reader = Scope.Reader;
+                // The scope that defines metadata for the owning type of the entrypoint will be the one
+                // to carry the entrypoint token information. Find it by iterating over all scopes.
 
-                QualifiedMethodHandle entrypointHandle = Scope.ScopeDefinition.EntryPoint;
-                if (!entrypointHandle.IsNil)
+                foreach (QScopeDefinition scope in AllScopes)
                 {
-                    QualifiedMethod entrypointMethod = entrypointHandle.GetQualifiedMethod(reader);
-                    TypeDefinitionHandle declaringTypeHandle = entrypointMethod.EnclosingType;
-                    MethodHandle methodHandle = entrypointMethod.Method;
-                    NativeFormatRuntimeNamedTypeInfo containingType = NativeFormatRuntimeNamedTypeInfo.GetRuntimeNamedTypeInfo(reader, declaringTypeHandle, default(RuntimeTypeHandle));
-                    return RuntimeNamedMethodInfo<NativeFormatMethodCommon>.GetRuntimeNamedMethodInfo(new NativeFormatMethodCommon(methodHandle, containingType, containingType), containingType);
+                    MetadataReader reader = scope.Reader;
+
+                    QualifiedMethodHandle entrypointHandle = scope.ScopeDefinition.EntryPoint;
+                    if (!entrypointHandle.IsNil)
+                    {
+                        QualifiedMethod entrypointMethod = entrypointHandle.GetQualifiedMethod(reader);
+                        TypeDefinitionHandle declaringTypeHandle = entrypointMethod.EnclosingType;
+                        MethodHandle methodHandle = entrypointMethod.Method;
+                        NativeFormatRuntimeNamedTypeInfo containingType = NativeFormatRuntimeNamedTypeInfo.GetRuntimeNamedTypeInfo(reader, declaringTypeHandle, default(RuntimeTypeHandle));
+                        return RuntimeNamedMethodInfo<NativeFormatMethodCommon>.GetRuntimeNamedMethodInfo(new NativeFormatMethodCommon(methodHandle, containingType, containingType), containingType);
+                    }
                 }
 
                 return null;
@@ -90,22 +106,25 @@ namespace System.Reflection.Runtime.Assemblies.NativeFormat
         {
             get
             {
-                MetadataReader reader = Scope.Reader;
-                ScopeDefinition scopeDefinition = Scope.ScopeDefinition;
-                IEnumerable<NamespaceDefinitionHandle> topLevelNamespaceHandles = new NamespaceDefinitionHandle[] { scopeDefinition.RootNamespaceDefinition };
-                IEnumerable<NamespaceDefinitionHandle> allNamespaceHandles = reader.GetTransitiveNamespaces(topLevelNamespaceHandles);
-                foreach (NamespaceDefinitionHandle namespaceHandle in allNamespaceHandles)
+                foreach (QScopeDefinition scope in AllScopes)
                 {
-                    string? namespaceName = null;
-                    foreach (TypeForwarderHandle typeForwarderHandle in namespaceHandle.GetNamespaceDefinition(reader).TypeForwarders)
+                    MetadataReader reader = scope.Reader;
+                    ScopeDefinition scopeDefinition = scope.ScopeDefinition;
+                    IEnumerable<NamespaceDefinitionHandle> topLevelNamespaceHandles = new NamespaceDefinitionHandle[] { scopeDefinition.RootNamespaceDefinition };
+                    IEnumerable<NamespaceDefinitionHandle> allNamespaceHandles = reader.GetTransitiveNamespaces(topLevelNamespaceHandles);
+                    foreach (NamespaceDefinitionHandle namespaceHandle in allNamespaceHandles)
                     {
-                        namespaceName ??= namespaceHandle.ToNamespaceName(reader);
+                        string? namespaceName = null;
+                        foreach (TypeForwarderHandle typeForwarderHandle in namespaceHandle.GetNamespaceDefinition(reader).TypeForwarders)
+                        {
+                            namespaceName ??= namespaceHandle.ToNamespaceName(reader);
 
-                        TypeForwarder typeForwarder = typeForwarderHandle.GetTypeForwarder(reader);
-                        string typeName = typeForwarder.Name.GetString(reader);
-                        RuntimeAssemblyName redirectedAssemblyName = typeForwarder.Scope.ToRuntimeAssemblyName(reader);
+                            TypeForwarder typeForwarder = typeForwarderHandle.GetTypeForwarder(reader);
+                            string typeName = typeForwarder.Name.GetString(reader);
+                            RuntimeAssemblyName redirectedAssemblyName = typeForwarder.Scope.ToRuntimeAssemblyName(reader);
 
-                        yield return new TypeForwardInfo(redirectedAssemblyName, namespaceName, typeName);
+                            yield return new TypeForwardInfo(redirectedAssemblyName, namespaceName, typeName);
+                        }
                     }
                 }
             }
@@ -175,5 +194,20 @@ namespace System.Reflection.Runtime.Assemblies.NativeFormat
         }
 
         internal QScopeDefinition Scope { get; }
+
+        internal IEnumerable<QScopeDefinition> OverflowScopes { get; }
+
+        internal IEnumerable<QScopeDefinition> AllScopes
+        {
+            get
+            {
+                yield return Scope;
+
+                foreach (QScopeDefinition overflowScope in OverflowScopes)
+                {
+                    yield return overflowScope;
+                }
+            }
+        }
     }
 }

@@ -8,7 +8,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using TestLibrary;
 using Xunit;
 
 namespace Runtime_64125
@@ -6935,7 +6934,6 @@ namespace Runtime_64125
         }
 
         [Fact]
-        [ActiveIssue("https://github.com/dotnet/runtime/issues/91923", typeof(PlatformDetection), nameof(PlatformDetection.IsAppleMobile))]
         public static unsafe int TestEntryPoint()
         {
             var anyLocation = new AnyLocation();

@@ -41,7 +41,7 @@ namespace System
             }
 
             [MethodImpl(MethodImplOptions.NoInlining)]
-            private static ComInfo? FromObjectSlow(object target)
+            private static unsafe ComInfo? FromObjectSlow(object target)
             {
                 IntPtr pComWeakRef = ObjectToComWeakRef(target, out long wrapperId);
                 if (pComWeakRef == 0)

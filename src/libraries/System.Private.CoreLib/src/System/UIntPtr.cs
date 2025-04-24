@@ -438,27 +438,47 @@ namespace System
         /// <inheritdoc cref="IBinaryInteger{TSelf}.TryWriteBigEndian(Span{byte}, out int)" />
         bool IBinaryInteger<nuint>.TryWriteBigEndian(Span<byte> destination, out int bytesWritten)
         {
-            if (BinaryPrimitives.TryWriteUIntPtrBigEndian(destination, _value))
+            if (destination.Length >= sizeof(nuint_t))
             {
+                nuint_t value = (nuint_t)_value;
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    value = BinaryPrimitives.ReverseEndianness(value);
+                }
+                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), value);
+
                 bytesWritten = sizeof(nuint_t);
                 return true;
             }
-
-            bytesWritten = 0;
-            return false;
+            else
+            {
+                bytesWritten = 0;
+                return false;
+            }
         }
 
         /// <inheritdoc cref="IBinaryInteger{TSelf}.TryWriteLittleEndian(Span{byte}, out int)" />
         bool IBinaryInteger<nuint>.TryWriteLittleEndian(Span<byte> destination, out int bytesWritten)
         {
-            if (BinaryPrimitives.TryWriteUIntPtrLittleEndian(destination, _value))
+            if (destination.Length >= sizeof(nuint_t))
             {
+                nuint_t value = (nuint_t)_value;
+
+                if (!BitConverter.IsLittleEndian)
+                {
+                    value = BinaryPrimitives.ReverseEndianness(value);
+                }
+                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), value);
+
                 bytesWritten = sizeof(nuint_t);
                 return true;
             }
-
-            bytesWritten = 0;
-            return false;
+            else
+            {
+                bytesWritten = 0;
+                return false;
+            }
         }
 
         //

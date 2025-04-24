@@ -12,7 +12,7 @@ DATA_SLOT macro stub, field
 endm
 
 LEAF_ENTRY StubPrecodeCode, _TEXT
-        mov    r10, QWORD PTR [DATA_SLOT(StubPrecode, SecretParam)]
+        mov    r10, QWORD PTR [DATA_SLOT(StubPrecode, MethodDesc)]
         jmp    QWORD PTR [DATA_SLOT(StubPrecode, Target)]
 LEAF_END_MARKED StubPrecodeCode, _TEXT
 

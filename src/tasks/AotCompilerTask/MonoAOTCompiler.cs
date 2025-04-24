@@ -16,8 +16,6 @@ using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using System.Reflection.PortableExecutable;
 
-using JoinedString;
-
 public class MonoAOTCompiler : Microsoft.Build.Utilities.Task
 {
     /// <summary>
@@ -542,16 +540,8 @@ public class MonoAOTCompiler : Microsoft.Build.Utilities.Task
         {
             int allowedParallelism = DisableParallelAot ? 1 : Math.Min(_assembliesToCompile.Count, Environment.ProcessorCount);
             IBuildEngine9? be9 = BuildEngine as IBuildEngine9;
-            try
-            {
-                if (be9 is not null)
-                    allowedParallelism = be9.RequestCores(allowedParallelism);
-            }
-            catch (NotImplementedException)
-            {
-                // RequestCores is not implemented in TaskHostFactory
-                be9 = null;
-            }
+            if (be9 is not null)
+                allowedParallelism = be9.RequestCores(allowedParallelism);
 
             /*
                 From: https://github.com/dotnet/runtime/issues/46146#issuecomment-754021690
@@ -739,12 +729,16 @@ public class MonoAOTCompiler : Microsoft.Build.Utilities.Task
 
         if (DirectPInvokes.Length > 0)
         {
-            aotArgs.Add($$"""direct-pinvokes={{DirectPInvokes.Join("", d => $"{d.ItemSpec};")}}""");
+            var directPInvokesSB = new StringBuilder("direct-pinvokes=");
+            Array.ForEach(DirectPInvokes, directPInvokeItem => directPInvokesSB.Append($"{directPInvokeItem.ItemSpec};"));
+            aotArgs.Add(directPInvokesSB.ToString());
         }
 
         if (DirectPInvokeLists.Length > 0)
         {
-            aotArgs.Add($$"""direct-pinvoke-lists={{DirectPInvokeLists.Join("", d => $"{d.GetMetadata("FullPath")};")}}""");
+            var directPInvokeListsSB = new StringBuilder("direct-pinvoke-lists=");
+            Array.ForEach(DirectPInvokeLists, directPInvokeListItem => directPInvokeListsSB.Append($"{directPInvokeListItem.GetMetadata("FullPath")};"));
+            aotArgs.Add(directPInvokeListsSB.ToString());
         }
 
         if (UseDwarfDebug)
@@ -1145,67 +1139,62 @@ public class MonoAOTCompiler : Microsoft.Build.Utilities.Task
         Directory.CreateDirectory(Path.GetDirectoryName(outputFile)!);
 
         using TempFileName tmpAotModulesTablePath = new();
-        using (var writer = new JoinedStringStreamWriter(tmpAotModulesTablePath.Path, false))
+        using (var writer = File.CreateText(tmpAotModulesTablePath.Path))
         {
             if (parsedAotModulesTableLanguage == MonoAotModulesTableLanguage.C)
             {
-                profilers ??= Array.Empty<string>();
-                writer.Write(
-                    $$"""
-                    #include <mono/jit/jit.h>"
-                    {{symbols.Join(writer.NewLine, s =>
-                    $"extern void *{s};")
-                    }}
+                writer.WriteLine("#include <mono/jit/jit.h>");
 
-                    void register_aot_modules (void);
-                    void register_aot_modules (void)
-                    {
-                    {{symbols.Join(writer.NewLine, s =>
-                    $"    mono_aot_register_module ({s});")
-                    }}
-                    }
+                foreach (var symbol in symbols)
+                {
+                    writer.WriteLine($"extern void *{symbol};");
+                }
+                writer.WriteLine("void register_aot_modules (void);");
+                writer.WriteLine("void register_aot_modules (void)");
+                writer.WriteLine("{");
+                foreach (var symbol in symbols)
+                {
+                    writer.WriteLine($"\tmono_aot_register_module ({symbol});");
+                }
+                writer.WriteLine("}");
 
-                    {{profilers.Join(writer.NewLine, p => {
-                        var profiler = p.Split(':')[0];
-                    return $$$""""
-                    void mono_profiler_init_{{{profiler}}} (const char *desc);
-                    EMSCRIPTEN_KEEPALIVE void mono_wasm_load_profiler_{{{profiler}}} (const char *desc)
-                    {
-                        mono_profiler_init_{{{profiler}}} (desc);
-                    }
-                    """";})
-                    }}
+                foreach (var profiler in profilers ?? Enumerable.Empty<string>())
+                {
+                    writer.WriteLine($"void mono_profiler_init_{profiler} (const char *desc);");
+                    writer.WriteLine("EMSCRIPTEN_KEEPALIVE void mono_wasm_load_profiler_" + profiler + " (const char *desc) { mono_profiler_init_" + profiler + " (desc); }");
+                }
 
-                    {{parsedAotMode switch
-                        {
-                            MonoAotMode.LLVMOnly => "#define EE_MODE_LLVMONLY 1",
-                            MonoAotMode.LLVMOnlyInterp => "#define EE_MODE_LLVMONLY_INTERP 1",
-                            _ => ""
-                        }
-                    }}
-                    """);
+                if (parsedAotMode == MonoAotMode.LLVMOnly)
+                {
+                    writer.WriteLine("#define EE_MODE_LLVMONLY 1");
+                }
+
+                if (parsedAotMode == MonoAotMode.LLVMOnlyInterp)
+                {
+                    writer.WriteLine("#define EE_MODE_LLVMONLY_INTERP 1");
+                }
             }
             else if (parsedAotModulesTableLanguage == MonoAotModulesTableLanguage.ObjC)
             {
-                writer.Write(
-                    $$"""
-                    #include <mono/jit/jit.h>
-                    #include <TargetConditionals.h>
+                writer.WriteLine("#include <mono/jit/jit.h>");
+                writer.WriteLine("#include <TargetConditionals.h>");
+                writer.WriteLine("");
+                writer.WriteLine("#if TARGET_OS_IPHONE && (!TARGET_IPHONE_SIMULATOR || FORCE_AOT)");
 
-                    #if TARGET_OS_IPHONE && (!TARGET_IPHONE_SIMULATOR || FORCE_AOT)
-                    {{symbols.Join(writer.NewLine, s =>
-                    $"extern void *{s};")
-                    }}
+                foreach (var symbol in symbols)
+                {
+                    writer.WriteLine($"extern void *{symbol};");
+                }
 
-                    void register_aot_modules (void);
-                    void register_aot_modules (void)
-                    {
-                    {{symbols.Join(writer.NewLine, s =>
-                    $"    mono_aot_register_module ({s});")
-                    }}
-                    }
-                    #endif
-                    """);
+                writer.WriteLine("void register_aot_modules (void);");
+                writer.WriteLine("void register_aot_modules (void)");
+                writer.WriteLine("{");
+                foreach (var symbol in symbols)
+                {
+                    writer.WriteLine($"\tmono_aot_register_module ({symbol});");
+                }
+                writer.WriteLine("}");
+                writer.WriteLine("#endif");
             }
             else
             {

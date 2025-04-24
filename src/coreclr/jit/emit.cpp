@@ -752,8 +752,6 @@ void emitter::emitBegCG(Compiler* comp, COMP_HANDLE cmpHandle)
 
 #if defined(TARGET_AMD64)
     rbmFltCalleeTrash = emitComp->rbmFltCalleeTrash;
-    rbmIntCalleeTrash = emitComp->rbmIntCalleeTrash;
-    rbmAllInt         = emitComp->rbmAllInt;
 #endif // TARGET_AMD64
 
 #if defined(TARGET_XARCH)
@@ -1622,7 +1620,7 @@ void* emitter::emitAllocAnyInstr(size_t sz, emitAttr opsz)
     //     ARM - This is currently broken on TARGET_ARM
     //     When nopSize is odd we misalign emitCurIGsize
     //
-    if (!emitComp->IsAot() && !emitInInstrumentation &&
+    if (!emitComp->opts.jitFlags->IsSet(JitFlags::JIT_FLAG_PREJIT) && !emitInInstrumentation &&
         !emitIGisInProlog(emitCurIG) && // don't do this in prolog or epilog
         !emitIGisInEpilog(emitCurIG) &&
         emitRandomNops // sometimes we turn off where exact codegen is needed (pinvoke inline)
@@ -1755,7 +1753,7 @@ void* emitter::emitAllocAnyInstr(size_t sz, emitAttr opsz)
         id->idOpSize(EA_SIZE(opsz));
     }
 
-    // Amd64: ip-relative addressing is supported even when not generating relocatable AOT code
+    // Amd64: ip-relative addressing is supported even when not generating relocatable ngen code
     if (EA_IS_DSP_RELOC(opsz)
 #ifndef TARGET_AMD64
         && emitComp->opts.compReloc
@@ -3073,25 +3071,8 @@ void emitter::emitSplit(emitLocation*         startLoc,
 
     } // end for loop
 
-    // It's possible to have zero-sized IGs at this point in the emitter.
-    // For example, the JIT may create an IG to align a loop,
-    // but then later walk back this decision after other alignment decisions,
-    // which means it will zero out the new IG.
-    // If a zero-sized IG precedes a populated IG, it will be included in the latter's fragment.
-    // However, if the last IG candidate is a zero-sized IG, splitting would create a zero-sized fragment,
-    // so skip the last split in such cases.
-    // (The last IG in the main method body can be zero-sized if it was created to align a loop in the first funclet.)
-    if ((igLastCandidate != nullptr) && (curSize == candidateSize))
-    {
-        JITDUMP("emitSplit: can't split at last candidate IG%02u because it would create a zero-sized fragment\n",
-                igLastCandidate->igNum);
-    }
-    else
-    {
-        splitIfNecessary();
-    }
-
-    assert((curSize > 0) && (curSize < UW_MAX_FRAGMENT_SIZE_BYTES));
+    splitIfNecessary();
+    assert(curSize < UW_MAX_FRAGMENT_SIZE_BYTES);
 }
 
 /*****************************************************************************
@@ -6515,7 +6496,7 @@ void emitter::emitCheckFuncletBranch(instrDesc* jmp, insGroup* jmpIG)
 
             // Only to the first block of the finally (which is properly marked)
             BasicBlock* tgtBlk = tgtEH->ebdHndBeg;
-            assert(emitComp->bbIsFuncletBeg(tgtBlk));
+            assert(tgtBlk->HasFlag(BBF_FUNCLET_BEG));
 
             // And now we made it back to where we started
             assert(tgtIG == emitCodeGetCookie(tgtBlk));
@@ -6766,9 +6747,9 @@ unsigned emitter::emitEndCodeGen(Compiler*         comp,
     // These are the heuristics we use to decide whether or not to force the
     // code to be 16-byte aligned.
     //
-    // 1. For AOT code with IBC data, use 16-byte alignment if the method
+    // 1. For ngen code with IBC data, use 16-byte alignment if the method
     //    has been called more than ScenarioHotWeight times.
-    // 2. For JITed code and AOT code without IBC data, use 16-byte alignment
+    // 2. For JITed code and ngen code without IBC data, use 16-byte alignment
     //    when the code is 16 bytes or smaller. We align small getters/setters
     //    because of they are penalized heavily on certain hardware when not 16-byte
     //    aligned (VSWhidbey #373938). To minimize size impact of this optimization,
@@ -6792,10 +6773,12 @@ unsigned emitter::emitEndCodeGen(Compiler*         comp,
 #endif
 
 #if defined(TARGET_XARCH) || defined(TARGET_ARM64)
-    // For x64/x86/arm64, align methods that contain a loop to 32 byte boundaries if
-    // they are larger than 16 bytes and loop alignment is enabled.
+    // For x64/x86/arm64, align methods that are "optimizations enabled" to 32 byte boundaries if
+    // they are larger than 16 bytes and contain a loop.
     //
-    if (codeGen->ShouldAlignLoops() && (emitTotalHotCodeSize > 16) && emitComp->fgHasLoops)
+    if (emitComp->opts.OptimizationEnabled() &&
+        (!emitComp->opts.jitFlags->IsSet(JitFlags::JIT_FLAG_PREJIT) || comp->IsTargetAbi(CORINFO_NATIVEAOT_ABI)) &&
+        (emitTotalHotCodeSize > 16) && emitComp->fgHasLoops)
     {
         codeAlignment = 32;
     }
@@ -6848,10 +6831,6 @@ unsigned emitter::emitEndCodeGen(Compiler*         comp,
     args.xcptnsCount  = xcptnsCount;
     args.flag         = allocMemFlag;
 
-    comp->Metrics.AllocatedHotCodeBytes  = args.hotCodeSize;
-    comp->Metrics.AllocatedColdCodeBytes = args.coldCodeSize;
-    comp->Metrics.ReadOnlyDataBytes      = args.roDataSize;
-
     emitComp->eeAllocMem(&args, emitConsDsc.alignment);
 
     codeBlock       = (BYTE*)args.hotCodeBlock;
@@ -6864,8 +6843,9 @@ unsigned emitter::emitEndCodeGen(Compiler*         comp,
 #ifdef DEBUG
     if ((allocMemFlag & CORJIT_ALLOCMEM_FLG_32BYTE_ALIGN) != 0)
     {
-        // For AOT, codeBlock will not be necessarily aligned, but it is aligned in final obj file.
-        assert((((size_t)codeBlock & 31) == 0) || emitComp->IsAot());
+        // For prejit, codeBlock will not be necessarily aligned, but it is aligned
+        // in final obj file.
+        assert((((size_t)codeBlock & 31) == 0) || emitComp->opts.jitFlags->IsSet(JitFlags::JIT_FLAG_PREJIT));
     }
 #if 0
     // TODO: we should be able to assert the following, but it appears crossgen2 doesn't respect them,
@@ -7685,8 +7665,6 @@ unsigned emitter::emitEndCodeGen(Compiler*         comp,
 
     /* Return the amount of code we've generated */
 
-    comp->Metrics.ActualCodeBytes = actualCodeSize;
-
     return actualCodeSize;
 }
 
@@ -8383,7 +8361,7 @@ void emitter::emitDispDataSec(dataSecDsc* section, BYTE* dst)
             bool      isRelative = (data->dsType == dataSection::blockRelative32);
             size_t    blockCount = data->dsSize / (isRelative ? 4 : TARGET_POINTER_SIZE);
 
-            for (size_t i = 0; i < blockCount; i++)
+            for (unsigned i = 0; i < blockCount; i++)
             {
                 if (i > 0)
                 {
@@ -9982,6 +9960,7 @@ void emitter::emitStackPopLargeStk(BYTE* addr, bool isCall, unsigned char callIn
 
     unsigned argStkCnt;
     S_UINT16 argRecCnt(0); // arg count for ESP, ptr-arg count for EBP
+    unsigned gcrefRegs, byrefRegs;
 
 #ifdef JIT32_GCENCODER
     // For the general encoder, we always need to record calls, so we make this call
@@ -10023,19 +10002,26 @@ void emitter::emitStackPopLargeStk(BYTE* addr, bool isCall, unsigned char callIn
         return;
 #endif
 
-    // Do we have any interesting registers live here?
+    // Do we have any interesting (i.e., callee-saved) registers live here?
 
-    unsigned gcrefRegs = emitThisGCrefRegs.GetIntRegSet() >> REG_INT_FIRST;
-    unsigned byrefRegs = emitThisByrefRegs.GetIntRegSet() >> REG_INT_FIRST;
+    gcrefRegs = byrefRegs = 0;
 
-    assert(regMaskTP::FromIntRegSet(SingleTypeRegSet(gcrefRegs << REG_INT_FIRST)) == emitThisGCrefRegs);
-    assert(regMaskTP::FromIntRegSet(SingleTypeRegSet(byrefRegs << REG_INT_FIRST)) == emitThisByrefRegs);
+    // We make a bitmask whose bits correspond to callee-saved register indices (in the sequence
+    // of callee-saved registers only).
+    for (unsigned calleeSavedRegIdx = 0; calleeSavedRegIdx < CNT_CALL_GC_REGS; calleeSavedRegIdx++)
+    {
+        regMaskTP calleeSavedRbm = raRbmCalleeSaveOrder[calleeSavedRegIdx];
+        if (emitThisGCrefRegs & calleeSavedRbm)
+        {
+            gcrefRegs |= (1 << calleeSavedRegIdx);
+        }
+        if (emitThisByrefRegs & calleeSavedRbm)
+        {
+            byrefRegs |= (1 << calleeSavedRegIdx);
+        }
+    }
 
 #ifdef JIT32_GCENCODER
-    // x86 does not report GC refs/byrefs in return registers at call sites
-    gcrefRegs &= ~(1u << (REG_INTRET - REG_INT_FIRST));
-    byrefRegs &= ~(1u << (REG_INTRET - REG_INT_FIRST));
-
     // For the general encoder, we always have to record calls, so we don't take this early return.    /* Are there any
     // args to pop at this call site?
 

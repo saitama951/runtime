@@ -58,8 +58,6 @@ namespace System.Globalization
         private readonly int m_minYear;
         private readonly Calendar m_Cal;
         private readonly EraInfo[] m_EraInfo;
-        private readonly long _minSupportedTicks;
-        private readonly long _maxSupportedTicks;
 
         // Construct an instance of gregorian calendar.
         internal GregorianCalendarHelper(Calendar cal, EraInfo[] eraInfo)
@@ -68,8 +66,6 @@ namespace System.Globalization
             m_EraInfo = eraInfo;
             m_maxYear = eraInfo[0].maxEraYear;
             m_minYear = eraInfo[0].minEraYear;
-            _minSupportedTicks = cal.MinSupportedDateTime.Ticks;
-            _maxSupportedTicks = cal.MaxSupportedDateTime.Ticks;
         }
 
         // EraInfo.yearOffset:  The offset to Gregorian year when the era starts. Gregorian Year = Era Year + yearOffset
@@ -172,9 +168,7 @@ namespace System.Globalization
 
         internal void CheckTicksRange(long ticks)
         {
-            if (ticks < _minSupportedTicks || ticks > _maxSupportedTicks) ThrowOutOfRange();
-
-            void ThrowOutOfRange()
+            if (ticks < m_Cal.MinSupportedDateTime.Ticks || ticks > m_Cal.MaxSupportedDateTime.Ticks)
             {
                 throw new ArgumentOutOfRangeException(
                             "time",

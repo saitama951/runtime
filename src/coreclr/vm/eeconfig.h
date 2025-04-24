@@ -1,10 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-
 // EEConfig.H
+//
+
 //
 // Fetched configuration data from the registry (should we Jit, run GC checks ...)
 //
+//
+
+
 
 #ifndef EECONFIG_H
 #define EECONFIG_H
@@ -13,7 +17,6 @@ class MethodDesc;
 
 #include "shash.h"
 #include "corhost.h"
-#include <minipal/debugger.h>
 
 #ifdef _DEBUG
 class TypeNamesList
@@ -123,10 +126,6 @@ public:
         return RegexOrExactMatch(pszGDBJitElfDump, methodName);
     }
 #endif // FEATURE_GDBJIT && _DEBUG
-
-#if defined(FEATURE_CACHED_INTERFACE_DISPATCH) && defined(FEATURE_VIRTUAL_STUB_DISPATCH)
-    bool UseCachedInterfaceDispatch() const { LIMITED_METHOD_CONTRACT; return fUseCachedInterfaceDispatch; }
-#endif // defined(FEATURE_CACHED_INTERFACE_DISPATCH) && defined(FEATURE_VIRTUAL_STUB_DISPATCH)
 
 #if defined(FEATURE_GDBJIT_FRAME)
     inline bool ShouldEmitDebugFrame(void) const {LIMITED_METHOD_CONTRACT; return fGDBJitEmitDebugFrame;}
@@ -274,6 +273,10 @@ public:
     bool SuppressLockViolationsOnReentryFromOS() const {LIMITED_METHOD_CONTRACT;  return fSuppressLockViolationsOnReentryFromOS; }
 #endif
 
+#ifdef STUBLINKER_GENERATES_UNWIND_INFO
+    bool IsStubLinkerUnwindInfoVerificationOn() const { LIMITED_METHOD_CONTRACT; return fStubLinkerUnwindInfoVerificationOn; }
+#endif
+
 #endif // _DEBUG
 
 #ifdef FEATURE_COMINTEROP
@@ -386,7 +389,6 @@ public:
 #ifdef FEATURE_CONSERVATIVE_GC
     bool    GetGCConservative()             const {LIMITED_METHOD_CONTRACT; return iGCConservative;}
 #endif
-    bool    GetCheckDoubleReporting()       const {LIMITED_METHOD_CONTRACT; return fCheckDoubleReporting; }
 #ifdef HOST_64BIT
     bool    GetGCAllowVeryLargeObjects()    const {LIMITED_METHOD_CONTRACT; return iGCAllowVeryLargeObjects;}
 #endif
@@ -535,6 +537,9 @@ private: //----------------------------------------------------------------
     bool fSuppressLockViolationsOnReentryFromOS;
 #endif
 
+#ifdef STUBLINKER_GENERATES_UNWIND_INFO
+    bool fStubLinkerUnwindInfoVerificationOn;
+#endif
 #endif // _DEBUG
 #ifdef ENABLE_STARTUP_DELAY
     int iStartupDelayMS; //Adds sleep to startup.
@@ -566,8 +571,6 @@ private: //----------------------------------------------------------------
 #ifdef HOST_64BIT
     bool iGCAllowVeryLargeObjects;
 #endif // HOST_64BIT
-
-    bool fCheckDoubleReporting;
 
     bool fGCBreakOnOOM;
 
@@ -646,11 +649,6 @@ private: //----------------------------------------------------------------
 #if defined(FEATURE_GDBJIT_FRAME)
     bool fGDBJitEmitDebugFrame;
 #endif
-
-#if defined(FEATURE_CACHED_INTERFACE_DISPATCH) && defined(FEATURE_VIRTUAL_STUB_DISPATCH)
-    bool fUseCachedInterfaceDispatch;
-#endif // defined(FEATURE_CACHED_INTERFACE_DISPATCH) && defined(FEATURE_VIRTUAL_STUB_DISPATCH)
-
 public:
 
     enum BitForMask {
@@ -722,7 +720,7 @@ public:
             _ASSERTE(str);                                              \
         }                                                               \
         else if (!(str)) {                                              \
-            if (minipal_is_native_debugger_present()) DebugBreak();                      \
+            if (IsDebuggerPresent()) DebugBreak();                      \
         }                                                               \
     } while(0)
 

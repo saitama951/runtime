@@ -249,7 +249,7 @@ namespace System.Reflection.Emit
                         throw new ArgumentException(SR.Argument_ConstantDoesntMatch);
                 }
 
-                CorElementType corType = ((RuntimeType)type).GetCorElementType();
+                CorElementType corType = RuntimeTypeHandle.GetCorElementType((RuntimeType)type);
 
                 switch (corType)
                 {
@@ -636,7 +636,7 @@ namespace System.Reflection.Emit
             }
         }
 
-        [DynamicallyAccessedMembers(InvokeMemberMembers)]
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         public override object? InvokeMember(string name, BindingFlags invokeAttr, Binder? binder, object? target,
             object?[]? args, ParameterModifier[]? modifiers, CultureInfo? culture, string[]? namedParameters)
         {

@@ -74,7 +74,7 @@ namespace System.Net.Sockets.Tests
             using var listener = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             listener.BindToAnonymousPort(IPAddress.Loopback);
 
-            await client.ConnectAsync(listener.LocalEndPoint);
+            client.Connect(listener.LocalEndPoint);
 
             if (usePreAndPostbufferOverload)
             {
@@ -125,11 +125,11 @@ namespace System.Net.Sockets.Tests
 
             int bytesReceived = 0;
             var receivedChecksum = new Fletcher32();
-            var serverTask = Task.Run(async () =>
+            var serverTask = Task.Run(() =>
             {
                 using (server)
                 {
-                    Socket remote = await server.AcceptAsync();
+                    Socket remote = server.Accept();
                     Assert.NotNull(remote);
 
                     using (remote)
@@ -176,12 +176,11 @@ namespace System.Net.Sockets.Tests
             listener.BindToAnonymousPort(IPAddress.Loopback);
             listener.Listen(1);
 
-            await client.ConnectAsync(listener.LocalEndPoint);
-            using Socket server = await listener.AcceptAsync();
+            client.Connect(listener.LocalEndPoint);
+            using Socket server = listener.Accept();
 
             await SendFileAsync(server, null);
-            if (!OperatingSystem.IsWasi()) // https://github.com/WebAssembly/wasi-libc/issues/538
-                Assert.Equal(0, client.Available);
+            Assert.Equal(0, client.Available);
 
             byte[] preBuffer = usePreBuffer ? new byte[1] : null;
             byte[] postBuffer = usePostBuffer ? new byte[1] : null;
@@ -192,11 +191,10 @@ namespace System.Net.Sockets.Tests
             byte[] receiveBuffer = new byte[1];
             for (int i = 0; i < bytesExpected; i++)
             {
-                Assert.Equal(1, await client.ReceiveAsync(receiveBuffer));
+                Assert.Equal(1, client.Receive(receiveBuffer));
             }
 
-            if (!OperatingSystem.IsWasi()) // https://github.com/WebAssembly/wasi-libc/issues/538
-                Assert.Equal(0, client.Available);
+            Assert.Equal(0, client.Available);
         }
 
         [Fact]
@@ -363,37 +361,31 @@ namespace System.Net.Sockets.Tests
         }
     }
 
-    [ConditionalClass(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
     public sealed class SendFile_SyncSpan : SendFile<SocketHelperSpanSync>
     {
         public SendFile_SyncSpan(ITestOutputHelper output) : base(output) { }
     }
 
-    [ConditionalClass(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
     public sealed class SendFile_SyncSpanForceNonBlocking : SendFile<SocketHelperSpanSyncForceNonBlocking>
     {
         public SendFile_SyncSpanForceNonBlocking(ITestOutputHelper output) : base(output) { }
     }
 
-    [ConditionalClass(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
     public sealed class SendFile_ArraySync : SendFile<SocketHelperArraySync>
     {
         public SendFile_ArraySync(ITestOutputHelper output) : base(output) { }
     }
 
-    [ConditionalClass(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
     public sealed class SendFile_SyncForceNonBlocking : SendFile<SocketHelperSyncForceNonBlocking>
     {
         public SendFile_SyncForceNonBlocking(ITestOutputHelper output) : base(output) { }
     }
 
-    [ActiveIssue("https://github.com/dotnet/runtime/issues/85690", TestPlatforms.Wasi)]
     public sealed class SendFile_Task : SendFile<SocketHelperTask>
     {
         public SendFile_Task(ITestOutputHelper output) : base(output) { }
     }
 
-    [ActiveIssue("https://github.com/dotnet/runtime/issues/85690", TestPlatforms.Wasi)]
     public sealed class SendFile_CancellableTask : SendFile<SocketHelperCancellableTask>
     {
         public SendFile_CancellableTask(ITestOutputHelper output) : base(output) { }
@@ -453,7 +445,6 @@ namespace System.Net.Sockets.Tests
         }
     }
 
-    [ConditionalClass(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
     public sealed class SendFile_Apm : SendFile<SocketHelperApm>
     {
         public SendFile_Apm(ITestOutputHelper output) : base(output) { }
@@ -524,31 +515,26 @@ namespace System.Net.Sockets.Tests
         }
     }
 
-    [ConditionalClass(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
     public sealed class SendFile_NonParallel_SyncSpan : SendFile_NonParallel<SocketHelperSpanSync>
     {
         public SendFile_NonParallel_SyncSpan(ITestOutputHelper output) : base(output) { }
     }
 
-    [ConditionalClass(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
     public sealed class SendFile_NonParallel_SyncSpanForceNonBlocking : SendFile_NonParallel<SocketHelperSpanSyncForceNonBlocking>
     {
         public SendFile_NonParallel_SyncSpanForceNonBlocking(ITestOutputHelper output) : base(output) { }
     }
 
-    [ConditionalClass(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
     public sealed class SendFile_NonParallel_ArraySync : SendFile_NonParallel<SocketHelperArraySync>
     {
         public SendFile_NonParallel_ArraySync(ITestOutputHelper output) : base(output) { }
     }
 
-    [ActiveIssue("https://github.com/dotnet/runtime/issues/85690", TestPlatforms.Wasi)]
     public sealed class SendFile_NonParallel_Task : SendFile_NonParallel<SocketHelperTask>
     {
         public SendFile_NonParallel_Task(ITestOutputHelper output) : base(output) { }
     }
 
-    [ConditionalClass(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
     public sealed class SendFile_NonParallel_Apm : SendFile_NonParallel<SocketHelperApm>
     {
         public SendFile_NonParallel_Apm(ITestOutputHelper output) : base(output) { }

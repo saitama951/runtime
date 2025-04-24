@@ -18,7 +18,7 @@
 // assembly might be without a reference and get deallocated (even the native part).
 //
 BOOL LoadedMethodDescIterator::Next(
-    CollectibleAssemblyHolder<Assembly *> * pAssemblyHolder)
+    CollectibleAssemblyHolder<DomainAssembly *> * pDomainAssemblyHolder)
 {
     CONTRACTL
     {
@@ -35,7 +35,7 @@ BOOL LoadedMethodDescIterator::Next(
         // If the method + type is not generic, then nothing more to iterate.
         if (!m_mainMD->HasClassOrMethodInstantiation())
         {
-            *pAssemblyHolder = NULL;
+            *pDomainAssemblyHolder = NULL;
             return FALSE;
         }
         goto ADVANCE_METHOD;
@@ -53,31 +53,31 @@ BOOL LoadedMethodDescIterator::Next(
     // at the method table, flags and token etc.
     if (m_mainMD == NULL)
     {
-        *pAssemblyHolder = NULL;
+        *pDomainAssemblyHolder = NULL;
         return FALSE;
     }
 
     // Needs to work w/ non-generic methods too.
     if (!m_mainMD->HasClassOrMethodInstantiation())
     {
-        *pAssemblyHolder = NULL;
+        *pDomainAssemblyHolder = NULL;
         return TRUE;
     }
 
     m_assemIterator = m_pAppDomain->IterateAssembliesEx(m_assemIterationFlags);
 
 ADVANCE_ASSEMBLY:
-    if  (!m_assemIterator.Next(pAssemblyHolder))
+    if  (!m_assemIterator.Next(pDomainAssemblyHolder))
     {
-        _ASSERTE(*pAssemblyHolder == NULL);
+        _ASSERTE(*pDomainAssemblyHolder == NULL);
         return FALSE;
     }
 
 #ifdef _DEBUG
-    dbg_m_pAssembly = *pAssemblyHolder;
+    dbg_m_pDomainAssembly = *pDomainAssemblyHolder;
 #endif //_DEBUG
 
-    m_currentModule = (*pAssemblyHolder)->GetModule();
+    m_currentModule = (*pDomainAssemblyHolder)->GetModule();
 
     if (m_mainMD->HasClassInstantiation())
     {
@@ -149,7 +149,7 @@ ADVANCE_METHOD:
     // Note: We don't need to keep the assembly alive in DAC - see code:CollectibleAssemblyHolder#CAH_DAC
 #ifndef DACCESS_COMPILE
     _ASSERTE_MSG(
-        *pAssemblyHolder == dbg_m_pAssembly,
+        *pDomainAssemblyHolder == dbg_m_pDomainAssembly,
         "Caller probably modified the assembly holder, which they shouldn't - see method comment.");
 #endif //DACCESS_COMPILE
 

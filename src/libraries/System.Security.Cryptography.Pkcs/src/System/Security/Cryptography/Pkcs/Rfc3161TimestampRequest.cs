@@ -180,7 +180,7 @@ namespace System.Security.Cryptography.Pkcs
             // hash of the value of signature field within SignerInfo for the
             // signedData being time-stamped.
             return CreateFromData(
-                signerInfo.GetSignatureMemory().Span,
+                signerInfo.GetSignature(),
                 hashAlgorithm,
                 requestedPolicyId,
                 nonce,

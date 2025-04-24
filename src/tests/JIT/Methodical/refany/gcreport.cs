@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using TestLibrary;
 using Xunit;
 
 namespace JitTest_gcreport_cs
@@ -50,7 +49,6 @@ namespace JitTest_gcreport_cs
         }
 
         [Fact]
-        [ActiveIssue("https://github.com/dotnet/runtime/issues/91923", typeof(PlatformDetection), nameof(PlatformDetection.IsAppleMobile))]
         public static int TestEntryPoint()
         {
             if (!Scenario1())

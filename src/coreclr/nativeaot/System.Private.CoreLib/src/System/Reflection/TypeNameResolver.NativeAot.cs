@@ -146,8 +146,7 @@ namespace System.Reflection
                     {
                         throw new TypeLoadException(assembly is null ?
                             SR.Format(SR.TypeLoad_ResolveType, escapedTypeName) :
-                            SR.Format(SR.TypeLoad_ResolveTypeFromAssembly, escapedTypeName, assembly.FullName),
-                            typeName: escapedTypeName);
+                            SR.Format(SR.TypeLoad_ResolveTypeFromAssembly, escapedTypeName, assembly.FullName));
                     }
                     return null;
                 }
@@ -158,7 +157,7 @@ namespace System.Reflection
                 {
                     if (assembly is RuntimeAssemblyInfo runtimeAssembly)
                     {
-                        type = runtimeAssembly.GetTypeCore(TypeName.Unescape(escapedTypeName), throwOnError: _throwOnError, ignoreCase: _ignoreCase);
+                        type = runtimeAssembly.GetTypeCore(TypeNameHelpers.Unescape(escapedTypeName), throwOnError: _throwOnError, ignoreCase: _ignoreCase);
                     }
                     else
                     {
@@ -173,7 +172,7 @@ namespace System.Reflection
                 }
                 else
                 {
-                    string? unescapedTypeName = TypeName.Unescape(escapedTypeName);
+                    string? unescapedTypeName = TypeNameHelpers.Unescape(escapedTypeName);
 
                     RuntimeAssemblyInfo? defaultAssembly = null;
                     if (_defaultAssemblyName != null)
@@ -235,8 +234,7 @@ namespace System.Reflection
                     if (_throwOnError)
                     {
                         throw new TypeLoadException(SR.Format(SR.TypeLoad_ResolveNestedType,
-                            nestedTypeNames[i], (i > 0) ? nestedTypeNames[i - 1] : TypeName.Unescape(escapedTypeName)),
-                            typeName: parsedName.FullName);
+                            nestedTypeNames[i], (i > 0) ? nestedTypeNames[i - 1] : TypeNameHelpers.Unescape(escapedTypeName)));
                     }
                     return null;
                 }

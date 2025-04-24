@@ -13,45 +13,39 @@ namespace Microsoft.Extensions.Options
     public class ValidateOptionsResult
     {
         /// <summary>
-        /// The result when validation was skipped due to name not matching.
+        /// Result when validation was skipped due to name not matching.
         /// </summary>
         public static readonly ValidateOptionsResult Skip = new ValidateOptionsResult() { Skipped = true };
 
         /// <summary>
-        /// The result when validation was successful.
+        /// Validation was successful.
         /// </summary>
         public static readonly ValidateOptionsResult Success = new ValidateOptionsResult() { Succeeded = true };
 
         /// <summary>
-        /// Gets a value that indicates whether validation was successful.
+        /// True if validation was successful.
         /// </summary>
         public bool Succeeded { get; protected set; }
 
         /// <summary>
-        /// Gets a value that indicates whether validation was run.
+        /// True if validation was not run.
         /// </summary>
-        /// <value>
-        /// <see langword="true"/> if validation was skipped; <see langword="false"/> if validation was run.
-        /// </value>
         public bool Skipped { get; protected set; }
 
         /// <summary>
-        /// Gets a value that indicates whether validation failed.
+        /// True if validation failed.
         /// </summary>
-        /// <value>
-        /// <see langword="true"/> if validation failed; otherwise, <see langword="false"/>.
-        /// </value>
         [MemberNotNullWhen(true, nameof(Failures))]
         [MemberNotNullWhen(true, nameof(FailureMessage))]
         public bool Failed { get; protected set; }
 
         /// <summary>
-        /// Gets the description of why validation failed.
+        /// Used to describe why validation failed.
         /// </summary>
         public string? FailureMessage { get; protected set; }
 
         /// <summary>
-        /// Gets the full list of failures (can be multiple).
+        /// Full list of failures (can be multiple).
         /// </summary>
         public IEnumerable<string>? Failures { get; protected set; }
 

@@ -18,6 +18,7 @@
 #include "MethodTable.h"
 #include "ObjectLayout.h"
 #include "event.h"
+#include "varint.h"
 #include "regdisplay.h"
 #include "StackFrameIterator.h"
 #include "thread.h"

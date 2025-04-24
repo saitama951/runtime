@@ -3,7 +3,7 @@
 
 "use strict";
 
-import { dotnet, exit } from './dotnet.js'
+import { dotnet, exit } from './_framework/dotnet.js'
 
 let runBenchmark;
 let setTasks;
@@ -85,7 +85,7 @@ class MainApp {
             setExclusions(exclusions.join(','));
         }
 
-        const r = await fetch("/rewrite=bootstrap.flag", {
+        const r = await fetch("/bootstrap.flag", {
             method: 'POST',
             body: "ok"
         });
@@ -96,19 +96,15 @@ class MainApp {
             if (resultString.length == 0) break;
             document.getElementById("out").innerHTML += resultString;
             console.log(resultString);
-            await fetch("/log=bench-log.txt", {
-                method: 'POST',
-                body: resultString
-            });
         }
 
         document.getElementById("out").innerHTML += "Finished";
-        const r1 = await fetch("/rewrite=results.json", {
+        const r1 = await fetch("/results.json", {
             method: 'POST',
             body: getFullJsonResults()
         });
         console.log("post request complete, response: ", r1);
-        const r2 = await fetch("/rewrite=results.html", {
+        const r2 = await fetch("/results.html", {
             method: 'POST',
             body: document.getElementById("out").innerHTML
         });

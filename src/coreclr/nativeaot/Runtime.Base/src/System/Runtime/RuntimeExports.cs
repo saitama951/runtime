@@ -73,6 +73,7 @@ namespace System.Runtime
             }
         }
 
+        [RuntimeExport("RhBox")]
         public static unsafe object RhBox(MethodTable* pEEType, ref byte data)
         {
             // A null can be passed for boxing of a null ref.
@@ -206,6 +207,7 @@ namespace System.Runtime
         //
         // Unbox helpers with RyuJIT conventions
         //
+        [RuntimeExport("RhUnbox2")]
         public static unsafe ref byte RhUnbox2(MethodTable* pUnboxToEEType, object obj)
         {
             if ((obj == null) || !UnboxAnyTypeCompare(obj.GetMethodTable(), pUnboxToEEType))
@@ -216,6 +218,7 @@ namespace System.Runtime
             return ref obj.GetRawData();
         }
 
+        [RuntimeExport("RhUnboxNullable")]
         public static unsafe void RhUnboxNullable(ref byte data, MethodTable* pUnboxToEEType, object obj)
         {
             if (obj != null && obj.GetMethodTable() != pUnboxToEEType->NullableType)
@@ -225,6 +228,7 @@ namespace System.Runtime
             RhUnbox(obj, ref data, pUnboxToEEType);
         }
 
+        [RuntimeExport("RhUnboxTypeTest")]
         public static unsafe void RhUnboxTypeTest(MethodTable* pType, MethodTable* pBoxType)
         {
             Debug.Assert(pType->IsValueType);

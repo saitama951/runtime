@@ -17,7 +17,6 @@ namespace System.ComponentModel.Design
     {
         internal const byte BinaryWriterMagic = 255;
 
-        [FeatureSwitchDefinition("System.ComponentModel.TypeConverter.EnableUnsafeBinaryFormatterInDesigntimeLicenseContextSerialization")]
         private static bool EnableUnsafeBinaryFormatterInDesigntimeLicenseContextSerialization { get; } = AppContext.TryGetSwitch("System.ComponentModel.TypeConverter.EnableUnsafeBinaryFormatterInDesigntimeLicenseContextSerialization", out bool isEnabled) ? isEnabled : false;
 
         // Not creatable.

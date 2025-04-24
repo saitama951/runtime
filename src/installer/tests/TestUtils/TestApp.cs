@@ -4,7 +4,6 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 
 using Microsoft.NET.HostModel.AppHost;
 
@@ -78,13 +77,13 @@ namespace Microsoft.DotNet.CoreSetup.Test
             builder.Build(this);
         }
 
-        public void CreateAppHost(bool isWindowsGui = false, bool copyResources = true, bool disableCetCompat = false, HostWriter.DotNetSearchOptions dotNetRootOptions = null, bool? macosCodesign = null)
-            => CreateAppHost(Binaries.AppHost.FilePath, isWindowsGui, copyResources, disableCetCompat, dotNetRootOptions, macosCodesign: macosCodesign);
+        public void CreateAppHost(bool isWindowsGui = false, bool copyResources = true, bool disableCetCompat = false, HostWriter.DotNetSearchOptions dotNetRootOptions = null)
+            => CreateAppHost(Binaries.AppHost.FilePath, isWindowsGui, copyResources, disableCetCompat, dotNetRootOptions);
 
-        public void CreateSingleFileHost(bool isWindowsGui = false, bool copyResources = true, bool disableCetCompat = false, HostWriter.DotNetSearchOptions dotNetRootOptions = null, bool? macosCodesign = null)
-            => CreateAppHost(Binaries.SingleFileHost.FilePath, isWindowsGui, copyResources, disableCetCompat, dotNetRootOptions, macosCodesign: macosCodesign);
+        public void CreateSingleFileHost(bool isWindowsGui = false, bool copyResources = true, bool disableCetCompat = false, HostWriter.DotNetSearchOptions dotNetRootOptions = null)
+            => CreateAppHost(Binaries.SingleFileHost.FilePath, isWindowsGui, copyResources, disableCetCompat, dotNetRootOptions);
 
-        private void CreateAppHost(string hostSourcePath, bool isWindowsGui, bool copyResources, bool disableCetCompat, HostWriter.DotNetSearchOptions dotNetRootOptions, bool? macosCodesign)
+        private void CreateAppHost(string hostSourcePath, bool isWindowsGui, bool copyResources, bool disableCetCompat, HostWriter.DotNetSearchOptions dotNetRootOptions)
         {
             // Use the live-built apphost and HostModel to create the apphost to run
             HostWriter.CreateAppHost(
@@ -94,8 +93,7 @@ namespace Microsoft.DotNet.CoreSetup.Test
                 windowsGraphicalUserInterface: isWindowsGui,
                 assemblyToCopyResourcesFrom: copyResources ? AppDll : null,
                 disableCetCompat: disableCetCompat,
-                dotNetSearchOptions: dotNetRootOptions,
-                enableMacOSCodeSign: macosCodesign ?? RuntimeInformation.IsOSPlatform(OSPlatform.OSX));
+                dotNetSearchOptions: dotNetRootOptions);
         }
 
         public enum MockedComponent

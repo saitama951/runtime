@@ -148,10 +148,6 @@ namespace System.Linq
 
                 return result;
             }
-
-            public override bool Contains(TSource value) =>
-                _first.Contains(value) ||
-                _second.Contains(value);
         }
 
         private sealed partial class ConcatNIterator<TSource> : ConcatIterator<TSource>
@@ -346,23 +342,6 @@ namespace System.Linq
                 Debug.Assert(node._tail is Concat2Iterator<TSource>);
                 return node._tail.TryGetLast(out found);
             }
-
-            public override bool Contains(TSource value)
-            {
-                ConcatNIterator<TSource>? node, previousN = this;
-                do
-                {
-                    node = previousN;
-                    if (node._head.Contains(value))
-                    {
-                        return true;
-                    }
-                }
-                while ((previousN = node.PreviousN) is not null);
-
-                Debug.Assert(node._tail is Concat2Iterator<TSource>);
-                return node._tail.Contains(value);
-            }
         }
 
         private abstract partial class ConcatIterator<TSource>
@@ -385,6 +364,7 @@ namespace System.Linq
 
                 return list;
             }
+
         }
     }
 }

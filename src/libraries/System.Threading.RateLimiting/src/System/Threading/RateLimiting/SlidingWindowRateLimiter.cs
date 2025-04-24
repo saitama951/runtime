@@ -34,9 +34,10 @@ namespace System.Threading.RateLimiting
 
         private static readonly RateLimitLease SuccessfulLease = new SlidingWindowLease(true, null);
         private static readonly RateLimitLease FailedLease = new SlidingWindowLease(false, null);
+        private static readonly double TickFrequency = (double)TimeSpan.TicksPerSecond / Stopwatch.Frequency;
 
         /// <inheritdoc />
-        public override TimeSpan? IdleDuration => RateLimiterHelper.GetElapsedTime(_idleSince);
+        public override TimeSpan? IdleDuration => _idleSince is null ? null : new TimeSpan((long)((Stopwatch.GetTimestamp() - _idleSince) * TickFrequency));
 
         /// <inheritdoc />
         public override bool IsAutoReplenishing => _options.AutoReplenishment;
@@ -296,7 +297,7 @@ namespace System.Threading.RateLimiting
                     return;
                 }
 
-                if (RateLimiterHelper.GetElapsedTime(_lastReplenishmentTick, nowTicks) < ReplenishmentPeriod && !_options.AutoReplenishment)
+                if (((nowTicks - _lastReplenishmentTick) * TickFrequency) < ReplenishmentPeriod.Ticks && !_options.AutoReplenishment)
                 {
                     return;
                 }

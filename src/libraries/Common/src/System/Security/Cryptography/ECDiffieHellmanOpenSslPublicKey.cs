@@ -20,19 +20,14 @@ namespace System.Security.Cryptography
             // If ecKey is valid it has already been up-ref'd, so we can just use this handle as-is.
             SafeEcKeyHandle key = Interop.Crypto.EvpPkeyGetEcKey(pkeyHandle);
 
-            if (key == null || key.IsInvalid)
+            if (key.IsInvalid)
             {
-                key?.Dispose();
+                Exception e = Interop.Crypto.CreateOpenSslCryptographicException();
+                key.Dispose();
+                throw e;
+            }
 
-                // This may happen when EVP_PKEY was created by provider and getting EC_KEY is not possible.
-                // Since you cannot mix EC_KEY and EVP_PKEY params API we need to export and re-import the public key.
-                ECParameters ecParams = ECOpenSsl.ExportParameters(pkeyHandle, includePrivateParameters: false);
-                _key = new ECOpenSsl(ecParams);
-            }
-            else
-            {
-                _key = new ECOpenSsl(key);
-            }
+            _key = new ECOpenSsl(key);
         }
 
         internal ECDiffieHellmanOpenSslPublicKey(ECParameters parameters)

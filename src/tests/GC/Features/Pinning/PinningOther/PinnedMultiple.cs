@@ -6,12 +6,10 @@
 
 using System;
 using System.Runtime.InteropServices;
-using Xunit;
 
 public class Test_PinnedMultiple
 {
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         int[] arr = new int[1000];
         GCHandle[] arrhandle = new GCHandle[10000]; // array of handles to the same object

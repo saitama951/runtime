@@ -280,7 +280,6 @@ namespace System.Text.Json.SourceGeneration
                 bool? propertyNameCaseInsensitive = null;
                 JsonKnownNamingPolicy? propertyNamingPolicy = null;
                 JsonCommentHandling? readCommentHandling = null;
-                JsonKnownReferenceHandler? referenceHandler = null;
                 JsonUnknownTypeHandling? unknownTypeHandling = null;
                 JsonUnmappedMemberHandling? unmappedMemberHandling = null;
                 bool? useStringEnumConverter = null;
@@ -380,10 +379,6 @@ namespace System.Text.Json.SourceGeneration
                             readCommentHandling = (JsonCommentHandling)namedArg.Value.Value!;
                             break;
 
-                        case nameof(JsonSourceGenerationOptionsAttribute.ReferenceHandler):
-                            referenceHandler = (JsonKnownReferenceHandler)namedArg.Value.Value!;
-                            break;
-
                         case nameof(JsonSourceGenerationOptionsAttribute.UnknownTypeHandling):
                             unknownTypeHandling = (JsonUnknownTypeHandling)namedArg.Value.Value!;
                             break;
@@ -439,7 +434,6 @@ namespace System.Text.Json.SourceGeneration
                     PropertyNameCaseInsensitive = propertyNameCaseInsensitive,
                     PropertyNamingPolicy = propertyNamingPolicy,
                     ReadCommentHandling = readCommentHandling,
-                    ReferenceHandler = referenceHandler,
                     UnknownTypeHandling = unknownTypeHandling,
                     UnmappedMemberHandling = unmappedMemberHandling,
                     UseStringEnumConverter = useStringEnumConverter,

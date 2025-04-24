@@ -19,7 +19,17 @@ namespace System.Diagnostics
 
             foreach (string key in attributes.Keys)
             {
-                if (supportedAttributes is null || !supportedAttributes.Contains(key))
+                bool found = false;
+                if (supportedAttributes != null)
+                {
+                    for (int i = 0; i < supportedAttributes.Length; i++)
+                    {
+                        if (supportedAttributes[i] == key)
+                            found = true;
+                    }
+                }
+
+                if (!found)
                 {
                     throw new ArgumentException(SR.Format(SR.AttributeNotSupported, key, parent.GetType().FullName));
                 }

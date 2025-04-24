@@ -11,26 +11,11 @@ namespace System.Net.Http
 {
     internal static partial class BrowserHttpInterop
     {
-        private static bool? _SupportsStreamingRequest;
-        private static bool? _SupportsStreamingResponse;
-
-        public static bool SupportsStreamingRequest()
-        {
-            _SupportsStreamingRequest ??= SupportsStreamingRequestImpl();
-            return _SupportsStreamingRequest.Value;
-        }
-
-        public static bool SupportsStreamingResponse()
-        {
-            _SupportsStreamingResponse ??= SupportsStreamingResponseImpl();
-            return _SupportsStreamingResponse.Value;
-        }
-
         [JSImport("INTERNAL.http_wasm_supports_streaming_request")]
-        public static partial bool SupportsStreamingRequestImpl();
+        public static partial bool SupportsStreamingRequest();
 
         [JSImport("INTERNAL.http_wasm_supports_streaming_response")]
-        public static partial bool SupportsStreamingResponseImpl();
+        public static partial bool SupportsStreamingResponse();
 
         [JSImport("INTERNAL.http_wasm_create_controller")]
         public static partial JSObject CreateController();

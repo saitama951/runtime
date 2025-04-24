@@ -295,7 +295,7 @@ static StackWalkAction PrintStackTraceCallback(CrawlFrame* pCF, VOID* pData)
 
     if (pCBD->toStdout)
     {
-        minipal_log_print_info("%s\n", buff);
+        printf("%s\n", buff);
     }
 #ifdef _DEBUG
     else if (pCBD->toLOG)

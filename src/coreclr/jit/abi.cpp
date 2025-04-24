@@ -38,7 +38,7 @@ bool ABIPassingSegment::IsPassedOnStack() const
 regNumber ABIPassingSegment::GetRegister() const
 {
     assert(IsPassedInRegister());
-    return static_cast<regNumber>(m_register);
+    return m_register;
 }
 
 //-----------------------------------------------------------------------------
@@ -50,17 +50,17 @@ regNumber ABIPassingSegment::GetRegister() const
 //
 regMaskTP ABIPassingSegment::GetRegisterMask() const
 {
-    regNumber reg  = GetRegister();
-    regMaskTP mask = genRegMask(reg);
+    assert(IsPassedInRegister());
+    regMaskTP reg = genRegMask(m_register);
 
 #ifdef TARGET_ARM
-    if (genIsValidFloatReg(reg) && (Size == 8))
+    if (genIsValidFloatReg(m_register) && (Size == 8))
     {
-        mask |= genRegMask(REG_NEXT(reg));
+        reg |= genRegMask(REG_NEXT(m_register));
     }
 #endif
 
-    return mask;
+    return reg;
 }
 
 //-----------------------------------------------------------------------------
@@ -88,21 +88,6 @@ unsigned ABIPassingSegment::GetStackOffset() const
 }
 
 //-----------------------------------------------------------------------------
-// GetStackSize:
-//   Get the amount of stack size consumed by this segment.
-//
-// Return Value:
-//   Normally the size rounded up to the pointer size. For Apple's arm64 ABI,
-//   however, some arguments do not get their own stack slots, in which case
-//   the return value is the same as "Size".
-//
-unsigned ABIPassingSegment::GetStackSize() const
-{
-    assert(IsPassedOnStack());
-    return m_isFullStackSlot ? roundUp(Size, TARGET_POINTER_SIZE) : Size;
-}
-
-//-----------------------------------------------------------------------------
 // GetRegisterType:
 //  Return the smallest type larger or equal to Size that most naturally
 //  represents the register this segment is passed in.
@@ -112,7 +97,8 @@ unsigned ABIPassingSegment::GetStackSize() const
 //
 var_types ABIPassingSegment::GetRegisterType() const
 {
-    if (genIsValidFloatReg(GetRegister()))
+    assert(IsPassedInRegister());
+    if (genIsValidFloatReg(m_register))
     {
         switch (Size)
         {
@@ -171,7 +157,7 @@ ABIPassingSegment ABIPassingSegment::InRegister(regNumber reg, unsigned offset, 
 {
     assert(reg != REG_NA);
     ABIPassingSegment segment;
-    segment.m_register    = static_cast<regNumberSmall>(reg);
+    segment.m_register    = reg;
     segment.m_stackOffset = 0;
     segment.Offset        = offset;
     segment.Size          = size;
@@ -198,35 +184,6 @@ ABIPassingSegment ABIPassingSegment::OnStack(unsigned stackOffset, unsigned offs
     segment.m_stackOffset = stackOffset;
     segment.Offset        = offset;
     segment.Size          = size;
-    return segment;
-}
-
-//-----------------------------------------------------------------------------
-// OnStackWithoutConsumingFullSlot:
-//   Create an ABIPassingSegment representing that a segment is passed on the
-//   stack, and which does not gets its own full stack slot.
-//
-// Parameters:
-//   stackOffset - Offset relative to the first stack parameter/argument
-//   offset      - The offset of the segment that is passed in the register
-//   size        - The size of the segment passed in the register
-//
-// Return Value:
-//   New instance of ABIPassingSegment.
-//
-// Remarks:
-//   This affects what ABIPassingSegment::GetStackSize() returns.
-//
-ABIPassingSegment ABIPassingSegment::OnStackWithoutConsumingFullSlot(unsigned stackOffset,
-                                                                     unsigned offset,
-                                                                     unsigned size)
-{
-    ABIPassingSegment segment;
-    segment.m_register        = REG_NA;
-    segment.m_stackOffset     = stackOffset;
-    segment.m_isFullStackSlot = false;
-    segment.Offset            = offset;
-    segment.Size              = size;
     return segment;
 }
 
@@ -290,43 +247,6 @@ ABIPassingSegment& ABIPassingInformation::Segment(unsigned index)
 }
 
 //-----------------------------------------------------------------------------
-// Segments:
-//   Get an iterator pair that can be used with range-based for to iterate the
-//   segments.
-//
-// Returns:
-//   Iterator pair.
-//
-IteratorPair<ABIPassingSegmentIterator> ABIPassingInformation::Segments() const
-{
-    const ABIPassingSegment* begin;
-    if (NumSegments == 1)
-    {
-        begin = &m_singleSegment;
-    }
-    else
-    {
-        begin = m_segments;
-    }
-
-    return IteratorPair<ABIPassingSegmentIterator>(ABIPassingSegmentIterator(begin),
-                                                   ABIPassingSegmentIterator(begin + NumSegments));
-}
-
-//-----------------------------------------------------------------------------
-// IsPassedByReference:
-//   Check if the argument is passed by (implicit) reference. If true, a single
-//   pointer-sized segment is expected.
-//
-// Return Value:
-//   True if so.
-//
-bool ABIPassingInformation::IsPassedByReference() const
-{
-    return m_passedByRef;
-}
-
-//-----------------------------------------------------------------------------
 // HasAnyRegisterSegment:
 //   Check if any part of this value is passed in a register.
 //
@@ -335,9 +255,9 @@ bool ABIPassingInformation::IsPassedByReference() const
 //
 bool ABIPassingInformation::HasAnyRegisterSegment() const
 {
-    for (const ABIPassingSegment& seg : Segments())
+    for (unsigned i = 0; i < NumSegments; i++)
     {
-        if (seg.IsPassedInRegister())
+        if (Segment(i).IsPassedInRegister())
         {
             return true;
         }
@@ -354,9 +274,9 @@ bool ABIPassingInformation::HasAnyRegisterSegment() const
 //
 bool ABIPassingInformation::HasAnyFloatingRegisterSegment() const
 {
-    for (const ABIPassingSegment& seg : Segments())
+    for (unsigned i = 0; i < NumSegments; i++)
     {
-        if (seg.IsPassedInRegister() && genIsValidFloatReg(seg.GetRegister()))
+        if (Segment(i).IsPassedInRegister() && genIsValidFloatReg(Segment(i).GetRegister()))
         {
             return true;
         }
@@ -373,9 +293,9 @@ bool ABIPassingInformation::HasAnyFloatingRegisterSegment() const
 //
 bool ABIPassingInformation::HasAnyStackSegment() const
 {
-    for (const ABIPassingSegment& seg : Segments())
+    for (unsigned i = 0; i < NumSegments; i++)
     {
-        if (seg.IsPassedOnStack())
+        if (Segment(i).IsPassedOnStack())
         {
             return true;
         }
@@ -445,8 +365,9 @@ unsigned ABIPassingInformation::CountRegsAndStackSlots() const
 {
     unsigned numSlots = 0;
 
-    for (const ABIPassingSegment& seg : Segments())
+    for (unsigned i = 0; i < NumSegments; i++)
     {
+        const ABIPassingSegment& seg = Segment(i);
         if (seg.IsPassedInRegister())
         {
             numSlots++;
@@ -461,74 +382,22 @@ unsigned ABIPassingInformation::CountRegsAndStackSlots() const
 }
 
 //-----------------------------------------------------------------------------
-// StackBytesConsumes:
-//   Count the amount of stack bytes consumed by this argument.
-//
-// Return Value:
-//   Bytes.
-//
-unsigned ABIPassingInformation::StackBytesConsumed() const
-{
-    unsigned numBytes = 0;
-
-    for (const ABIPassingSegment& seg : Segments())
-    {
-        if (seg.IsPassedOnStack())
-        {
-            numBytes += seg.GetStackSize();
-        }
-    }
-
-    return numBytes;
-}
-
-//-----------------------------------------------------------------------------
 // FromSegment:
 //   Create ABIPassingInformation from a single segment.
 //
 // Parameters:
-//   comp        - Compiler instance
-//   passedByRef - If true, the argument is passed by reference and the segment is for its pointer.
-//   segment     - The single segment that represents the passing information
+//   comp    - Compiler instance
+//   segment - The single segment that represents the passing information
 //
 // Return Value:
 //   An instance of ABIPassingInformation.
 //
-ABIPassingInformation ABIPassingInformation::FromSegment(Compiler*                comp,
-                                                         bool                     passedByRef,
-                                                         const ABIPassingSegment& segment)
+ABIPassingInformation ABIPassingInformation::FromSegment(Compiler* comp, const ABIPassingSegment& segment)
 {
     ABIPassingInformation info;
-    info.m_passedByRef   = passedByRef;
     info.NumSegments     = 1;
     info.m_singleSegment = segment;
-
-#ifdef DEBUG
-    if (passedByRef)
-    {
-        assert(segment.Size == TARGET_POINTER_SIZE);
-        assert(!segment.IsPassedInRegister() || (segment.GetRegisterType() == TYP_I_IMPL));
-    }
-#endif
-
     return info;
-}
-
-//-----------------------------------------------------------------------------
-// FromSegmentByValue:
-//   Create ABIPassingInformation from a single segment passing an argument by
-//   value.
-//
-// Parameters:
-//   comp        - Compiler instance
-//   segment     - The single segment that represents the passing information
-//
-// Return Value:
-//   An instance of ABIPassingInformation.
-//
-ABIPassingInformation ABIPassingInformation::FromSegmentByValue(Compiler* comp, const ABIPassingSegment& segment)
-{
-    return FromSegment(comp, /* passedByRef */ false, segment);
 }
 
 //-----------------------------------------------------------------------------
@@ -573,24 +442,15 @@ void ABIPassingInformation::Dump() const
         }
 
         const ABIPassingSegment& seg = Segment(i);
-        seg.Dump();
-        printf("%s\n", IsPassedByReference() ? " (implicit by-ref)" : "");
-    }
-}
 
-//-----------------------------------------------------------------------------
-// Dump:
-//   Dump the ABIPassingSegment to stdout.
-//
-void ABIPassingSegment::Dump() const
-{
-    if (IsPassedInRegister())
-    {
-        printf("[%02u..%02u) reg %s", Offset, Offset + Size, getRegName(GetRegister()));
-    }
-    else
-    {
-        printf("[%02u..%02u) stack @ +%02u", Offset, Offset + Size, GetStackOffset());
+        if (seg.IsPassedInRegister())
+        {
+            printf("[%02u..%02u) reg %s\n", seg.Offset, seg.Offset + seg.Size, getRegName(seg.GetRegister()));
+        }
+        else
+        {
+            printf("[%02u..%02u) stack @ +%02u\n", seg.Offset, seg.Offset + seg.Size, seg.GetStackOffset());
+        }
     }
 }
 #endif
@@ -653,14 +513,13 @@ ABIPassingInformation SwiftABIClassifier::Classify(Compiler*    comp,
     if (wellKnownParam == WellKnownArg::RetBuffer)
     {
         regNumber reg = theFixedRetBuffReg(CorInfoCallConvExtension::Swift);
-        return ABIPassingInformation::FromSegmentByValue(comp,
-                                                         ABIPassingSegment::InRegister(reg, 0, TARGET_POINTER_SIZE));
+        return ABIPassingInformation::FromSegment(comp, ABIPassingSegment::InRegister(reg, 0, TARGET_POINTER_SIZE));
     }
 
     if (wellKnownParam == WellKnownArg::SwiftSelf)
     {
-        return ABIPassingInformation::FromSegmentByValue(comp, ABIPassingSegment::InRegister(REG_SWIFT_SELF, 0,
-                                                                                             TARGET_POINTER_SIZE));
+        return ABIPassingInformation::FromSegment(comp, ABIPassingSegment::InRegister(REG_SWIFT_SELF, 0,
+                                                                                      TARGET_POINTER_SIZE));
     }
 
     if (wellKnownParam == WellKnownArg::SwiftError)
@@ -670,8 +529,8 @@ ABIPassingInformation SwiftABIClassifier::Classify(Compiler*    comp,
         // as that will mess with other args.
         // Quirk: To work around the JIT for now, "pass" it in REG_SWIFT_ERROR,
         // and let CodeGen::genFnProlog handle the rest.
-        return ABIPassingInformation::FromSegmentByValue(comp, ABIPassingSegment::InRegister(REG_SWIFT_ERROR, 0,
-                                                                                             TARGET_POINTER_SIZE));
+        return ABIPassingInformation::FromSegment(comp, ABIPassingSegment::InRegister(REG_SWIFT_ERROR, 0,
+                                                                                      TARGET_POINTER_SIZE));
     }
 
     if (type == TYP_STRUCT)
@@ -679,9 +538,7 @@ ABIPassingInformation SwiftABIClassifier::Classify(Compiler*    comp,
         const CORINFO_SWIFT_LOWERING* lowering = comp->GetSwiftLowering(structLayout->GetClassHandle());
         if (lowering->byReference)
         {
-            ABIPassingInformation abiInfo = m_classifier.Classify(comp, TYP_I_IMPL, nullptr, WellKnownArg::None);
-            assert(abiInfo.NumSegments == 1);
-            return ABIPassingInformation::FromSegment(comp, /* passedByRef */ true, abiInfo.Segment(0));
+            return m_classifier.Classify(comp, TYP_I_IMPL, nullptr, WellKnownArg::None);
         }
 
         ArrayStack<ABIPassingSegment> segments(comp->getAllocator(CMK_ABI));
@@ -690,9 +547,9 @@ ABIPassingInformation SwiftABIClassifier::Classify(Compiler*    comp,
             var_types             elemType = JITtype2varType(lowering->loweredElements[i]);
             ABIPassingInformation elemInfo = m_classifier.Classify(comp, elemType, nullptr, WellKnownArg::None);
 
-            for (const ABIPassingSegment& seg : elemInfo.Segments())
+            for (unsigned j = 0; j < elemInfo.NumSegments; j++)
             {
-                ABIPassingSegment newSegment = seg;
+                ABIPassingSegment newSegment = elemInfo.Segment(j);
                 newSegment.Offset += lowering->offsets[i];
                 // Adjust the tail size if necessary; the lowered sequence can
                 // pass the tail as a larger type than the tail size.

@@ -4,7 +4,6 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Xunit;
 
 public struct MyStruct<TRequest, TResponse>
 {
@@ -62,8 +61,7 @@ public class Test_runtime_32848
         var wrapper = creator.GetMyStructWrapper<Exception, GenStruct<string>>();
         return wrapper.ToString();
     }
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         Console.WriteLine("Expected: MyStruct`2[System.Exception,GenStruct`1[System.String]] = 456");
 

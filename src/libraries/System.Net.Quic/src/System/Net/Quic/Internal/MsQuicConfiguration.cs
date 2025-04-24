@@ -39,25 +39,21 @@ internal static partial class MsQuicConfiguration
         }
         else if (authenticationOptions.LocalCertificateSelectionCallback != null)
         {
-            X509Certificate? selectedCertificate = authenticationOptions.LocalCertificateSelectionCallback(
+            X509Certificate selectedCertificate = authenticationOptions.LocalCertificateSelectionCallback(
                 options,
                 authenticationOptions.TargetHost ?? string.Empty,
                 authenticationOptions.ClientCertificates ?? new X509CertificateCollection(),
                 null,
                 Array.Empty<string>());
-
-            if (selectedCertificate is not null)
+            if (selectedCertificate.HasPrivateKey())
             {
-                if (selectedCertificate.HasPrivateKey())
+                certificate = selectedCertificate;
+            }
+            else
+            {
+                if (NetEventSource.Log.IsEnabled())
                 {
-                    certificate = selectedCertificate;
-                }
-                else
-                {
-                    if (NetEventSource.Log.IsEnabled())
-                    {
-                        NetEventSource.Info(options, $"'{certificate}' not selected because it doesn't have a private key.");
-                    }
+                    NetEventSource.Info(options, $"'{certificate}' not selected because it doesn't have a private key.");
                 }
             }
         }

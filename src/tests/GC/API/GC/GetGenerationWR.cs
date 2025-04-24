@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using Xunit;
 
 public class Dummy
 {
@@ -49,8 +48,7 @@ public class CreateObj
     }
 
 
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         CreateObj temp = new CreateObj();
 

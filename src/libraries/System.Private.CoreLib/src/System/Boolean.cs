@@ -96,17 +96,22 @@ namespace System
         {
             if (m_value)
             {
-                if (TrueLiteral.TryCopyTo(destination))
+                if (destination.Length > 3)
                 {
-                    charsWritten = TrueLiteral.Length;
+                    ulong true_val = BitConverter.IsLittleEndian ? 0x65007500720054ul : 0x54007200750065ul; // "True"
+                    MemoryMarshal.Write(MemoryMarshal.AsBytes(destination), in true_val);
+                    charsWritten = 4;
                     return true;
                 }
             }
             else
             {
-                if (FalseLiteral.TryCopyTo(destination))
+                if (destination.Length > 4)
                 {
-                    charsWritten = FalseLiteral.Length;
+                    ulong fals_val = BitConverter.IsLittleEndian ? 0x73006C00610046ul : 0x460061006C0073ul; // "Fals"
+                    MemoryMarshal.Write(MemoryMarshal.AsBytes(destination), in fals_val);
+                    destination[4] = 'e';
+                    charsWritten = 5;
                     return true;
                 }
             }

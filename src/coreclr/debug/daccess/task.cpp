@@ -713,21 +713,30 @@ ClrDataAppDomain::GetName(
 
     EX_TRY
     {
-        LPCWSTR rawName = m_appDomain->GetFriendlyName();
+        bool isUtf8;
+        PVOID rawName = m_appDomain->GetFriendlyNameNoSet(&isUtf8);
         if (rawName)
         {
-            status = StringCchCopy(name, bufLen, rawName) == S_OK ?
-                S_OK : S_FALSE;
-            if (nameLen)
+            if (isUtf8)
             {
-                size_t cchName = u16_strlen(rawName) + 1;
-                if (FitsIn<ULONG32>(cchName))
+                status = ConvertUtf8((LPCUTF8)rawName,
+                                     bufLen, nameLen, name);
+            }
+            else
+            {
+                status = StringCchCopy(name, bufLen, (PCWSTR)rawName) == S_OK ?
+                    S_OK : S_FALSE;
+                if (nameLen)
                 {
-                    *nameLen = (ULONG32) cchName;
-                }
-                else
-                {
-                    status = COR_E_OVERFLOW;
+                    size_t cchName = u16_strlen((PCWSTR)rawName) + 1;
+                    if (FitsIn<ULONG32>(cchName))
+                    {
+                        *nameLen = (ULONG32) cchName;
+                    }
+                    else
+                    {
+                        status = COR_E_OVERFLOW;
+                    }
                 }
             }
         }
@@ -5196,8 +5205,8 @@ EnumMethodInstances::Next(ClrDataAccess* dac,
  NextMethod:
     {
         // Note: DAC doesn't need to keep the assembly alive - see code:CollectibleAssemblyHolder#CAH_DAC
-        CollectibleAssemblyHolder<Assembly *> pAssembly;
-        if (!m_methodIter.Next(pAssembly.This()))
+        CollectibleAssemblyHolder<DomainAssembly *> pDomainAssembly;
+        if (!m_methodIter.Next(pDomainAssembly.This()))
         {
             return S_FALSE;
         }

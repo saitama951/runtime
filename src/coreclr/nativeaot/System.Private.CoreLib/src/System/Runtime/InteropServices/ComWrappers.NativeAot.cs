@@ -110,31 +110,14 @@ namespace System.Runtime.InteropServices
 
             internal static unsafe ManagedObjectWrapper* ToManagedObjectWrapper(ComInterfaceDispatch* dispatchPtr)
             {
-                InternalComInterfaceDispatch* dispatch = (InternalComInterfaceDispatch*)unchecked((nuint)dispatchPtr & (nuint)InternalComInterfaceDispatch.DispatchAlignmentMask);
-                return dispatch->_thisPtr;
+                return ((InternalComInterfaceDispatch*)dispatchPtr)->_thisPtr;
             }
         }
 
         internal unsafe struct InternalComInterfaceDispatch
         {
-#if TARGET_64BIT
-            internal const int DispatchAlignment = 64;
-            internal const int NumEntriesInDispatchTable = DispatchAlignment / 8 /* sizeof(void*) */  - 1;
-#else
-            internal const int DispatchAlignment = 16;
-            internal const int NumEntriesInDispatchTable = DispatchAlignment / 4 /* sizeof(void*) */  - 1;
-#endif
-            internal const ulong DispatchAlignmentMask = unchecked((ulong)~(InternalComInterfaceDispatch.DispatchAlignment - 1));
-
+            public IntPtr Vtable;
             internal ManagedObjectWrapper* _thisPtr;
-
-            public DispatchTable Vtables;
-
-            [InlineArray(NumEntriesInDispatchTable)]
-            internal unsafe struct DispatchTable
-            {
-                private IntPtr _element;
-            }
         }
 
         internal enum CreateComInterfaceFlagsEx
@@ -354,23 +337,16 @@ namespace System.Runtime.InteropServices
                 }
             }
 
-            private unsafe IntPtr GetDispatchPointerAtIndex(int index)
-            {
-                InternalComInterfaceDispatch* dispatch = &Dispatches[index / InternalComInterfaceDispatch.NumEntriesInDispatchTable];
-                IntPtr* vtables = (IntPtr*)(void*)&dispatch->Vtables;
-                return (IntPtr)(&vtables[index % InternalComInterfaceDispatch.NumEntriesInDispatchTable]);
-            }
-
             private unsafe IntPtr AsRuntimeDefined(in Guid riid)
             {
                 // The order of interface lookup here is important.
-                // See CreateManagedObjectWrapper() for the expected order.
+                // See CreateCCW() for the expected order.
                 int i = UserDefinedCount;
                 if ((Flags & CreateComInterfaceFlagsEx.CallerDefinedIUnknown) == 0)
                 {
                     if (riid == IID_IUnknown)
                     {
-                        return GetDispatchPointerAtIndex(i);
+                        return (IntPtr)(Dispatches + i);
                     }
 
                     i++;
@@ -380,7 +356,7 @@ namespace System.Runtime.InteropServices
                 {
                     if (riid == IID_IReferenceTrackerTarget)
                     {
-                        return GetDispatchPointerAtIndex(i);
+                        return (IntPtr)(Dispatches + i);
                     }
 
                     i++;
@@ -389,7 +365,7 @@ namespace System.Runtime.InteropServices
                 {
                     if (riid == IID_TaggedImpl)
                     {
-                        return GetDispatchPointerAtIndex(i);
+                        return (IntPtr)(Dispatches + i);
                     }
                 }
 
@@ -402,7 +378,7 @@ namespace System.Runtime.InteropServices
                 {
                     if (UserDefined[i].IID == riid)
                     {
-                        return GetDispatchPointerAtIndex(i);
+                        return (IntPtr)(Dispatches + i);
                     }
                 }
 
@@ -499,7 +475,7 @@ namespace System.Runtime.InteropServices
                 // Release GC handle created when MOW was built.
                 if (_wrapper->Destroy())
                 {
-                    NativeMemory.AlignedFree(_wrapper);
+                    NativeMemory.Free(_wrapper);
                     _wrapper = null;
                 }
                 else
@@ -530,31 +506,17 @@ namespace System.Runtime.InteropServices
                 ComAwareWeakReference.InitializeCallbacks(&ComWeakRefToObject, &PossiblyComObject, &ObjectToComWeakRef);
             }
 
-            public static NativeObjectWrapper Create(
-                IntPtr externalComObject,
-                IntPtr inner,
-                ComWrappers comWrappers,
-                object comProxy,
-                CreateObjectFlags flags,
-                ref IntPtr referenceTrackerMaybe)
+            public static NativeObjectWrapper Create(IntPtr externalComObject, IntPtr inner, ComWrappers comWrappers, object comProxy, CreateObjectFlags flags)
             {
-                if (flags.HasFlag(CreateObjectFlags.TrackerObject))
+                if (flags.HasFlag(CreateObjectFlags.TrackerObject) &&
+                    Marshal.QueryInterface(externalComObject, IID_IReferenceTracker, out IntPtr trackerObject) == HResults.S_OK)
                 {
-                    IntPtr trackerObject = referenceTrackerMaybe;
-
-                    // We're taking ownership of this reference tracker object, so reset the reference
-                    referenceTrackerMaybe = IntPtr.Zero;
-
-                    // If we already have a reference tracker (that will be the case in aggregation scenarios), then reuse it.
-                    // Otherwise, do the 'QueryInterface' call for it here. This allows us to only ever query for this IID once.
-                    if (trackerObject != IntPtr.Zero ||
-                        Marshal.QueryInterface(externalComObject, IID_IReferenceTracker, out trackerObject) == HResults.S_OK)
-                    {
-                        return new ReferenceTrackerNativeObjectWrapper(externalComObject, inner, comWrappers, comProxy, flags, trackerObject);
-                    }
+                    return new ReferenceTrackerNativeObjectWrapper(externalComObject, inner, comWrappers, comProxy, flags, trackerObject);
                 }
-
-                return new NativeObjectWrapper(externalComObject, inner, comWrappers, comProxy, flags);
+                else
+                {
+                    return new NativeObjectWrapper(externalComObject, inner, comWrappers, comProxy, flags);
+                }
             }
 
             protected NativeObjectWrapper(IntPtr externalComObject, IntPtr inner, ComWrappers comWrappers, object comProxy, CreateObjectFlags flags)
@@ -739,13 +701,6 @@ namespace System.Runtime.InteropServices
             }
         }
 
-        // Custom type instead of a value tuple to avoid rooting 'ITuple' and other value tuple stuff
-        private struct GetOrCreateComInterfaceForObjectParameters
-        {
-            public ComWrappers? This;
-            public CreateComInterfaceFlags Flags;
-        }
-
         /// <summary>
         /// Create a COM representation of the supplied object that can be passed to a non-managed environment.
         /// </summary>
@@ -761,20 +716,20 @@ namespace System.Runtime.InteropServices
         {
             ArgumentNullException.ThrowIfNull(instance);
 
-            ManagedObjectWrapperHolder managedObjectWrapper = _managedObjectWrapperTable.GetOrAdd(instance, static (c, items) =>
+            ManagedObjectWrapperHolder? managedObjectWrapper;
+            if (_managedObjectWrapperTable.TryGetValue(instance, out managedObjectWrapper))
             {
-                ManagedObjectWrapper* value = items.This!.CreateManagedObjectWrapper(c, items.Flags);
-                return new ManagedObjectWrapperHolder(value, c);
-            }, new GetOrCreateComInterfaceForObjectParameters { This = this, Flags = flags });
+                managedObjectWrapper.AddRef();
+                return managedObjectWrapper.ComIp;
+            }
 
+            managedObjectWrapper = _managedObjectWrapperTable.GetValue(instance, (c) =>
+            {
+                ManagedObjectWrapper* value = CreateManagedObjectWrapper(c, flags);
+                return new ManagedObjectWrapperHolder(value, c);
+            });
             managedObjectWrapper.AddRef();
             return managedObjectWrapper.ComIp;
-        }
-
-        private static nuint AlignUp(nuint value, nuint alignment)
-        {
-            nuint alignMask = alignment - 1;
-            return (nuint)((value + alignMask) & ~alignMask);
         }
 
         private unsafe ManagedObjectWrapper* CreateManagedObjectWrapper(object instance, CreateComInterfaceFlags flags)
@@ -807,43 +762,21 @@ namespace System.Runtime.InteropServices
             // Compute size for ManagedObjectWrapper instance.
             int totalDefinedCount = runtimeDefinedCount + userDefinedCount;
 
-            int numSections = totalDefinedCount / InternalComInterfaceDispatch.NumEntriesInDispatchTable;
-            if (totalDefinedCount % InternalComInterfaceDispatch.NumEntriesInDispatchTable != 0)
-            {
-                // Account for a trailing partial section to fit all of the defined interfaces.
-                numSections++;
-            }
+            // Allocate memory for the ManagedObjectWrapper.
+            IntPtr wrapperMem = (IntPtr)NativeMemory.Alloc(
+                (nuint)sizeof(ManagedObjectWrapper) + (nuint)totalDefinedCount * (nuint)sizeof(InternalComInterfaceDispatch));
 
-            nuint headerSize = AlignUp((nuint)sizeof(ManagedObjectWrapper), InternalComInterfaceDispatch.DispatchAlignment);
-
-            // Instead of allocating a full section even when we have a trailing one, we'll allocate only
-            // as much space as we need to store all of our dispatch tables.
-            nuint dispatchSectionSize = (nuint)totalDefinedCount * (nuint)sizeof(void*) + (nuint)numSections * (nuint)sizeof(void*);
-
-            // Allocate memory for the ManagedObjectWrapper with the correct alignment for our dispatch tables.
-            IntPtr wrapperMem = (IntPtr)NativeMemory.AlignedAlloc(
-                headerSize + dispatchSectionSize,
-                InternalComInterfaceDispatch.DispatchAlignment);
-
-            // Dispatches follow the ManagedObjectWrapper.
-            InternalComInterfaceDispatch* pDispatches = (InternalComInterfaceDispatch*)((nuint)wrapperMem + headerSize);
-            Span<InternalComInterfaceDispatch> dispatches = new Span<InternalComInterfaceDispatch>(pDispatches, numSections);
-            for (int i = 0; i < dispatches.Length; i++)
-            {
-                dispatches[i]._thisPtr = (ManagedObjectWrapper*)wrapperMem;
-                Span<IntPtr> dispatchVtables = dispatches[i].Vtables;
-                for (int j = 0; j < dispatchVtables.Length; j++)
-                {
-                    int index = i * dispatchVtables.Length + j;
-                    if (index >= totalDefinedCount)
-                    {
-                        break;
-                    }
-                    dispatchVtables[j] = (index < userDefinedCount) ? userDefined[index].Vtable : runtimeDefinedVtable[index - userDefinedCount];
-                }
-            }
-
+            // Compute the dispatch section offset and ensure it is aligned.
             ManagedObjectWrapper* mow = (ManagedObjectWrapper*)wrapperMem;
+
+            // Dispatches follow immediately after ManagedObjectWrapper
+            InternalComInterfaceDispatch* pDispatches = (InternalComInterfaceDispatch*)(wrapperMem + sizeof(ManagedObjectWrapper));
+            for (int i = 0; i < totalDefinedCount; i++)
+            {
+                pDispatches[i].Vtable = (i < userDefinedCount) ? userDefined[i].Vtable : runtimeDefinedVtable[i - userDefinedCount];
+                pDispatches[i]._thisPtr = mow;
+            }
+
             mow->HolderHandle = IntPtr.Zero;
             mow->RefCount = 0;
             mow->UserDefinedCount = userDefinedCount;
@@ -947,8 +880,7 @@ namespace System.Runtime.InteropServices
             IntPtr innerMaybe,
             CreateObjectFlags flags,
             out IntPtr identity,
-            out IntPtr inner,
-            out IntPtr referenceTrackerMaybe)
+            out IntPtr inner)
         {
             inner = innerMaybe;
 
@@ -969,15 +901,13 @@ namespace System.Runtime.InteropServices
                 // to get identity from an inner is through a non-IUnknown
                 // interface QI. Once we have the IReferenceTracker
                 // instance we can be sure the QI for IUnknown will really
-                // be the true identity. This allows us to keep the reference tracker
-                // reference alive, so we can reuse it later.
+                // be the true identity.
+                using ComHolder referenceTracker = new ComHolder(referenceTrackerPtr);
                 checkForIdentity = referenceTrackerPtr;
-                referenceTrackerMaybe = referenceTrackerPtr;
                 Marshal.ThrowExceptionForHR(Marshal.QueryInterface(checkForIdentity, IID_IUnknown, out identity));
             }
             else
             {
-                referenceTrackerMaybe = IntPtr.Zero;
                 Marshal.ThrowExceptionForHR(Marshal.QueryInterface(externalComObject, IID_IUnknown, out identity));
             }
 
@@ -1018,90 +948,72 @@ namespace System.Runtime.InteropServices
                 innerMaybe,
                 flags,
                 out IntPtr identity,
-                out IntPtr inner,
-                out IntPtr referenceTrackerMaybe);
+                out IntPtr inner);
 
-            try
+            using ComHolder releaseIdentity = new ComHolder(identity);
+
+            // If the user has requested a unique instance,
+            // we will immediately create the object, register it,
+            // and return.
+            if (flags.HasFlag(CreateObjectFlags.UniqueInstance))
             {
-                // If the user has requested a unique instance,
-                // we will immediately create the object, register it,
-                // and return.
-                if (flags.HasFlag(CreateObjectFlags.UniqueInstance))
-                {
-                    retValue = CreateAndRegisterObjectForComInstance(identity, inner, flags, ref referenceTrackerMaybe);
-                    return retValue is not null;
-                }
+                retValue = CreateAndRegisterObjectForComInstance(identity, inner, flags);
+                return retValue is not null;
+            }
 
-                // If we have a live cached wrapper currently,
-                // return that.
-                if (_rcwCache.FindProxyForComInstance(identity) is object liveCachedWrapper)
-                {
-                    retValue = liveCachedWrapper;
-                    return true;
-                }
+            // If we have a live cached wrapper currently,
+            // return that.
+            if (_rcwCache.FindProxyForComInstance(identity) is object liveCachedWrapper)
+            {
+                retValue = liveCachedWrapper;
+                return true;
+            }
 
-                // If the user tried to provide a pre-created managed wrapper, try to register
-                // that object as the wrapper.
-                if (wrapperMaybe is not null)
-                {
-                    retValue = RegisterObjectForComInstance(identity, inner, wrapperMaybe, flags, ref referenceTrackerMaybe);
-                    return retValue is not null;
-                }
+            // If the user tried to provide a pre-created managed wrapper, try to register
+            // that object as the wrapper.
+            if (wrapperMaybe is not null)
+            {
+                retValue = RegisterObjectForComInstance(identity, inner, wrapperMaybe, flags);
+                return retValue is not null;
+            }
 
-                // Check if the provided COM instance is actually a managed object wrapper from this
-                // ComWrappers instance, and use it if it is.
-                if (flags.HasFlag(CreateObjectFlags.Unwrap))
+            // Check if the provided COM instance is actually a managed object wrapper from this
+            // ComWrappers instance, and use it if it is.
+            if (flags.HasFlag(CreateObjectFlags.Unwrap))
+            {
+                ComInterfaceDispatch* comInterfaceDispatch = TryGetComInterfaceDispatch(identity);
+                if (comInterfaceDispatch != null)
                 {
-                    ComInterfaceDispatch* comInterfaceDispatch = TryGetComInterfaceDispatch(identity);
-                    if (comInterfaceDispatch != null)
+                    // If we found a managed object wrapper in this ComWrappers instance
+                    // and it has the same identity pointer as the one we're creating a NativeObjectWrapper for,
+                    // unwrap it. We don't AddRef the wrapper as we don't take a reference to it.
+                    //
+                    // A managed object can have multiple managed object wrappers, with a max of one per context.
+                    // Let's say we have a managed object A and ComWrappers instances C1 and C2. Let B1 and B2 be the
+                    // managed object wrappers for A created with C1 and C2 respectively.
+                    // If we are asked to create an EOC for B1 with the unwrap flag on the C2 ComWrappers instance,
+                    // we will create a new wrapper. In this scenario, we'll only unwrap B2.
+                    object unwrapped = ComInterfaceDispatch.GetInstance<object>(comInterfaceDispatch);
+                    if (_managedObjectWrapperTable.TryGetValue(unwrapped, out ManagedObjectWrapperHolder? unwrappedWrapperInThisContext))
                     {
-                        // If we found a managed object wrapper in this ComWrappers instance
-                        // and it has the same identity pointer as the one we're creating a NativeObjectWrapper for,
-                        // unwrap it. We don't AddRef the wrapper as we don't take a reference to it.
-                        //
-                        // A managed object can have multiple managed object wrappers, with a max of one per context.
-                        // Let's say we have a managed object A and ComWrappers instances C1 and C2. Let B1 and B2 be the
-                        // managed object wrappers for A created with C1 and C2 respectively.
-                        // If we are asked to create an EOC for B1 with the unwrap flag on the C2 ComWrappers instance,
-                        // we will create a new wrapper. In this scenario, we'll only unwrap B2.
-                        object unwrapped = ComInterfaceDispatch.GetInstance<object>(comInterfaceDispatch);
-                        if (_managedObjectWrapperTable.TryGetValue(unwrapped, out ManagedObjectWrapperHolder? unwrappedWrapperInThisContext))
+                        // The unwrapped object has a CCW in this context. Compare with identity
+                        // so we can see if it's the CCW for the unwrapped object in this context.
+                        if (unwrappedWrapperInThisContext.ComIp == identity)
                         {
-                            // The unwrapped object has a CCW in this context. Compare with identity
-                            // so we can see if it's the CCW for the unwrapped object in this context.
-                            if (unwrappedWrapperInThisContext.ComIp == identity)
-                            {
-                                retValue = unwrapped;
-                                return true;
-                            }
+                            retValue = unwrapped;
+                            return true;
                         }
                     }
                 }
-
-                // If the user didn't provide a wrapper and couldn't unwrap a managed object wrapper,
-                // create a new wrapper.
-                retValue = CreateAndRegisterObjectForComInstance(identity, inner, flags, ref referenceTrackerMaybe);
-                return retValue is not null;
             }
-            finally
-            {
-                // Releasing a native object can never throw (it's a native call, so exceptions can't
-                // go through the ABI, it'd just crash the whole process). So we can use a single
-                // 'finally' block to release both native pointers we're holding in this scope.
-                Marshal.Release(identity);
 
-                if (referenceTrackerMaybe != IntPtr.Zero)
-                {
-                    Marshal.Release(referenceTrackerMaybe);
-                }
-            }
+            // If the user didn't provide a wrapper and couldn't unwrap a managed object wrapper,
+            // create a new wrapper.
+            retValue = CreateAndRegisterObjectForComInstance(identity, inner, flags);
+            return retValue is not null;
         }
 
-        private object? CreateAndRegisterObjectForComInstance(
-            IntPtr identity,
-            IntPtr inner,
-            CreateObjectFlags flags,
-            ref IntPtr referenceTrackerMaybe)
+        private object? CreateAndRegisterObjectForComInstance(IntPtr identity, IntPtr inner, CreateObjectFlags flags)
         {
             object? retValue = CreateObject(identity, flags);
             if (retValue is null)
@@ -1110,23 +1022,17 @@ namespace System.Runtime.InteropServices
                 return null;
             }
 
-            return RegisterObjectForComInstance(identity, inner, retValue, flags, ref referenceTrackerMaybe);
+            return RegisterObjectForComInstance(identity, inner, retValue, flags);
         }
 
-        private object RegisterObjectForComInstance(
-            IntPtr identity,
-            IntPtr inner,
-            object comProxy,
-            CreateObjectFlags flags,
-            ref IntPtr referenceTrackerMaybe)
+        private object RegisterObjectForComInstance(IntPtr identity, IntPtr inner, object comProxy, CreateObjectFlags flags)
         {
             NativeObjectWrapper nativeObjectWrapper = NativeObjectWrapper.Create(
                 identity,
                 inner,
                 this,
                 comProxy,
-                flags,
-                ref referenceTrackerMaybe);
+                flags);
 
             object actualProxy = comProxy;
             NativeObjectWrapper actualWrapper = nativeObjectWrapper;
@@ -1163,11 +1069,15 @@ namespace System.Runtime.InteropServices
             Debug.Assert(wrapper.ProxyHandle.Target == comProxy);
             Debug.Assert(wrapper.IsUniqueInstance || _rcwCache.FindProxyForComInstance(wrapper.ExternalComObject) == comProxy);
 
-            // Add the input wrapper bound to the COM proxy, if there isn't one already. If another thread raced
-            // against this one and this lost, we'd get the wrapper added from that thread instead.
-            NativeObjectWrapper registeredWrapper = s_nativeObjectWrapperTable.GetOrAdd(comProxy, wrapper);
+            if (s_nativeObjectWrapperTable.TryGetValue(comProxy, out NativeObjectWrapper? registeredWrapper)
+                && registeredWrapper != wrapper)
+            {
+                Debug.Assert(registeredWrapper.ExternalComObject != wrapper.ExternalComObject);
+                wrapper.Release();
+                throw new NotSupportedException();
+            }
 
-            // We lost the race, so we cannot register the incoming wrapper with the target object
+            registeredWrapper = GetValueFromRcwTable(comProxy, wrapper);
             if (registeredWrapper != wrapper)
             {
                 Debug.Assert(registeredWrapper.ExternalComObject != wrapper.ExternalComObject);
@@ -1181,6 +1091,9 @@ namespace System.Runtime.InteropServices
             // TrackerObjectManager and we could end up missing a section of the object graph.
             // This cache deduplicates, so it is okay that the wrapper will be registered multiple times.
             AddWrapperToReferenceTrackerHandleCache(registeredWrapper);
+
+            // Separate out into a local function to avoid the closure and delegate allocation unless we need it.
+            static NativeObjectWrapper GetValueFromRcwTable(object userObject, NativeObjectWrapper newWrapper) => s_nativeObjectWrapperTable.GetValue(userObject, _ => newWrapper);
         }
 
         private static void AddWrapperToReferenceTrackerHandleCache(NativeObjectWrapper wrapper)

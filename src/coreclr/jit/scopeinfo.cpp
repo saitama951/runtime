@@ -1485,7 +1485,7 @@ void CodeGen::siBeginBlock(BasicBlock* block)
         return;
     }
 
-    if (block == compiler->fgFirstFuncletBB)
+    if (block->HasFlag(BBF_FUNCLET_BEG))
     {
         // For now, don't report any scopes in funclets. JIT64 doesn't.
         siInFuncletRegion = true;
@@ -1702,39 +1702,85 @@ void CodeGen::psiBegProlog()
         }
         siVarLoc varLocation;
 
-        regNumber reg1 = REG_NA;
-        regNumber reg2 = REG_NA;
-
-        const ABIPassingInformation& abiInfo = compiler->lvaGetParameterABIInfo(varScope->vsdVarNum);
-        for (const ABIPassingSegment& segment : abiInfo.Segments())
+        if (lclVarDsc->lvIsRegArg)
         {
-            if (segment.IsPassedInRegister())
+            bool isStructHandled = false;
+#if defined(UNIX_AMD64_ABI)
+            SYSTEMV_AMD64_CORINFO_STRUCT_REG_PASSING_DESCRIPTOR structDesc;
+            if (varTypeIsStruct(lclVarDsc))
             {
-                if (reg1 == REG_NA)
+                CORINFO_CLASS_HANDLE typeHnd = lclVarDsc->GetLayout()->GetClassHandle();
+                assert(typeHnd != nullptr);
+                compiler->eeGetSystemVAmd64PassStructInRegisterDescriptor(typeHnd, &structDesc);
+                if (structDesc.passedInRegisters)
                 {
-                    reg1 = segment.GetRegister();
+                    regNumber regNum      = REG_NA;
+                    regNumber otherRegNum = REG_NA;
+                    for (unsigned nCnt = 0; nCnt < structDesc.eightByteCount; nCnt++)
+                    {
+                        if (nCnt == 0)
+                        {
+                            regNum = lclVarDsc->GetArgReg();
+                        }
+                        else if (nCnt == 1)
+                        {
+                            otherRegNum = lclVarDsc->GetOtherArgReg();
+                        }
+                        else
+                        {
+                            assert(false && "Invalid eightbyte number.");
+                        }
+                    }
+
+                    varLocation.storeVariableInRegisters(regNum, otherRegNum);
                 }
                 else
                 {
-                    reg2 = segment.GetRegister();
-                    break;
+                    // Stack passed argument. Get the offset from the  caller's frame.
+                    varLocation.storeVariableOnStack(REG_SPBASE, psiGetVarStackOffset(lclVarDsc));
                 }
+
+                isStructHandled = true;
             }
-            else
+#endif // !defined(UNIX_AMD64_ABI)
+            if (!isStructHandled)
             {
-                break;
+#ifdef DEBUG
+#if defined(TARGET_LOONGARCH64) || defined(TARGET_RISCV64)
+                var_types regType;
+                if (varTypeIsStruct(lclVarDsc))
+                {
+                    // Must be <= 16 bytes or else it wouldn't be passed in registers,
+                    // which can be bigger (and is handled above).
+                    noway_assert(EA_SIZE_IN_BYTES(lclVarDsc->lvSize()) <= 16);
+                    if (emitter::isFloatReg(lclVarDsc->GetArgReg()))
+                    {
+                        regType = TYP_DOUBLE;
+                    }
+                    else
+                    {
+                        regType = lclVarDsc->GetLayout()->GetGCPtrType(0);
+                    }
+                }
+                else
+                {
+                    regType = compiler->mangleVarArgsType(lclVarDsc->TypeGet());
+                    if (emitter::isGeneralRegisterOrR0(lclVarDsc->GetArgReg()) && isFloatRegType(regType))
+                    {
+                        // For LoongArch64 and RISCV64's ABI, the float args may be passed by integer register.
+                        regType = TYP_LONG;
+                    }
+                }
+#else
+                var_types regType = compiler->mangleVarArgsType(lclVarDsc->TypeGet());
+                if (lclVarDsc->lvIsHfaRegArg())
+                {
+                    regType = lclVarDsc->GetHfaType();
+                }
+#endif // defined(TARGET_LOONGARCH64) || defined(TARGET_RISCV64)
+#endif // DEBUG
+                varLocation.storeVariableInRegisters(lclVarDsc->GetArgReg(), REG_NA);
             }
-        }
-
-        // We only report multiple registers on SysV ABI. On other ABIs we
-        // report only the first register.
-#ifndef UNIX_AMD64_ABI
-        reg2 = REG_NA;
-#endif
-
-        if (reg1 != REG_NA)
-        {
-            varLocation.storeVariableInRegisters(reg1, reg2);
         }
         else
         {
@@ -1964,7 +2010,7 @@ void CodeGen::genSetScopeInfo(unsigned       which,
 
         noway_assert(cookieOffset < varOffset);
         unsigned offset     = varOffset - cookieOffset;
-        unsigned stkArgSize = compiler->lvaParameterStackSize;
+        unsigned stkArgSize = compiler->compArgSize - intRegState.rsCalleeRegArgCount * REGSIZE_BYTES;
         noway_assert(offset < stkArgSize);
         offset = stkArgSize - offset;
 

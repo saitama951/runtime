@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System;
 using System.Runtime.InteropServices;
 
 internal static partial class Interop
@@ -9,7 +10,7 @@ internal static partial class Interop
     {
         // https://learn.microsoft.com/windows/win32/devio/storage-read-capacity
         [StructLayout(LayoutKind.Sequential)]
-        internal struct STORAGE_READ_CAPACITY
+        internal unsafe struct STORAGE_READ_CAPACITY
         {
             internal uint Version;
             internal uint Size;

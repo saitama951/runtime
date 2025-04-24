@@ -352,7 +352,7 @@ namespace System.Tests
         public async Task CanCreateBinaryDataFromFileStream()
         {
             byte[] buffer = "some data"u8.ToArray();
-            using FileStream stream = new FileStream(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+            using FileStream stream = new FileStream(Path.GetTempFileName(), FileMode.Open);
             stream.Write(buffer, 0, buffer.Length);
             stream.Position = 0;
             BinaryData data = BinaryData.FromStream(stream);
@@ -497,31 +497,51 @@ namespace System.Tests
         [Fact]
         public async Task CreateThrowsOnNullStream()
         {
-            Stream stream = null;
-            AssertExtensions.Throws<ArgumentNullException>("stream", () => BinaryData.FromStream(stream));
-            AssertExtensions.Throws<ArgumentNullException>("stream", () => BinaryData.FromStream(stream, null));
-            await AssertExtensions.ThrowsAsync<ArgumentNullException>("stream", () => BinaryData.FromStreamAsync(stream));
-            await AssertExtensions.ThrowsAsync<ArgumentNullException>("stream", () => BinaryData.FromStreamAsync(stream, null));
+            var ex = Assert.Throws<ArgumentNullException>(() => BinaryData.FromStream(null));
+            Assert.Contains("stream", ex.Message);
+
+            ex = Assert.Throws<ArgumentNullException>(() => BinaryData.FromStream(null, null));
+            Assert.Contains("stream", ex.Message);
+
+            ex = await Assert.ThrowsAsync<ArgumentNullException>(() => BinaryData.FromStreamAsync(null));
+            Assert.Contains("stream", ex.Message);
+
+            ex = await Assert.ThrowsAsync<ArgumentNullException>(() => BinaryData.FromStreamAsync(null, null));
+            Assert.Contains("stream", ex.Message);
         }
 
         [Fact]
         public void CreateThrowsOnNullString()
         {
             string payload = null;
-            AssertExtensions.Throws<ArgumentNullException>("data", () => new BinaryData(payload));
-            AssertExtensions.Throws<ArgumentNullException>("data", () => new BinaryData(payload, null));
-            AssertExtensions.Throws<ArgumentNullException>("data", () => BinaryData.FromString(payload));
-            AssertExtensions.Throws<ArgumentNullException>("data", () => BinaryData.FromString(payload, null));
+            var ex = Assert.Throws<ArgumentNullException>(() => new BinaryData(payload));
+            Assert.Contains("data", ex.Message);
+
+            ex = Assert.Throws<ArgumentNullException>(() => new BinaryData(payload, null));
+            Assert.Contains("data", ex.Message);
+
+            ex = Assert.Throws<ArgumentNullException>(() => BinaryData.FromString(payload));
+            Assert.Contains("data", ex.Message);
+
+            ex = Assert.Throws<ArgumentNullException>(() => BinaryData.FromString(payload, null));
+            Assert.Contains("data", ex.Message);
         }
 
         [Fact]
         public void CreateThrowsOnNullArray()
         {
             byte[] payload = null;
-            AssertExtensions.Throws<ArgumentNullException>("data", () => new BinaryData(payload));
-            AssertExtensions.Throws<ArgumentNullException>("data", () => new BinaryData(payload, null));
-            AssertExtensions.Throws<ArgumentNullException>("data", () => BinaryData.FromBytes(payload));
-            AssertExtensions.Throws<ArgumentNullException>("data", () => BinaryData.FromBytes(payload, null));
+            var ex = Assert.Throws<ArgumentNullException>(() => new BinaryData(payload));
+            Assert.Contains("data", ex.Message);
+
+            ex = Assert.Throws<ArgumentNullException>(() => new BinaryData(payload, null));
+            Assert.Contains("data", ex.Message);
+
+            ex = Assert.Throws<ArgumentNullException>(() => BinaryData.FromBytes(null));
+            Assert.Contains("data", ex.Message);
+
+            ex = Assert.Throws<ArgumentNullException>(() => BinaryData.FromBytes(null, null));
+            Assert.Contains("data", ex.Message);
         }
 
         [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsNotBuiltWithAggressiveTrimming))]

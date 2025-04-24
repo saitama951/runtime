@@ -4,7 +4,7 @@
 
 /*
  *
- * EE to Debugger Interface Implementation
+ * COM+99 EE to Debugger Interface Implementation
  *
  */
 #ifndef _eedbginterfaceimpl_h_

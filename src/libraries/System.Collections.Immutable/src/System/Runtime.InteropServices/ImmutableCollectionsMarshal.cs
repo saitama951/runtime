@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections;
 using System.Collections.Immutable;
 
 namespace System.Runtime.InteropServices
@@ -54,20 +53,6 @@ namespace System.Runtime.InteropServices
         public static T[]? AsArray<T>(ImmutableArray<T> array)
         {
             return array.array;
-        }
-
-        /// <summary>
-        /// Gets a <see cref="Memory{T}"/> for the <typeparamref name="T"/> array underlying an input <see cref="ImmutableArray{T}.Builder"/>.
-        /// </summary>
-        /// <typeparam name="T">The type of elements in the input <see cref="ImmutableArray{T}.Builder"/> value.</typeparam>
-        /// <param name="builder">The builder.</param>
-        /// <returns>
-        /// A <see cref="Memory{T}"/> for the filled portion of <typeparamref name="T"/> array underlying
-        /// the input <see cref="ImmutableArray{T}.Builder"/>.
-        /// </returns>
-        public static Memory<T> AsMemory<T>(ImmutableArray<T>.Builder? builder)
-        {
-            return builder?.AsMemory() ?? default;
         }
     }
 }

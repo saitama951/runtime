@@ -93,14 +93,12 @@ namespace System.Xml.Schema
         }
 
         [RequiresUnreferencedCode(XmlSerializer.TrimSerializationWarning)]
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         public void Write(Stream stream)
         {
             Write(stream, null);
         }
 
         [RequiresUnreferencedCode(XmlSerializer.TrimSerializationWarning)]
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         public void Write(Stream stream, XmlNamespaceManager? namespaceManager)
         {
             ArgumentNullException.ThrowIfNull(stream);
@@ -110,7 +108,6 @@ namespace System.Xml.Schema
         }
 
         [RequiresUnreferencedCode(XmlSerializer.TrimSerializationWarning)]
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         public void Write(TextWriter writer)
         {
             ArgumentNullException.ThrowIfNull(writer);
@@ -118,7 +115,6 @@ namespace System.Xml.Schema
         }
 
         [RequiresUnreferencedCode(XmlSerializer.TrimSerializationWarning)]
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         public void Write(TextWriter writer, XmlNamespaceManager? namespaceManager)
         {
             ArgumentNullException.ThrowIfNull(writer);
@@ -128,7 +124,6 @@ namespace System.Xml.Schema
         }
 
         [RequiresUnreferencedCode(XmlSerializer.TrimSerializationWarning)]
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         public void Write(XmlWriter writer)
         {
             ArgumentNullException.ThrowIfNull(writer);
@@ -140,7 +135,6 @@ namespace System.Xml.Schema
         // all of XmlSchema public members is enough in order to be safe in all cases, so we have opted to keep the RequiresUnreferencedCode
         // attribute for now. This can be removed in the future if it is determined that the above is enough for all scenarios to be trim-safe.
         [RequiresUnreferencedCode(XmlSerializer.TrimSerializationWarning)]
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         public void Write(XmlWriter writer, XmlNamespaceManager? namespaceManager)
         {
             ArgumentNullException.ThrowIfNull(writer);

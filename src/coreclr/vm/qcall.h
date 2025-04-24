@@ -129,8 +129,8 @@
     MODE_PREEMPTIVE;            \
 
 #define QCALL_CHECK_NO_GC_TRANSITION    \
-    NOTHROW;                            \
-    GC_NOTRIGGER;                       \
+    THROWS;                             \
+    GC_TRIGGERS;                        \
     MODE_COOPERATIVE;                   \
 
 #define QCALL_CONTRACT CONTRACTL { QCALL_CHECK; } CONTRACTL_END;
@@ -232,38 +232,6 @@ public:
     };
 
     //
-    // ByteRefOnStack type is used for returning on stack byref to byte.
-    //
-    struct ByteRefOnStack final
-    {
-        struct ByteRef
-        {
-            BYTE* m_pByte;
-        };
-
-        ByteRef* m_pByteRef;
-
-#ifndef DACCESS_COMPILE
-        void Set(BYTE* data)
-        {
-            CONTRACTL
-            {
-                NOTHROW;
-                GC_NOTRIGGER;
-                MODE_COOPERATIVE;
-                PRECONDITION(m_pByteRef != NULL);
-            }
-            CONTRACTL_END;
-
-            // The space for the return value has to be on the stack
-            _ASSERTE(Thread::IsAddressInCurrentStack(m_pByteRef));
-
-            m_pByteRef->m_pByte = data;
-        }
-#endif // !DACCESS_COMPILE
-    };
-
-    //
     // StackCrawlMarkHandle is used for passing StackCrawlMark into QCalls
     //
     struct StackCrawlMarkHandle
@@ -280,15 +248,15 @@ public:
     struct AssemblyHandle
     {
         Object ** m_ppObject;
-        Assembly * m_pAssembly;
+        DomainAssembly * m_pAssembly;
 
-        operator Assembly * ()
+        operator DomainAssembly * ()
         {
             LIMITED_METHOD_CONTRACT;
             return m_pAssembly;
         }
 
-        Assembly * operator->() const
+        DomainAssembly * operator->() const
         {
             LIMITED_METHOD_CONTRACT;
             return m_pAssembly;

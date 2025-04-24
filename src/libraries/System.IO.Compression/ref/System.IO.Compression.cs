@@ -131,11 +131,10 @@ namespace System.IO.Compression
         Create = 1,
         Update = 2,
     }
-    public sealed partial class ZLibCompressionOptions
+    public sealed class ZLibCompressionOptions
     {
-        public ZLibCompressionOptions() { }
-        public int CompressionLevel { get { throw null; } set { } }
-        public System.IO.Compression.ZLibCompressionStrategy CompressionStrategy { get { throw null; } set { } }
+        public int CompressionLevel { get; set; }
+        public ZLibCompressionStrategy CompressionStrategy { get; set; }
     }
     public enum ZLibCompressionStrategy
     {
@@ -143,7 +142,7 @@ namespace System.IO.Compression
         Filtered = 1,
         HuffmanOnly = 2,
         RunLengthEncoding = 3,
-        Fixed = 4,
+        Fixed = 4
     }
     public sealed partial class ZLibStream : System.IO.Stream
     {

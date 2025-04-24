@@ -4,6 +4,9 @@ using Mono.Linker.Tests.Cases.Expectations.Metadata;
 
 namespace Mono.Linker.Tests.Cases.Attributes.Debugger.KeepDebugMembers
 {
+#if !NET
+	[SetupLinkerKeepDebugMembers ("true")]
+#endif
 	public class DebuggerDisplayOnTypeWithCallToMethodOnFieldType
 	{
 		public static void Main ()

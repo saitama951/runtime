@@ -10,8 +10,9 @@ namespace System.SpanTests
         [Fact]
         public static void ZeroLengthIndexOf()
         {
-            Assert.Equal(-1, new ReadOnlySpan<int>(Array.Empty<int>()).IndexOf(0));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(-1, new ReadOnlySpan<int>(Array.Empty<int>()).IndexOf(0, comparer)));
+            ReadOnlySpan<int> sp = new ReadOnlySpan<int>(Array.Empty<int>());
+            int idx = sp.IndexOf(0);
+            Assert.Equal(-1, idx);
         }
 
         [Fact]
@@ -24,13 +25,13 @@ namespace System.SpanTests
                 {
                     a[i] = 10 * (i + 1);
                 }
+                ReadOnlySpan<int> span = new ReadOnlySpan<int>(a);
 
                 for (int targetIndex = 0; targetIndex < length; targetIndex++)
                 {
                     int target = a[targetIndex];
-                    Assert.Equal(targetIndex, new ReadOnlySpan<int>(a).IndexOf(target));
-                    Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(targetIndex, new ReadOnlySpan<int>(a).IndexOf(target, comparer)));
-                    Assert.Equal(-1, new ReadOnlySpan<int>(a).IndexOf(target, GetFalseEqualityComparer<int>()));
+                    int idx = span.IndexOf(target);
+                    Assert.Equal(targetIndex, idx);
                 }
             }
         }
@@ -49,9 +50,9 @@ namespace System.SpanTests
                 a[length - 1] = 5555;
                 a[length - 2] = 5555;
 
-                Assert.Equal(length - 2, new ReadOnlySpan<int>(a).IndexOf(5555));
-                Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(length - 2, new ReadOnlySpan<int>(a).IndexOf(5555, comparer)));
-                Assert.Equal(-1, new ReadOnlySpan<int>(a).IndexOf(5555, GetFalseEqualityComparer<int>()));
+                ReadOnlySpan<int> span = new ReadOnlySpan<int>(a);
+                int idx = span.IndexOf(5555);
+                Assert.Equal(length - 2, idx);
             }
         }
 
@@ -109,16 +110,18 @@ namespace System.SpanTests
                     a[GuardLength + i] = new TInt(10 * (i + 1), checkForOutOfRangeAccess);
                 }
 
-                Assert.Equal(-1, new ReadOnlySpan<TInt>(a, GuardLength, length).IndexOf(new TInt(9999, checkForOutOfRangeAccess)));
-                Assert.All(GetDefaultEqualityComparers<TInt>(), comparer => Assert.Equal(-1, new ReadOnlySpan<TInt>(a, GuardLength, length).IndexOf(new TInt(9999, checkForOutOfRangeAccess), comparer)));
+                ReadOnlySpan<TInt> span = new ReadOnlySpan<TInt>(a, GuardLength, length);
+                int idx = span.IndexOf(new TInt(9999, checkForOutOfRangeAccess));
+                Assert.Equal(-1, idx);
             }
         }
 
         [Fact]
         public static void ZeroLengthIndexOf_String()
         {
-            Assert.Equal(-1, new ReadOnlySpan<string>(Array.Empty<string>()).IndexOf("a"));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(-1, new ReadOnlySpan<string>(Array.Empty<string>()).IndexOf("a", comparer)));
+            ReadOnlySpan<string> sp = new ReadOnlySpan<string>(Array.Empty<string>());
+            int idx = sp.IndexOf("a");
+            Assert.Equal(-1, idx);
         }
 
         [Fact]
@@ -131,12 +134,13 @@ namespace System.SpanTests
                 {
                     a[i] = (10 * (i + 1)).ToString();
                 }
+                ReadOnlySpan<string> span = new ReadOnlySpan<string>(a);
 
                 for (int targetIndex = 0; targetIndex < length; targetIndex++)
                 {
-                    Assert.Equal(targetIndex, new ReadOnlySpan<string>(a).IndexOf(a[targetIndex]));
-                    Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(targetIndex, new ReadOnlySpan<string>(a).IndexOf(a[targetIndex], comparer)));
-                    Assert.Equal(-1, new ReadOnlySpan<string>(a).IndexOf(a[targetIndex], GetFalseEqualityComparer<string>()));
+                    string target = a[targetIndex];
+                    int idx = span.IndexOf(target);
+                    Assert.Equal(targetIndex, idx);
                 }
             }
         }
@@ -154,9 +158,10 @@ namespace System.SpanTests
                     string val = (i + 1).ToString();
                     a[i] = val == target ? (target + 1) : val;
                 }
+                ReadOnlySpan<string> span = new ReadOnlySpan<string>(a);
 
-                Assert.Equal(-1, new ReadOnlySpan<string>(a).IndexOf(target));
-                Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(-1, new ReadOnlySpan<string>(a).IndexOf(target, comparer)));
+                int idx = span.IndexOf(target);
+                Assert.Equal(-1, idx);
             }
         }
 
@@ -174,9 +179,9 @@ namespace System.SpanTests
                 a[length - 1] = "5555";
                 a[length - 2] = "5555";
 
-                Assert.Equal(length - 2, new ReadOnlySpan<string>(a).IndexOf("5555"));
-                Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(length - 2, new ReadOnlySpan<string>(a).IndexOf("5555", comparer)));
-                Assert.Equal(-1, new ReadOnlySpan<string>(a).IndexOf("5555", GetFalseEqualityComparer<string>()));
+                ReadOnlySpan<string> span = new ReadOnlySpan<string>(a);
+                int idx = span.IndexOf("5555");
+                Assert.Equal(length - 2, idx);
             }
         }
 
@@ -184,9 +189,8 @@ namespace System.SpanTests
         [MemberData(nameof(TestHelpers.IndexOfNullData), MemberType = typeof(TestHelpers))]
         public static void IndexOfNull_String(string[] spanInput, int expected)
         {
-            Assert.Equal(expected, new ReadOnlySpan<string>(spanInput).IndexOf((string)null));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(expected, new ReadOnlySpan<string>(spanInput).IndexOf((string)null, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<string>(spanInput).IndexOf((string)null, GetFalseEqualityComparer<string>()));
+            ReadOnlySpan<string> theStrings = spanInput;
+            Assert.Equal(expected, theStrings.IndexOf((string)null));
         }
     }
 }

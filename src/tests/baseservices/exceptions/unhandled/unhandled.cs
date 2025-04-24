@@ -5,8 +5,6 @@ using System;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Threading;
-using TestLibrary;
 
 namespace TestUnhandledException
 {
@@ -41,9 +39,6 @@ namespace TestUnhandledException
 
         static void Main(string[] args)
         {
-            // Ensure that the OS doesn't generate core dump for this intentionally crashing process
-            Utilities.DisableOSCoreDump();
-
             if (args[0] == "main")
             {
                 throw new Exception("Test");
@@ -51,12 +46,6 @@ namespace TestUnhandledException
             else if (args[0] == "foreign")
             {
                 InvokeCallbackOnNewThread(&ThrowException);
-            }
-            else if (args[0] == "secondary")
-            {
-                Thread t = new Thread(() => throw new Exception("Test"));
-                t.Start();
-                t.Join();
             }
         }
     }

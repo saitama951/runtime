@@ -26,7 +26,6 @@ namespace System.Xml.Serialization
         private NameTable? _groupsInUse;
 
         [RequiresUnreferencedCode("calls SetCache")]
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         internal SchemaImporter(XmlSchemas schemas, CodeGenerationOptions options, ImportContext context)
         {
             if (!schemas.Contains(XmlSchema.Namespace))
@@ -124,7 +123,6 @@ namespace System.Xml.Serialization
         internal StructMapping GetRootMapping() => _root ??= CreateRootMapping();
 
         [RequiresUnreferencedCode("calls GetRootMapping")]
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         internal StructMapping ImportRootMapping()
         {
             if (!_rootImported)
@@ -136,7 +134,6 @@ namespace System.Xml.Serialization
         }
 
         [RequiresUnreferencedCode("calls ImportType")]
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         internal abstract void ImportDerivedTypes(XmlQualifiedName baseName);
 
         internal static void AddReference(XmlQualifiedName name, NameTable references, string error)

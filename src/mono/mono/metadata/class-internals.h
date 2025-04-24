@@ -545,13 +545,13 @@ mono_generic_param_name (MonoGenericParam *p)
 static inline MonoGenericContainer *
 mono_type_get_generic_param_owner (MonoType *t)
 {
-	return mono_generic_param_owner (m_type_data_get_generic_param (t));
+	return mono_generic_param_owner (t->data.generic_param);
 }
 
 static inline guint16
 mono_type_get_generic_param_num (MonoType *t)
 {
-	return mono_generic_param_num (m_type_data_get_generic_param (t));
+	return mono_generic_param_num (t->data.generic_param);
 }
 
 /*
@@ -1350,12 +1350,6 @@ mono_class_get_declsec_flags (MonoClass *klass);
 
 void
 mono_class_set_declsec_flags (MonoClass *klass, guint32 value);
-
-MONO_COMPONENT_API gint32
-mono_class_get_inlinearray_value (MonoClass *klass);
-
-void
-mono_class_set_inlinearray_value (MonoClass *klass, gint32 value);
 
 void
 mono_class_set_weak_bitmap (MonoClass *klass, int nbits, gsize *bits);

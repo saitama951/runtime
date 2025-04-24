@@ -2,16 +2,14 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using Xunit;
-public class AllocBug
+internal class AllocBug
 {
     public int ret = 0;
     public AllocBug()
     {
     }
 
-    [Fact]
-    public static int TestEntryPoint()
+    private static int Main()
     {
         AllocBug ab = new AllocBug();
 

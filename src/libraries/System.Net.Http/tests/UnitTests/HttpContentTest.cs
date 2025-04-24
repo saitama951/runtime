@@ -16,20 +16,19 @@ namespace System.Net.Http.Tests
             MockContent content = new MockContent();
             await content.LoadIntoBufferAsync();
 
+            Type type = typeof(HttpContent);
+            TypeInfo typeInfo = type.GetTypeInfo();
             FieldInfo bufferedContentField = typeof(HttpContent).GetField("_bufferedContent",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.NotNull(bufferedContentField);
 
-            object stream = bufferedContentField.GetValue(content);
-            Assert.NotNull(stream);
-
-            var bufferedStream = Assert.IsType<HttpContent.LimitArrayPoolWriteStream>(stream);
-
-            Assert.NotNull(bufferedStream.GetSingleBuffer());
+            MemoryStream bufferedContentStream = bufferedContentField.GetValue(content) as MemoryStream;
+            Assert.NotNull(bufferedContentStream);
 
             content.Dispose();
 
-            Assert.Null(bufferedStream.GetSingleBuffer());
+            // The following line will throw an ObjectDisposedException if the buffered-stream was correctly disposed.
+            Assert.Throws<ObjectDisposedException>(() => { string str = bufferedContentStream.Length.ToString(); });
         }
 
         [Theory]

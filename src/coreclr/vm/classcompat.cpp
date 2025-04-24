@@ -499,15 +499,15 @@ InteropMethodTableData *MethodTableBuilder::BuildInteropVTable(AllocMemTracker *
         PCCOR_SIGNATURE pSig;
         ULONG           cbSig;
 
-        minipal_log_print_info("InteropMethodTable\n--------------\nVTable\n------\n");
+        printf("InteropMethodTable\n--------------\n");
+        printf("VTable\n------\n");
 
-        StackSString message;
         for (DWORD i = 0; i < pInteropMT->cVTable; i++)
         {
             // Print the method name
             InteropMethodTableSlotData *pInteropMD = &pInteropMT->pVTable[i];
-            message.AppendUTF8(pInteropMD->pMD->GetName());
-            message.AppendUTF8(" ");
+            printf(pInteropMD->pMD->GetName());
+            printf(" ");
 
             // Print the sig
             if (FAILED(pInteropMD->pMD->GetMDImport()->GetSigOfMethodDef(pInteropMD->pMD->GetMemberDef(), &cbSig, &pSig)))
@@ -515,13 +515,9 @@ InteropMethodTableData *MethodTableBuilder::BuildInteropVTable(AllocMemTracker *
                 pSig = NULL;
                 cbSig = 0;
             }
-
             PrettyPrintSigInternalLegacy(pSig, cbSig, "", &qb, pInteropMD->pMD->GetMDImport());
-            message.AppendUTF8((LPCUTF8) qb.Ptr());
-            message.AppendUTF8("\n");
-
-            minipal_log_print_info(message.GetUTF8());
-            message.Clear();
+            printf((LPCUTF8) qb.Ptr());
+            printf("\n");
         }
     }
 #endif // _DEBUG
@@ -2774,6 +2770,11 @@ VOID    MethodTableBuilder::EnumerateClassMethods()
             {
                 // Static methods in interfaces need nothing special.
                 Classification = mcIL;
+            }
+            else if (bmtProp->fIsMngStandardItf)
+            {
+                // If the interface is a standard managed interface then allocate space for an FCall method desc.
+                Classification = mcFCall;
             }
             else if (IsMdAbstract(dwMemberAttrs))
             {

@@ -85,7 +85,7 @@ namespace Microsoft.DotNet.CoreSetup.Test.HostActivation.FrameworkResolution
         public static Func<TestSettings, TestSettings> RollForwardSetting(
             SettingLocation location,
             string value,
-            string frameworkReferenceName = Constants.MicrosoftNETCoreApp)
+            string frameworkReferenceName = MicrosoftNETCoreApp)
         {
             if (value == null || location == SettingLocation.None)
             {
@@ -114,7 +114,7 @@ namespace Microsoft.DotNet.CoreSetup.Test.HostActivation.FrameworkResolution
         public static Func<TestSettings, TestSettings> RollForwardOnNoCandidateFxSetting(
             SettingLocation location,
             int? value,
-            string frameworkReferenceName = Constants.MicrosoftNETCoreApp)
+            string frameworkReferenceName = MicrosoftNETCoreApp)
         {
             if (!value.HasValue || location == SettingLocation.None)
             {
@@ -143,7 +143,7 @@ namespace Microsoft.DotNet.CoreSetup.Test.HostActivation.FrameworkResolution
         public static Func<TestSettings, TestSettings> ApplyPatchesSetting(
             SettingLocation location,
             bool? value,
-            string frameworkReferenceName = Constants.MicrosoftNETCoreApp)
+            string frameworkReferenceName = MicrosoftNETCoreApp)
         {
             if (!value.HasValue || location == SettingLocation.None)
             {

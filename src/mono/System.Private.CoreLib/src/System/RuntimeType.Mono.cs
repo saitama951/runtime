@@ -6,7 +6,6 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
-using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
@@ -144,19 +143,6 @@ namespace System
 
         #region Internal
 
-        // Returns the type from which the current type directly inherits from (without reflection quirks).
-        // The parent type is null for interfaces, pointers, byrefs and generic parameters.
-        internal RuntimeType? GetParentType()
-        {
-            RuntimeType _this = this;
-            RuntimeType? res = null;
-            GetParentType(new QCallTypeHandle(ref _this), ObjectHandleOnStack.Create(ref res));
-            return res;
-        }
-
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        private static extern void GetParentType(QCallTypeHandle type, ObjectHandleOnStack res);
-
         [RequiresUnreferencedCode("Types might be removed")]
         internal static RuntimeType? GetType(string typeName, bool throwOnError, bool ignoreCase,
             ref StackCrawlMark stackMark)
@@ -176,17 +162,22 @@ namespace System
                 return;
 
             // Get namespace
-            int nsDelimiter = TypeNameParserHelpers.IndexOfNamespaceDelimiter(fullname);
-            if (nsDelimiter > 0)
+            int nsDelimiter = fullname.LastIndexOf('.');
+            if (nsDelimiter != -1)
             {
                 ns = fullname.Substring(0, nsDelimiter);
-                name = fullname.Substring(nsDelimiter + 1);
+                int nameLength = fullname.Length - ns.Length - 1;
+                if (nameLength != 0)
+                    name = fullname.Substring(nsDelimiter + 1, nameLength);
+                else
+                    name = "";
                 Debug.Assert(fullname.Equals(ns + "." + name));
             }
             else
             {
                 name = fullname;
             }
+
         }
         #endregion
 
@@ -679,17 +670,21 @@ namespace System
             return candidates;
         }
 
-        private ListBuilder<Type> GetNestedTypeCandidates(string? name, BindingFlags bindingAttr, bool allowPrefixLookup)
+        private ListBuilder<Type> GetNestedTypeCandidates(string? fullname, BindingFlags bindingAttr, bool allowPrefixLookup)
         {
+            bool prefixLookup;
             bindingAttr &= ~BindingFlags.Static;
-            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out bool prefixLookup, out _, out MemberListType listType);
+            string? name, ns;
+            MemberListType listType;
+            SplitName(fullname, out name, out ns);
+            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out _, out listType);
 
             RuntimeType[] cache = GetNestedTypes_internal(name, bindingAttr, listType);
             ListBuilder<Type> candidates = new ListBuilder<Type>(cache.Length);
             for (int i = 0; i < cache.Length; i++)
             {
                 RuntimeType nestedClass = cache[i];
-                if (FilterApplyType(nestedClass, bindingAttr, name, prefixLookup, null))
+                if (FilterApplyType(nestedClass, bindingAttr, name, prefixLookup, ns))
                 {
                     candidates.Add(nestedClass);
                 }
@@ -1000,37 +995,31 @@ namespace System
         }
 
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicNestedTypes | DynamicallyAccessedMemberTypes.NonPublicNestedTypes)]
-        internal Type? GetNestedType([MaybeNull] string name, BindingFlags bindingAttr, bool ignoreAmbiguousMatch)
+        public override Type? GetNestedType(string fullname, BindingFlags bindingAttr)
         {
-            ArgumentNullException.ThrowIfNull(name);
+            ArgumentNullException.ThrowIfNull(fullname);
 
             bindingAttr &= ~BindingFlags.Static;
-            FilterHelper(bindingAttr, ref name, out _, out MemberListType listType);
+            string? name, ns;
+            MemberListType listType;
+            SplitName(fullname, out name, out ns);
+            FilterHelper(bindingAttr, ref name, out _, out listType);
             RuntimeType[] cache = GetNestedTypes_internal(name, bindingAttr, listType);
             RuntimeType? match = null;
 
             for (int i = 0; i < cache.Length; i++)
             {
                 RuntimeType nestedType = cache[i];
-                if (FilterApplyType(nestedType, bindingAttr, name, false, null))
+                if (FilterApplyType(nestedType, bindingAttr, name, false, ns))
                 {
                     if (match != null)
                         throw ThrowHelper.GetAmbiguousMatchException(match);
 
                     match = nestedType;
-
-                    if (ignoreAmbiguousMatch)
-                        break;
                 }
             }
 
             return match;
-        }
-
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicNestedTypes | DynamicallyAccessedMemberTypes.NonPublicNestedTypes)]
-        public override Type? GetNestedType(string name, BindingFlags bindingAttr)
-        {
-            return GetNestedType(name, bindingAttr, ignoreAmbiguousMatch: false);
         }
 
         [DynamicallyAccessedMembers(GetAllMembers)]
@@ -1247,10 +1236,6 @@ namespace System
 
         #region Hierarchy
 
-        public override bool IsInstanceOfType([NotNullWhen(true)] object? o) => RuntimeTypeHandle.IsInstanceOfType(this, o);
-
-        protected override bool IsCOMObjectImpl() => false;
-
         // Reflexive, symmetric, transitive.
         public override bool IsEquivalentTo(Type? other)
         {
@@ -1261,7 +1246,9 @@ namespace System
             if (otherRtType == this)
                 return true;
 
-            return false;
+            // It's not worth trying to perform further checks in managed
+            // as they would lead to FCalls anyway.
+            return RuntimeTypeHandle.IsEquivalentTo(this, otherRtType);
         }
 
         #endregion
@@ -1335,7 +1322,7 @@ namespace System
                 TypeCache cache = Cache;
                 if ((cache.Cached & (int)TypeCacheEntries.IsActualEnum) != 0)
                     return (cache.Flags & (int)TypeCacheEntries.IsActualEnum) != 0;
-                bool res = !IsGenericParameter && GetParentType() == EnumType;
+                bool res = !IsGenericParameter && RuntimeTypeHandle.GetBaseType(this) == EnumType;
                 CacheFlag(TypeCacheEntries.IsActualEnum, res);
                 return res;
             }
@@ -1411,23 +1398,23 @@ namespace System
         }
 
         [RequiresUnreferencedCode("If some of the generic arguments are annotated (either with DynamicallyAccessedMembersAttribute, or generic constraints), trimming can't validate that the requirements of those annotations are met.")]
-        public override Type MakeGenericType(Type[] typeArguments)
+        public override Type MakeGenericType(Type[] instantiation)
         {
-            ArgumentNullException.ThrowIfNull(typeArguments);
+            ArgumentNullException.ThrowIfNull(instantiation);
 
-            RuntimeType[] instantiationRuntimeType = new RuntimeType[typeArguments.Length];
+            RuntimeType[] instantiationRuntimeType = new RuntimeType[instantiation.Length];
 
             if (!IsGenericTypeDefinition)
                 throw new InvalidOperationException(SR.Format(SR.Arg_NotGenericTypeDefinition, this));
 
             RuntimeType[] genericParameters = GetGenericArgumentsInternal();
 
-            if (genericParameters.Length != typeArguments.Length)
-                throw new ArgumentException(SR.Argument_GenericArgsCount, nameof(typeArguments));
+            if (genericParameters.Length != instantiation.Length)
+                throw new ArgumentException(SR.Argument_GenericArgsCount, nameof(instantiation));
 
-            for (int i = 0; i < typeArguments.Length; i++)
+            for (int i = 0; i < instantiation.Length; i++)
             {
-                Type instantiationElem = typeArguments[i];
+                Type instantiationElem = instantiation[i];
                 if (instantiationElem == null)
                     throw new ArgumentNullException();
 
@@ -1436,14 +1423,14 @@ namespace System
                 if (rtInstantiationElem == null)
                 {
                     if (instantiationElem.IsSignatureType)
-                        return MakeGenericSignatureType(this, typeArguments);
-                    Type[] instantiationCopy = new Type[typeArguments.Length];
-                    for (int iCopy = 0; iCopy < typeArguments.Length; iCopy++)
-                        instantiationCopy[iCopy] = typeArguments[iCopy];
-                    typeArguments = instantiationCopy;
+                        return MakeGenericSignatureType(this, instantiation);
+                    Type[] instantiationCopy = new Type[instantiation.Length];
+                    for (int iCopy = 0; iCopy < instantiation.Length; iCopy++)
+                        instantiationCopy[iCopy] = instantiation[iCopy];
+                    instantiation = instantiationCopy;
                     if (!RuntimeFeature.IsDynamicCodeSupported)
                         throw new PlatformNotSupportedException();
-                    return System.Reflection.Emit.TypeBuilderInstantiation.MakeGenericType(this, typeArguments);
+                    return System.Reflection.Emit.TypeBuilderInstantiation.MakeGenericType(this, instantiation);
                 }
 
                 instantiationRuntimeType[i] = rtInstantiationElem;
@@ -1560,18 +1547,13 @@ namespace System
                         }
 
                         MethodBase? invokeMethod;
-                        object? state;
+                        object? state = null;
 
                         try
                         {
                             invokeMethod = binder.BindToMethod(bindingAttr, cons, ref args, null, culture, null, out state);
                         }
-                        catch (MissingMethodException innerMME)
-                        {
-                            // Rethrows to rewrite a message to include the class name.
-                            // Make sure the original exception is set as an inner exception.
-                            throw new MissingMethodException(SR.Format(SR.MissingConstructor_Name, FullName), innerMME);
-                        }
+                        catch (MissingMethodException) { invokeMethod = null; }
 
                         if (invokeMethod == null)
                         {
@@ -1681,8 +1663,7 @@ namespace System
 
         [Flags]
         // Types of entries cached in TypeCache
-        private enum TypeCacheEntries
-        {
+        private enum TypeCacheEntries {
             IsGenericTypeDef = 1,
             IsDelegate = 2,
             IsValueType = 4,
@@ -2105,7 +2086,7 @@ namespace System
                 }
 
                 if (HasElementType)
-                    return GetElementType()!.ContainsGenericParameters;
+                    return GetElementType().ContainsGenericParameters;
 
                 if (IsFunctionPointer)
                 {

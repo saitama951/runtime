@@ -11,7 +11,7 @@ namespace System.Collections.Generic
 
         public ICollectionDebugView(ICollection<T> collection)
         {
-#if NET
+#if NET8_0_OR_GREATER
             ArgumentNullException.ThrowIfNull(collection);
 #else
             if (collection is null)

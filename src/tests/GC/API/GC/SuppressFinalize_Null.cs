@@ -4,7 +4,6 @@
 // Tests SuppressFinalize()
 
 using System;
-using Xunit;
 
 public class Test_SuppressFinalize_Null
 {
@@ -27,8 +26,7 @@ public class Test_SuppressFinalize_Null
     }
 
 
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         Test_SuppressFinalize_Null t = new Test_SuppressFinalize_Null();
         if (t.RunTest())

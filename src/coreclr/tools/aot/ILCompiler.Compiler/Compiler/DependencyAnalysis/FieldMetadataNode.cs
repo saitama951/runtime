@@ -58,8 +58,6 @@ namespace ILCompiler.DependencyAnalysis
                         TypeMetadataNode.GetMetadataDependencies(ref dependencies, factory, sigData.type, "Modifier in a field signature");
             }
 
-            TypeMetadataNode.GetMetadataDependencies(ref dependencies, factory, _field.FieldType, "Type of the field");
-
             return dependencies;
         }
         protected override string GetName(NodeFactory factory)

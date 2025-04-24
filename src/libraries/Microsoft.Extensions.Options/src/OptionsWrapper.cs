@@ -6,9 +6,9 @@ using System.Diagnostics.CodeAnalysis;
 namespace Microsoft.Extensions.Options
 {
     /// <summary>
-    /// Wraps the options instance.
+    /// <see cref="IOptions{TOptions}"/> wrapper that returns the options instance.
     /// </summary>
-    /// <typeparam name="TOptions">The options type.</typeparam>
+    /// <typeparam name="TOptions">Options type.</typeparam>
     public class OptionsWrapper<[DynamicallyAccessedMembers(Options.DynamicallyAccessedMembers)] TOptions> :
         IOptions<TOptions>
         where TOptions : class
@@ -23,7 +23,7 @@ namespace Microsoft.Extensions.Options
         }
 
         /// <summary>
-        /// Gets the options instance.
+        /// The options instance.
         /// </summary>
         public TOptions Value { get; }
     }

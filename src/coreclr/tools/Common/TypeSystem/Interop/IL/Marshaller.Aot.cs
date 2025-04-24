@@ -680,9 +680,11 @@ namespace Internal.TypeSystem.Interop
             LoadManagedValue(codeStream);
             codeStream.Emit(ILOpcode.brtrue, lNonNull);
 
-            codeStream.Emit(ILOpcode.ldtoken, emitter.NewToken(ManagedType));
-            codeStream.Emit(ILOpcode.call, emitter.NewToken(InteropTypes.GetType(Context).GetMethod("GetTypeFromHandle", null)));
-            codeStream.Emit(ILOpcode.call, emitter.NewToken(InteropTypes.GetRuntimeHelpers(Context).GetKnownMethod("GetUninitializedObject", null)));
+            MethodDesc ctor = ManagedType.GetParameterlessConstructor();
+            if (ctor == null)
+                throw new InvalidProgramException();
+
+            codeStream.Emit(ILOpcode.newobj, emitter.NewToken(ctor));
             StoreManagedValue(codeStream);
 
             codeStream.EmitLabel(lNonNull);
@@ -734,9 +736,12 @@ namespace Internal.TypeSystem.Interop
         protected override void AllocNativeToManaged(ILCodeStream codeStream)
         {
             ILEmitter emitter = _ilCodeStreams.Emitter;
-            codeStream.Emit(ILOpcode.ldtoken, emitter.NewToken(ManagedType));
-            codeStream.Emit(ILOpcode.call, emitter.NewToken(InteropTypes.GetType(Context).GetMethod("GetTypeFromHandle", null)));
-            codeStream.Emit(ILOpcode.call, emitter.NewToken(InteropTypes.GetRuntimeHelpers(Context).GetKnownMethod("GetUninitializedObject", null)));
+
+            MethodDesc ctor = ManagedType.GetParameterlessConstructor();
+            if (ctor == null)
+                throw new InvalidProgramException();
+
+            codeStream.Emit(ILOpcode.newobj, emitter.NewToken(ctor));
             StoreManagedValue(codeStream);
         }
 

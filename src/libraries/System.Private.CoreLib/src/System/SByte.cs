@@ -428,13 +428,17 @@ namespace System
         {
             if (destination.Length >= sizeof(sbyte))
             {
-                destination[0] = (byte)m_value;
+                sbyte value = m_value;
+                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), value);
+
                 bytesWritten = sizeof(sbyte);
                 return true;
             }
-
-            bytesWritten = 0;
-            return false;
+            else
+            {
+                bytesWritten = 0;
+                return false;
+            }
         }
 
         /// <inheritdoc cref="IBinaryInteger{TSelf}.TryWriteLittleEndian(Span{byte}, out int)" />
@@ -442,13 +446,17 @@ namespace System
         {
             if (destination.Length >= sizeof(sbyte))
             {
-                destination[0] = (byte)m_value;
+                sbyte value = m_value;
+                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), value);
+
                 bytesWritten = sizeof(sbyte);
                 return true;
             }
-
-            bytesWritten = 0;
-            return false;
+            else
+            {
+                bytesWritten = 0;
+                return false;
+            }
         }
 
         //
@@ -1275,13 +1283,13 @@ namespace System
         //
 
         /// <inheritdoc cref="IShiftOperators{TSelf, TOther, TResult}.op_LeftShift(TSelf, TOther)" />
-        static sbyte IShiftOperators<sbyte, int, sbyte>.operator <<(sbyte value, int shiftAmount) => (sbyte)(value << (shiftAmount & 7));
+        static sbyte IShiftOperators<sbyte, int, sbyte>.operator <<(sbyte value, int shiftAmount) => (sbyte)(value << shiftAmount);
 
         /// <inheritdoc cref="IShiftOperators{TSelf, TOther, TResult}.op_RightShift(TSelf, TOther)" />
-        static sbyte IShiftOperators<sbyte, int, sbyte>.operator >>(sbyte value, int shiftAmount) => (sbyte)(value >> (shiftAmount & 7));
+        static sbyte IShiftOperators<sbyte, int, sbyte>.operator >>(sbyte value, int shiftAmount) => (sbyte)(value >> shiftAmount);
 
         /// <inheritdoc cref="IShiftOperators{TSelf, TOther, TResult}.op_UnsignedRightShift(TSelf, TOther)" />
-        static sbyte IShiftOperators<sbyte, int, sbyte>.operator >>>(sbyte value, int shiftAmount) => (sbyte)((byte)value >>> (shiftAmount & 7));
+        static sbyte IShiftOperators<sbyte, int, sbyte>.operator >>>(sbyte value, int shiftAmount) => (sbyte)((byte)value >>> shiftAmount);
 
         //
         // ISignedNumber

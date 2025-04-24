@@ -39,7 +39,6 @@ parser.add_argument("-benchmark_path", help="Benchmark's csproj path in dotnet/p
 parser.add_argument("-benchmark_binary", help="Benchmark binary to execute")
 parser.add_argument("--tiered_compilation", action="store_true", help="Sets DOTNET_TieredCompilation=1 when doing collections.")
 parser.add_argument("--tiered_pgo", action="store_true", help="Sets DOTNET_TieredCompilation=1 and DOTNET_TieredPGO=1 when doing collections.")
-parser.add_argument("--jitoptrepeat_all", action="store_true", help="Sets DOTNET_JitOptRepeat=*.")
 
 def setup_args(args):
     """ Setup the args for SuperPMI to use.
@@ -114,11 +113,6 @@ def setup_args(args):
                         lambda unused: True,
                         "Unable to set tiered_pgo")
 
-    coreclr_args.verify(args,
-                        "jitoptrepeat_all",
-                        lambda unused: True,
-                        "Unable to set jitoptrepeat_all")
-
     return coreclr_args
 
 
@@ -184,17 +178,13 @@ def build_and_run(coreclr_args, output_mch_name):
     # Start with a "dotnet --info" to see what we've got.
     run_command([dotnet_exe, "--info"])
 
-    tfm = "net10.0"
-    os.environ["PERFLAB_TARGET_FRAMEWORKS"] = tfm
-
-    env_for_restore = os.environ.copy()
-
+    env_copy = os.environ.copy()
     if is_windows:
         # Try to work around problem with random NuGet failures in "dotnet restore":
         #   error NU3037: Package 'System.Runtime 4.1.0' from source 'https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/index.json':
         #     The repository primary signature validity period has expired. [C:\h\w\A3B008C0\w\B581097F\u\performance\src\benchmarks\micro\MicroBenchmarks.csproj]
         # Using environment variable specified in https://github.com/NuGet/NuGet.Client/pull/4259.
-        env_for_restore["NUGET_EXPERIMENTAL_CHAIN_BUILD_RETRY_POLICY"] = "9,2000"
+        env_copy["NUGET_EXPERIMENTAL_CHAIN_BUILD_RETRY_POLICY"] = "9,2000"
 
     # If `dotnet restore` fails, retry.
     num_tries = 3
@@ -203,7 +193,7 @@ def build_and_run(coreclr_args, output_mch_name):
         exit_on_fail = try_num + 1 == num_tries
         (_, _, return_code) = run_command(
             [dotnet_exe, "restore", project_file, "--packages", artifacts_packages_directory],
-            _exit_on_fail=exit_on_fail, _env=env_for_restore)
+            _exit_on_fail=exit_on_fail, _env=env_copy)
         if return_code == 0:
             # It succeeded!
             break
@@ -213,7 +203,7 @@ def build_and_run(coreclr_args, output_mch_name):
 
     run_command(
         [dotnet_exe, "build", project_file, "--configuration", "Release",
-         "--framework", tfm, "--no-restore", "/p:NuGetPackageRoot=" + artifacts_packages_directory,
+         "--framework", "net9.0", "--no-restore", "/p:NuGetPackageRoot=" + artifacts_packages_directory,
          "-o", artifacts_directory], _exit_on_fail=True)
 
     # This is specifically for PowerShell.Benchmarks.
@@ -293,9 +283,6 @@ def build_and_run(coreclr_args, output_mch_name):
         collection_command += "DOTNET_TieredCompilation:1 DOTNET_TieredPGO:0"
     else:
         collection_command += "DOTNET_TieredCompilation:0"
-
-    if coreclr_args.jitoptrepeat_all:
-        collection_command += " DOTNET_JitOptRepeat:\"*\""
 
     # Generate the execution script in Temp location
     with TempDir() as temp_location:

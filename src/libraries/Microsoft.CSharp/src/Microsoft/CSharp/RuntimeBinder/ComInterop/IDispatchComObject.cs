@@ -74,12 +74,12 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
     /// just find and invoke the multicast delegate corresponding to the invoked
     /// dispid.
     ///  </summary>
-    [RequiresUnreferencedCode(Binder.TrimmerWarning)]
     internal sealed class IDispatchComObject : ComObject, IDynamicMetaObjectProvider
     {
         private ComTypeDesc _comTypeDesc;
         private static readonly Dictionary<Guid, ComTypeDesc> s_cacheComTypeDesc = new Dictionary<Guid, ComTypeDesc>();
 
+        [RequiresUnreferencedCode(Binder.TrimmerWarning)]
         internal IDispatchComObject(IDispatch rcw)
             : base(rcw)
         {
@@ -130,6 +130,7 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             return hresult;
         }
 
+        [RequiresUnreferencedCode(Binder.TrimmerWarning)]
         internal bool TryGetGetItem(out ComMethodDesc value)
         {
             ComMethodDesc methodDesc = _comTypeDesc.GetItem;
@@ -142,6 +143,7 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             return SlowTryGetGetItem(out value);
         }
 
+        [RequiresUnreferencedCode(Binder.TrimmerWarning)]
         private bool SlowTryGetGetItem(out ComMethodDesc value)
         {
             EnsureScanDefinedMethods();
@@ -161,6 +163,7 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             return true;
         }
 
+        [RequiresUnreferencedCode(Binder.TrimmerWarning)]
         internal bool TryGetSetItem(out ComMethodDesc value)
         {
             ComMethodDesc methodDesc = _comTypeDesc.SetItem;
@@ -173,6 +176,7 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             return SlowTryGetSetItem(out value);
         }
 
+        [RequiresUnreferencedCode(Binder.TrimmerWarning)]
         private bool SlowTryGetSetItem(out ComMethodDesc value)
         {
             EnsureScanDefinedMethods();
@@ -192,6 +196,7 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             return true;
         }
 
+        [RequiresUnreferencedCode(Binder.TrimmerWarning)]
         internal bool TryGetMemberMethod(string name, out ComMethodDesc method)
         {
             EnsureScanDefinedMethods();
@@ -204,6 +209,7 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             return _comTypeDesc.TryGetEvent(name, out @event);
         }
 
+        [RequiresUnreferencedCode(Binder.TrimmerWarning)]
         internal bool TryGetMemberMethodExplicit(string name, out ComMethodDesc method)
         {
             EnsureScanDefinedMethods();
@@ -227,6 +233,7 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             throw Error.CouldNotGetDispId(name, $"0x{(uint)hresult:X})");
         }
 
+        [RequiresUnreferencedCode(Binder.TrimmerWarning)]
         internal bool TryGetPropertySetterExplicit(string name, out ComMethodDesc method, Type limitType, bool holdsNull)
         {
             EnsureScanDefinedMethods();
@@ -263,6 +270,7 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             throw Error.CouldNotGetDispId(name, $"0x{(uint)hresult:X})");
         }
 
+        [RequiresUnreferencedCode(Binder.TrimmerWarning)]
         internal override IList<string> GetMemberNames(bool dataOnly)
         {
             EnsureScanDefinedMethods();
@@ -271,6 +279,7 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             return ComTypeDesc.GetMemberNames(dataOnly);
         }
 
+        [RequiresUnreferencedCode(Binder.TrimmerWarning)]
         internal override IList<KeyValuePair<string, object>> GetMembers(IEnumerable<string> names)
         {
             names ??= GetMemberNames(true);
@@ -311,6 +320,8 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             return members.ToArray();
         }
 
+        [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
+            Justification = "This whole class is unsafe. Constructors are marked as such.")]
         DynamicMetaObject IDynamicMetaObjectProvider.GetMetaObject(Expression parameter)
         {
             EnsureScanDefinedMethods();
@@ -332,6 +343,8 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             funcDescHandle = pFuncDesc;
         }
 
+        [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
+            Justification = "This whole class is unsafe. Constructors are marked as such.")]
         private void EnsureScanDefinedEvents()
         {
             // _comTypeDesc.Events is null if we have not yet attempted
@@ -468,6 +481,7 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             }
         }
 
+        [RequiresUnreferencedCode(Binder.TrimmerWarning)]
         private static ComTypes.ITypeInfo GetCoClassTypeInfo(object rcw, ComTypes.ITypeInfo typeInfo)
         {
             Debug.Assert(typeInfo != null);
@@ -510,6 +524,8 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             return typeInfoCoClass;
         }
 
+        [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
+            Justification = "This whole class is unsafe. Constructors are marked as such.")]
         private void EnsureScanDefinedMethods()
         {
             if (_comTypeDesc?.Funcs != null)
@@ -630,6 +646,7 @@ namespace Microsoft.CSharp.RuntimeBinder.ComInterop
             }
         }
 
+        [RequiresUnreferencedCode(Binder.TrimmerWarning)]
         internal bool TryGetPropertySetter(string name, out ComMethodDesc method, Type limitType, bool holdsNull)
         {
             EnsureScanDefinedMethods();

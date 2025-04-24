@@ -7,8 +7,7 @@ set(RUNTIMEINFO_SOURCES
 add_library_clr(runtimeinfo STATIC ${RUNTIMEINFO_SOURCES})
 
 function(generate_module_index Target ModuleIndexFile)
-    # Win32 may be false when cross compiling
-    if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+    if(CLR_CMAKE_HOST_WIN32)
         set(scriptExt ".cmd")
     else()
         set(scriptExt ".sh")
@@ -57,9 +56,7 @@ else()
     # turn off whole program optimization:
     # 1. it creates object files that cdac-build-tool can't read
     # 2. we never link cdac_data_descriptor into the final product - it's only job is to be scraped
-    set_target_properties(cdac_data_descriptor PROPERTIES
-        INTERPROCEDURAL_OPTIMIZATION_RELEASE OFF
-        INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO OFF)
+    target_compile_options(cdac_data_descriptor PRIVATE /GL-)
   endif()
   target_include_directories(cdac_data_descriptor BEFORE PRIVATE ${VM_DIR})
   target_include_directories(cdac_data_descriptor BEFORE PRIVATE ${VM_DIR}/${ARCH_SOURCES_DIR})
@@ -70,9 +67,7 @@ else()
   if(NOT EXISTS "${CDAC_BUILD_TOOL_BINARY_PATH}")
     message(FATAL_ERROR "${CDAC_BUILD_TOOL_BINARY_PATH} does not exist")
   endif()
-  set(CONTRACT_DESCRIPTOR_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/contract-descriptor.c.in")
 
-  set(CONTRACT_BASELINE_DIR "${CLR_REPO_ROOT_DIR}/docs/design/datacontracts/data")
   set(CONTRACT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/contracts.jsonc")
 
   # generate the contract descriptor by running cdac-build-tool
@@ -80,8 +75,8 @@ else()
   add_custom_command(
     OUTPUT "${CONTRACT_DESCRIPTOR_OUTPUT}"
     VERBATIM
-    COMMAND ${CLR_DOTNET_HOST_PATH} ${CDAC_BUILD_TOOL_BINARY_PATH} compose -i "${CONTRACT_DESCRIPTOR_INPUT}" -o "${CONTRACT_DESCRIPTOR_OUTPUT}" -b "${CONTRACT_BASELINE_DIR}" -c "${CONTRACT_FILE}" $<TARGET_OBJECTS:cdac_data_descriptor>
-    DEPENDS cdac_data_descriptor cee_wks_core $<TARGET_OBJECTS:cdac_data_descriptor> "${CONTRACT_FILE}" "${CONTRACT_DESCRIPTOR_INPUT}"
+    COMMAND ${CLR_DOTNET_HOST_PATH} ${CDAC_BUILD_TOOL_BINARY_PATH} compose -o "${CONTRACT_DESCRIPTOR_OUTPUT}" -c "${CONTRACT_FILE}" $<TARGET_OBJECTS:cdac_data_descriptor>
+    DEPENDS cdac_data_descriptor cee_wks_core $<TARGET_OBJECTS:cdac_data_descriptor> "${CONTRACT_FILE}"
     USES_TERMINAL
   )
 

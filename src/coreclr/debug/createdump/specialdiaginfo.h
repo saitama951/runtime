@@ -11,8 +11,6 @@
 // information like the exception record address for a NativeAOT app crash or the runtime module
 // base address. The exception record contains the pointer to the JSON formatted crash info.
 
-#pragma once
-
 #define SPECIAL_DIAGINFO_SIGNATURE "DIAGINFOHEADER"
 #define SPECIAL_DIAGINFO_VERSION 2
 

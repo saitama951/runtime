@@ -122,7 +122,7 @@ namespace System.Data.Tests
             yield return new object[] { typeof(void) };
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.DataSetXmlSerializationIsSupported))]
+        [Theory]
         [MemberData(nameof(AllowedTypes))]
         public void DataTable_ReadXml_AllowsKnownTypes(Type type)
         {
@@ -145,7 +145,7 @@ namespace System.Data.Tests
             Assert.Equal(type, table.Columns[0].DataType);
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.DataSetXmlSerializationIsSupported))]
+        [Theory]
         [MemberData(nameof(ForbiddenTypes))]
         public void DataTable_ReadXml_ForbidsUnknownTypes(Type type)
         {
@@ -204,7 +204,7 @@ namespace System.Data.Tests
             Assert.Equal(type, table.Columns[0].DataType);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.DataSetXmlSerializationIsSupported))]
+        [Fact]
         public void DataTable_HonorsGloballyDefinedAllowList()
         {
             // Arrange
@@ -295,7 +295,7 @@ namespace System.Data.Tests
             }
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.DataSetXmlSerializationIsSupported))]
+        [Fact]
         public void DataColumn_ConvertExpression_SubjectToAllowList_Success()
         {
             // Arrange
@@ -318,7 +318,7 @@ namespace System.Data.Tests
             Assert.Equal("CONVERT('42', 'System.Int32')", table.Columns[0].Expression);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.DataSetXmlSerializationIsSupported))]
+        [Fact]
         public void DataColumn_ConvertExpression_SubjectToAllowList_Failure()
         {
             // Arrange
@@ -341,7 +341,7 @@ namespace System.Data.Tests
             Assert.Throws<InvalidOperationException>(() => table.Rows.Add(new StringBuilder()));
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.DataSetXmlSerializationIsSupported))]
+        [Theory]
         [MemberData(nameof(AllowedTypes))]
         public void DataSet_ReadXml_AllowsKnownTypes(Type type)
         {
@@ -371,7 +371,7 @@ namespace System.Data.Tests
             Assert.Equal(type, table.Columns[0].DataType);
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.DataSetXmlSerializationIsSupported))]
+        [Theory]
         [MemberData(nameof(ForbiddenTypes))]
         public void DataSet_ReadXml_ForbidsUnknownTypes(Type type)
         {

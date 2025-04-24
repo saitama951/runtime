@@ -67,14 +67,12 @@ ABIPassingInformation LoongArch64Classifier::Classify(Compiler*    comp,
     unsigned  argRegOffset2       = 0;
 
     bool canPassArgInRegisters = false;
-    bool passedByRef           = false;
     if (varTypeIsStruct(type))
     {
         passedSize = structLayout->GetSize();
         if (passedSize > MAX_PASS_MULTIREG_BYTES)
         {
-            passedByRef           = true;
-            slots                 = 1;
+            slots                 = 1; // Passed by implicit byref
             passedSize            = TARGET_POINTER_SIZE;
             canPassArgInRegisters = m_intRegs.Count() > 0;
         }
@@ -87,7 +85,7 @@ ABIPassingInformation LoongArch64Classifier::Classify(Compiler*    comp,
 
             if (!lowering->byIntegerCallConv)
             {
-                slots = static_cast<unsigned>(lowering->numLoweredElements);
+                slots = lowering->numLoweredElements;
                 if (lowering->numLoweredElements == 1)
                 {
                     canPassArgInRegisters = m_floatRegs.Count() > 0;
@@ -167,9 +165,9 @@ ABIPassingInformation LoongArch64Classifier::Classify(Compiler*    comp,
     ABIPassingInformation info;
     if (canPassArgInRegisters)
     {
+        info = ABIPassingInformation(comp, slots);
         if (argRegTypeInStruct1 != TYP_UNKNOWN)
         {
-            info                = ABIPassingInformation(comp, slots);
             RegisterQueue* regs = varTypeIsFloating(argRegTypeInStruct1) ? &m_floatRegs : &m_intRegs;
             assert(regs->Count() > 0);
 
@@ -188,21 +186,13 @@ ABIPassingInformation LoongArch64Classifier::Classify(Compiler*    comp,
         }
         else
         {
-            RegisterQueue*    regs         = varTypeIsFloating(type) ? &m_floatRegs : &m_intRegs;
-            unsigned          slotSize     = min(passedSize, (unsigned)TARGET_POINTER_SIZE);
-            ABIPassingSegment firstSegment = ABIPassingSegment::InRegister(regs->Dequeue(), 0, slotSize);
-            if (slots == 1)
+            RegisterQueue* regs     = varTypeIsFloating(type) ? &m_floatRegs : &m_intRegs;
+            unsigned       slotSize = min(passedSize, (unsigned)TARGET_POINTER_SIZE);
+            info.Segment(0)         = ABIPassingSegment::InRegister(regs->Dequeue(), 0, slotSize);
+            if (slots == 2)
             {
-                info = ABIPassingInformation::FromSegment(comp, passedByRef, firstSegment);
-            }
-            else
-            {
-                assert(slots == 2);
                 assert(varTypeIsStruct(type));
                 assert(passedSize > TARGET_POINTER_SIZE);
-
-                info              = ABIPassingInformation(comp, slots);
-                info.Segment(0)   = firstSegment;
                 unsigned tailSize = passedSize - slotSize;
                 if (m_intRegs.Count() > 0)
                 {
@@ -222,8 +212,7 @@ ABIPassingInformation LoongArch64Classifier::Classify(Compiler*    comp,
     {
         assert((m_stackArgSize % TARGET_POINTER_SIZE) == 0);
 
-        info = ABIPassingInformation::FromSegment(comp, passedByRef,
-                                                  ABIPassingSegment::OnStack(m_stackArgSize, 0, passedSize));
+        info = ABIPassingInformation::FromSegment(comp, ABIPassingSegment::OnStack(m_stackArgSize, 0, passedSize));
 
         m_stackArgSize += roundUp(passedSize, TARGET_POINTER_SIZE);
 

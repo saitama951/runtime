@@ -6,10 +6,9 @@
 
 namespace System.IO.Compression
 {
-    public sealed partial class BrotliCompressionOptions
+    public sealed class BrotliCompressionOptions
     {
-        public BrotliCompressionOptions() { }
-        public int Quality { get { throw null; } set { } }
+        public int Quality { get; set; }
     }
     public partial struct BrotliDecoder : System.IDisposable
     {

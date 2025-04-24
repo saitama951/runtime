@@ -6,7 +6,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "cdacplatformmetadata.hpp"
 #include "threads.h"
 #include "vars.hpp"
 

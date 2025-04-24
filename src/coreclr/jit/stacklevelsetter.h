@@ -14,7 +14,6 @@ public:
     virtual PhaseStatus DoPhase() override;
 
 private:
-    void ProcessBlocks();
     void ProcessBlock(BasicBlock* block);
 
     void SetThrowHelperBlocks(GenTree* node, BasicBlock* block);

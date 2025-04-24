@@ -42,11 +42,6 @@ namespace System.Collections.Concurrent
         /// extra branch when using a custom comparer with a reference type key.
         /// </remarks>
         private readonly bool _comparerIsDefaultForClasses;
-        /// <summary>The initial size of the _buckets array.</summary>
-        /// <remarks>
-        /// We store this to retain the initially specified growing behavior of the _buckets array even after clearing the collection.
-        /// </remarks>
-        private readonly int _initialCapacity;
 
         /// <summary>The default capacity, i.e. the initial # of buckets.</summary>
         /// <remarks>
@@ -225,7 +220,6 @@ namespace System.Collections.Concurrent
 
             _tables = new Tables(buckets, locks, countPerLock, comparer);
             _growLockArray = growLockArray;
-            _initialCapacity = capacity;
             _budget = buckets.Length / locks.Length;
         }
 
@@ -722,7 +716,7 @@ namespace System.Collections.Concurrent
                 }
 
                 Tables tables = _tables;
-                var newTables = new Tables(new VolatileNode[HashHelpers.GetPrime(_initialCapacity)], tables._locks, new int[tables._countPerLock.Length], tables._comparer);
+                var newTables = new Tables(new VolatileNode[HashHelpers.GetPrime(DefaultCapacity)], tables._locks, new int[tables._countPerLock.Length], tables._comparer);
                 _tables = newTables;
                 _budget = Math.Max(1, newTables._buckets.Length / newTables._locks.Length);
             }
@@ -2548,7 +2542,6 @@ namespace System.Collections.Concurrent
             /// When this method returns, contains the value associated with the specified key, if the key is found;
             /// otherwise, the default value for the type of the value parameter.
             /// </param>
-            /// <returns><see langword="true"/> if an entry was found; otherwise, <see langword="false"/>.</returns>
             /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
             public bool TryGetValue(TAlternateKey key, [MaybeNullWhen(false)] out TValue value) =>
                 TryGetValue(key, out _, out value);
@@ -2563,7 +2556,6 @@ namespace System.Collections.Concurrent
             /// When this method returns, contains the value associated with the specified key, if the key is found;
             /// otherwise, the default value for the type of the value parameter.
             /// </param>
-            /// <returns><see langword="true"/> if an entry was found; otherwise, <see langword="false"/>.</returns>
             /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
             public bool TryGetValue(TAlternateKey key, [MaybeNullWhen(false)] out TKey actualKey, [MaybeNullWhen(false)] out TValue value)
             {

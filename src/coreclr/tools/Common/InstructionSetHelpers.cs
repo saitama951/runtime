@@ -20,6 +20,7 @@ namespace System.CommandLine
             string mustNotBeMessage, string invalidImplicationMessage, Logger logger, bool optimizingForSize = false)
         {
             InstructionSetSupportBuilder instructionSetSupportBuilder = new(targetArchitecture);
+            InstructionSetSupportFlags flags = 0;
 
             // Ready to run images are built with certain instruction set baselines
             if ((targetArchitecture == TargetArchitecture.X86) || (targetArchitecture == TargetArchitecture.X64))
@@ -43,8 +44,6 @@ namespace System.CommandLine
             // We seed this from optimizingForSize - if we're size-optimizing, we don't want to unnecessarily
             // compile both branches of IsSupported checks.
             bool allowOptimistic = !optimizingForSize;
-
-            bool throttleAvx512 = false;
 
             if (instructionSet == "native")
             {
@@ -93,7 +92,7 @@ namespace System.CommandLine
                                     // * Cascade Lake
                                     // * Cooper Lake
 
-                                    throttleAvx512 = true;
+                                    flags |= InstructionSetSupportFlags.Vector512Throttling;
                                 }
                             }
                             else if (extendedModel == 0x06)
@@ -102,13 +101,13 @@ namespace System.CommandLine
                                 {
                                     // * Cannon Lake
 
-                                    throttleAvx512 = true;
+                                    flags |= InstructionSetSupportFlags.Vector512Throttling;
                                 }
                             }
                         }
                     }
 
-                    if (throttleAvx512 && logger.IsVerbose)
+                    if ((flags & InstructionSetSupportFlags.Vector512Throttling) != 0 && logger.IsVerbose)
                         logger.LogMessage("Vector512 is throttled");
                 }
 
@@ -118,9 +117,9 @@ namespace System.CommandLine
             else if (instructionSet != null)
             {
                 List<string> instructionSetParams = new List<string>();
-                string[] instructionSetParamsInput = instructionSet.Split(',');
 
                 // Normalize instruction set format to include implied +.
+                string[] instructionSetParamsInput = instructionSet.Split(',');
                 for (int i = 0; i < instructionSetParamsInput.Length; i++)
                 {
                     instructionSet = instructionSetParamsInput[i].Trim();
@@ -129,15 +128,14 @@ namespace System.CommandLine
                         throw new CommandLineException(string.Format(mustNotBeMessage, ""));
 
                     char firstChar = instructionSet[0];
-
                     if ((firstChar != '+') && (firstChar != '-'))
                     {
-                        instructionSet = "+" + instructionSet;
+                        instructionSet =  "+" + instructionSet;
                     }
-
                     instructionSetParams.Add(instructionSet);
                 }
 
+                Dictionary<string, bool> instructionSetSpecification = new Dictionary<string, bool>();
                 foreach (string instructionSetSpecifier in instructionSetParams)
                 {
                     instructionSet = instructionSetSpecifier.Substring(1);
@@ -181,7 +179,7 @@ namespace System.CommandLine
             InstructionSetSupportBuilder optimisticInstructionSetSupportBuilder = new InstructionSetSupportBuilder(instructionSetSupportBuilder);
 
             // Optimistically assume some instruction sets are present.
-            if (allowOptimistic && targetArchitecture is TargetArchitecture.X86 or TargetArchitecture.X64)
+            if (allowOptimistic && (targetArchitecture == TargetArchitecture.X86 || targetArchitecture == TargetArchitecture.X64))
             {
                 // We set these hardware features as opportunistically enabled as most of hardware in the wild supports them.
                 // Note that we do not indicate support for AVX, or any other instruction set which uses the VEX encodings as
@@ -194,7 +192,6 @@ namespace System.CommandLine
                 optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("popcnt");
                 optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("lzcnt");
                 optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("serialize");
-                optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("gfni");
 
                 // If AVX was enabled, we can opportunistically enable instruction sets which use the VEX encodings
                 Debug.Assert(InstructionSet.X64_AVX == InstructionSet.X86_AVX);
@@ -211,8 +208,6 @@ namespace System.CommandLine
                     optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("fma");
                     optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("bmi");
                     optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("bmi2");
-                    optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("vpclmul");
-                    optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("gfni_v256");
                 }
 
                 Debug.Assert(InstructionSet.X64_AVX512F == InstructionSet.X86_AVX512F);
@@ -230,13 +225,9 @@ namespace System.CommandLine
                     optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("avx512vbmi_vl");
                     optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("avx10v1");
                     optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("avx10v1_v512");
-                    optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("vpclmul_v512");
-                    optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("avx10v2");
-                    optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("avx10v2_v512");
-                    optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("gfni_v512");
                 }
             }
-            else if (allowOptimistic && targetArchitecture is TargetArchitecture.ARM64)
+            else if (targetArchitecture == TargetArchitecture.ARM64)
             {
                 optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("aes");
                 optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("crc");
@@ -253,42 +244,12 @@ namespace System.CommandLine
             optimisticInstructionSet.Remove(unsupportedInstructionSet);
             optimisticInstructionSet.Add(supportedInstructionSet);
 
-            if (throttleAvx512)
-            {
-                Debug.Assert(InstructionSet.X86_AVX512F == InstructionSet.X64_AVX512F);
-                if (supportedInstructionSet.HasInstructionSet(InstructionSet.X86_AVX512F))
-                {
-                    Debug.Assert(InstructionSet.X86_Vector256 == InstructionSet.X64_Vector256);
-                    Debug.Assert(InstructionSet.X86_VectorT256 == InstructionSet.X64_VectorT256);
-                    Debug.Assert(InstructionSet.X86_VectorT512 == InstructionSet.X64_VectorT512);
-
-                    // AVX-512 is supported, but we are compiling specifically for hardware that has a performance penalty for
-                    // using 512-bit ops. We want to tell JIT not to consider Vector512 to be hardware accelerated, which we do
-                    // by passing a PreferredVectorBitWidth value, in the form of a virtual vector ISA of the appropriate size.
-                    //
-                    // If we are downgrading the max accelerated vector size, we also need to downgrade Vector<T> size.
-
-                    supportedInstructionSet.AddInstructionSet(InstructionSet.X86_Vector256);
-
-                    if (supportedInstructionSet.HasInstructionSet(InstructionSet.X86_VectorT512))
-                    {
-                        supportedInstructionSet.RemoveInstructionSet(InstructionSet.X86_VectorT512);
-                        supportedInstructionSet.AddInstructionSet(InstructionSet.X86_VectorT256);
-                    }
-
-                    if (optimisticInstructionSet.HasInstructionSet(InstructionSet.X86_VectorT512))
-                    {
-                        optimisticInstructionSet.RemoveInstructionSet(InstructionSet.X86_VectorT512);
-                        optimisticInstructionSet.AddInstructionSet(InstructionSet.X86_VectorT256);
-                    }
-                }
-            }
-
             return new InstructionSetSupport(supportedInstructionSet,
                 unsupportedInstructionSet,
                 optimisticInstructionSet,
                 InstructionSetSupportBuilder.GetNonSpecifiableInstructionSetsForArch(targetArchitecture),
-                targetArchitecture);
+                targetArchitecture,
+                flags);
         }
     }
 }

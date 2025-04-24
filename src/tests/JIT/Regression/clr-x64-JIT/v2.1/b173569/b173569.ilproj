@@ -5,8 +5,6 @@
     <CLRTestPriority>1</CLRTestPriority>
     <!-- Test unsupported outside of windows -->
     <CLRTestTargetUnsupported Condition="'$(TargetsWindows)' != 'true'">true</CLRTestTargetUnsupported>
-    <!-- Slow delegate creation path is not supported with native AOT -->
-    <NativeAotIncompatible>true</NativeAotIncompatible>
   </PropertyGroup>
   <PropertyGroup>
     <DebugType>PdbOnly</DebugType>

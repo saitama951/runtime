@@ -112,11 +112,6 @@ namespace ILCompiler.PEWriter
                     return MachineOSOverride.Linux;
 
                 case TargetOS.OSX:
-                case TargetOS.MacCatalyst:
-                case TargetOS.iOS:
-                case TargetOS.iOSSimulator:
-                case TargetOS.tvOS:
-                case TargetOS.tvOSSimulator:
                     return MachineOSOverride.Apple;
 
                 case TargetOS.FreeBSD:

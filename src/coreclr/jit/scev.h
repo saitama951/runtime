@@ -82,7 +82,11 @@ struct Scev
 
 struct ScevConstant : Scev
 {
-    ScevConstant(var_types type, int64_t value);
+    ScevConstant(var_types type, int64_t value)
+        : Scev(ScevOper::Constant, type)
+        , Value(value)
+    {
+    }
 
     int64_t Value;
 };
@@ -226,7 +230,10 @@ class ScalarEvolutionContext
 
     Scev* Analyze(BasicBlock* block, GenTree* tree, int depth);
     Scev* AnalyzeNew(BasicBlock* block, GenTree* tree, int depth);
-    Scev* CreateSimpleAddRec(GenTreePhi* headerPhi, ScevLocal* start, BasicBlock* stepDefBlock, GenTree* stepDefData);
+    Scev* CreateSimpleAddRec(GenTreeLclVarCommon* headerStore,
+                             ScevLocal*           start,
+                             BasicBlock*          stepDefBlock,
+                             GenTree*             stepDefData);
     Scev* MakeAddRecFromRecursiveScev(Scev* start, Scev* scev, Scev* recursiveScev);
     Scev* CreateSimpleInvariantScev(GenTree* tree);
     Scev* CreateScevForConstant(GenTreeIntConCommon* tree);

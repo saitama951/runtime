@@ -101,6 +101,12 @@ namespace ILCompiler.DependencyAnalysis
                 Debug.Assert(method == method.GetCanonMethodTarget(CanonicalFormKind.Specific));
                 return true;
             }
+            else if (method.IsCanonicalMethod(CanonicalFormKind.Universal))
+            {
+                // Must be fully canonical
+                if (method == method.GetCanonMethodTarget(CanonicalFormKind.Universal))
+                    return true;
+            }
 
             return false;
         }

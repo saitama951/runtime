@@ -217,6 +217,14 @@ RaiseException(
     throw;
 }
 
+size_t u16_strlen(const WCHAR* str)
+{
+    size_t nChar = 0;
+    while (*str++)
+        nChar++;
+    return nChar;
+}
+
 //
 // Used by _ASSERTE
 //

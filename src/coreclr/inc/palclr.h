@@ -48,6 +48,8 @@
 #endif // !_MSC_VER
 #endif // !NOINLINE
 
+#define ANALYZER_NORETURN
+
 #ifdef _MSC_VER
 #define EMPTY_BASES_DECL __declspec(empty_bases)
 #else
@@ -608,10 +610,6 @@
 
 #ifndef IMAGE_FILE_MACHINE_LOONGARCH64
 #define IMAGE_FILE_MACHINE_LOONGARCH64       0x6264  // LOONGARCH64.
-#endif
-
-#ifndef IMAGE_FILE_MACHINE_RISCV64
-#define IMAGE_FILE_MACHINE_RISCV64       0x5064  // RISCV64.
 #endif
 
 #endif // defined(HOST_WINDOWS)

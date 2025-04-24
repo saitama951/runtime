@@ -23,7 +23,7 @@ static void DbgPrintf(const LPCSTR szFormat, ...)
 
     va_end(args);
 
-    if (minipal_is_native_debugger_present())
+    if (IsDebuggerPresent())
     {
         OutputDebugStringUtf8(szBuffer);
     }

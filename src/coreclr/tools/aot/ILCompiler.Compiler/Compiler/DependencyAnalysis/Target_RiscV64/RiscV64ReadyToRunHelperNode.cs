@@ -23,17 +23,22 @@ namespace ILCompiler.DependencyAnalysis
                         MetadataType target = (MetadataType)Target;
 
                         bool hasLazyStaticConstructor = factory.PreinitializationManager.HasLazyStaticConstructor(target);
+                        encoder.EmitMOV(encoder.TargetRegister.Result, factory.TypeNonGCStaticsSymbol(target));
 
                         if (!hasLazyStaticConstructor)
                         {
-                            encoder.EmitMOV(encoder.TargetRegister.Result, factory.TypeNonGCStaticsSymbol(target));
                             encoder.EmitRET();
                         }
                         else
                         {
-                            // The fast path check is not necessary. It is always expanded by RyuJIT.
-                            encoder.EmitMOV(encoder.TargetRegister.Arg1, factory.TypeNonGCStaticsSymbol(target));
-                            encoder.EmitADDI(encoder.TargetRegister.Arg0, encoder.TargetRegister.Arg1, -NonGCStaticsNode.GetClassConstructorContextSize(factory.Target));
+                            // We need to trigger the cctor before returning the base. It is stored at the beginning of the non-GC statics region.
+                            encoder.EmitADDI(encoder.TargetRegister.Arg3, encoder.TargetRegister.Result, -NonGCStaticsNode.GetClassConstructorContextSize(factory.Target));
+                            encoder.EmitLD(encoder.TargetRegister.Arg2, encoder.TargetRegister.Arg3, 0);
+                            encoder.EmitRETIfZero(encoder.TargetRegister.Arg2);
+
+                            encoder.EmitMOV(encoder.TargetRegister.Arg1, encoder.TargetRegister.Result);
+                            encoder.EmitMOV(encoder.TargetRegister.Arg0, encoder.TargetRegister.Arg3);
+
                             encoder.EmitJMP(factory.HelperEntrypoint(HelperEntrypoint.EnsureClassConstructorRunAndReturnNonGCStaticBase));
                         }
                     }
@@ -74,18 +79,23 @@ namespace ILCompiler.DependencyAnalysis
                         MetadataType target = (MetadataType)Target;
 
                         encoder.EmitMOV(encoder.TargetRegister.Result, factory.TypeGCStaticsSymbol(target));
+                        encoder.EmitLD(encoder.TargetRegister.Result, encoder.TargetRegister.Result, 0);
 
                         if (!factory.PreinitializationManager.HasLazyStaticConstructor(target))
                         {
-                            encoder.EmitLD(encoder.TargetRegister.Result, encoder.TargetRegister.Result, 0);
                             encoder.EmitRET();
                         }
                         else
                         {
-                            // The fast path check is not necessary. It is always expanded by RyuJIT.
-                            encoder.EmitLD(encoder.TargetRegister.Arg1, encoder.TargetRegister.Result, 0);
-                            encoder.EmitMOV(encoder.TargetRegister.Arg0, factory.TypeNonGCStaticsSymbol(target));
-                            encoder.EmitADDI(encoder.TargetRegister.Arg0, encoder.TargetRegister.Arg0, -NonGCStaticsNode.GetClassConstructorContextSize(factory.Target));
+                            // We need to trigger the cctor before returning the base. It is stored at the beginning of the non-GC statics region.
+                            encoder.EmitMOV(encoder.TargetRegister.Arg2, factory.TypeNonGCStaticsSymbol(target));
+                            encoder.EmitADDI(encoder.TargetRegister.Arg2, encoder.TargetRegister.Arg2, -NonGCStaticsNode.GetClassConstructorContextSize(factory.Target));
+                            encoder.EmitLD(encoder.TargetRegister.Arg3, encoder.TargetRegister.Arg2, 0);
+                            encoder.EmitRETIfZero(encoder.TargetRegister.Arg3);
+
+                            encoder.EmitMOV(encoder.TargetRegister.Arg1, encoder.TargetRegister.Result);
+                            encoder.EmitMOV(encoder.TargetRegister.Arg0, encoder.TargetRegister.Arg2);
+
                             encoder.EmitJMP(factory.HelperEntrypoint(HelperEntrypoint.EnsureClassConstructorRunAndReturnGCStaticBase));
                         }
                     }
@@ -130,12 +140,12 @@ namespace ILCompiler.DependencyAnalysis
 
                 case ReadyToRunHelperId.ResolveVirtualFunction:
                     {
+                        // Not tested
+                        encoder.EmitBreak();
+
                         MethodDesc targetMethod = (MethodDesc)Target;
                         if (targetMethod.OwningType.IsInterface)
                         {
-                            // Not tested
-                            encoder.EmitBreak();
-
                             encoder.EmitMOV(encoder.TargetRegister.Arg1, factory.InterfaceDispatchCell(targetMethod));
                             encoder.EmitJMP(factory.ExternSymbol("RhpResolveInterfaceMethod"));
                         }

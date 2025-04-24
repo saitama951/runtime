@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit;
 namespace HelloFrozenSegment
 {
     using System;
@@ -135,10 +134,9 @@ namespace HelloFrozenSegment
         public int number;
     }
 
-    public static class Program
+    internal static class Program
     {
-        [Fact]
-        public static unsafe void TestEntryPoint()
+        private static unsafe int Main()
         {
             // Regression testing for dotnet/runtime #83027
             Node[] firstArray = new Node[30000000]; 
@@ -182,6 +180,7 @@ namespace HelloFrozenSegment
             GC.Collect();
             Console.WriteLine(root.next.next != null);
             frozenSegment.Release();
+            return 100;
         }
     }
 }

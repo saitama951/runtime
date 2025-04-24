@@ -5,8 +5,9 @@ include <AsmMacros.inc>
 include AsmConstants.inc
 
         extern  PreStubWorker:proc
+        extern  ProcessCLRException:proc
 
-NESTED_ENTRY ThePreStub, _TEXT
+NESTED_ENTRY ThePreStub, _TEXT, ProcessCLRException
 
         PROLOG_WITH_TRANSITION_BLOCK
 

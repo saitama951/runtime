@@ -18,7 +18,6 @@ namespace System
         private const string InitializeMethodName = "Initialize";
         private const string DisallowedSimpleAssemblyNameSuffix = ".dll";
 
-        [FeatureSwitchDefinition("System.StartupHookProvider.IsSupported")]
         private static bool IsSupported => AppContext.TryGetSwitch("System.StartupHookProvider.IsSupported", out bool isSupported) ? isSupported : true;
 
         private struct StartupHookNameOrPath

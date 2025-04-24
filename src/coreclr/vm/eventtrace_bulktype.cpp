@@ -513,15 +513,16 @@ void BulkStaticsLogger::LogAllStatics()
         AppDomain *domain = ::GetAppDomain(); // There is only 1 AppDomain, so no iterator here.
 
         AppDomain::AssemblyIterator assemblyIter = domain->IterateAssembliesEx((AssemblyIterationFlags)(kIncludeLoaded|kIncludeExecution));
-        CollectibleAssemblyHolder<Assembly *> pAssembly;
-        while (assemblyIter.Next(pAssembly.This()))
+        CollectibleAssemblyHolder<DomainAssembly *> pDomainAssembly;
+        while (assemblyIter.Next(pDomainAssembly.This()))
         {
             // Make sure the assembly is loaded.
-            if (!pAssembly->IsLoaded())
+            if (!pDomainAssembly->IsLoaded())
                 continue;
 
+            CollectibleAssemblyHolder<Assembly *> pAssembly = pDomainAssembly->GetAssembly();
             // Get the domain module from the module/appdomain pair.
-            Module *module = pAssembly->GetModule();
+            Module *module = pDomainAssembly->GetModule();
             if (module == NULL)
                 continue;
 
@@ -530,7 +531,7 @@ void BulkStaticsLogger::LogAllStatics()
                 continue;
 
             // Ensure the module has fully loaded.
-            if (!pAssembly->IsActive())
+            if (!domainAssembly->IsActive())
                 continue;
 
             // Now iterate all types with

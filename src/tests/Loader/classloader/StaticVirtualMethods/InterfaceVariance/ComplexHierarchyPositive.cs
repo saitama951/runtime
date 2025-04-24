@@ -12,7 +12,6 @@ namespace VariantStaticInterfaceDispatchRegressionTest
     public class Test
     {
         [Fact]
-        [ActiveIssue("https://github.com/dotnet/runtime/issues/88689", TestRuntimes.Mono)]
         public static void TestEntryPoint()
         {
             Console.WriteLine("Test cases");

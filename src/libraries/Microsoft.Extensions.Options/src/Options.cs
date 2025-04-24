@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace Microsoft.Extensions.Options
 {
     /// <summary>
-    /// Helper class for options.
+    /// Helper class.
     /// </summary>
     public static class Options
     {

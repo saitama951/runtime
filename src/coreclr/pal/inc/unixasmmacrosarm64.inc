@@ -26,17 +26,6 @@
 C_FUNC(\Name):
 .endm
 
-.macro ALTERNATE_ENTRY Name
-#if defined(__APPLE__)
-        .alt_entry C_FUNC(\Name)
-        .private_extern C_FUNC(\Name)
-#else
-        .global C_FUNC(\Name)
-        .hidden C_FUNC(\Name)
-#endif
-C_FUNC(\Name):
-.endm
-
 .macro LEAF_ENTRY Name, Section
         .global C_FUNC(\Name)
 #if defined(__APPLE__)
@@ -137,7 +126,7 @@ C_FUNC(\Name\()_End):
 .endm
 
 .macro EMIT_BREAKPOINT
-        brk #0xf000
+        brk #0
 .endm
 
 //-----------------------------------------------------------------------------
@@ -222,7 +211,7 @@ C_FUNC(\Name\()_End):
 // base address to be passed in $reg
 //
 
-// Reserve 72 bytes of memory before calling  SAVE_ARGUMENT_REGISTERS
+// Reserve 64 bytes of memory before calling  SAVE_ARGUMENT_REGISTERS
 .macro SAVE_ARGUMENT_REGISTERS reg, ofs
 
         str                    x8, [\reg, #(\ofs)]

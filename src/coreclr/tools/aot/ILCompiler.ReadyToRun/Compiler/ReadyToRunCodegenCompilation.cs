@@ -82,9 +82,8 @@ namespace ILCompiler
                 return false;
             }
 
-            if (callee.IsNoInlining || callee.IsNoOptimization)
+            if (callee.IsNoInlining)
             {
-                // NoOptimization implies NoInlining
                 return false;
             }
 
@@ -801,7 +800,7 @@ namespace ILCompiler
 
             void CompilationThread(object objThreadId)
             {
-                while (true)
+                while(true)
                 {
                     _compilationThreadSemaphore.Wait();
                     lock(this)

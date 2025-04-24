@@ -287,10 +287,6 @@
           <GenericArgument Name="System.Int32, System.Runtime" />
         </Method>
 
-        <Method Name="ReverseArray" Dynamic="Required All">
-          <GenericArgument Name="System.Int32, System.Runtime" />
-        </Method>
-
         <Method Name="RunOnce" Dynamic="Required All">
           <GenericArgument Name="System.Int32, System.Runtime" />
         </Method>

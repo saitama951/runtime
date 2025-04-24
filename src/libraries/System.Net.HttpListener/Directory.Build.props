@@ -2,6 +2,6 @@
   <Import Project="..\Directory.Build.props" />
   <PropertyGroup>
     <IncludePlatformAttributes>true</IncludePlatformAttributes>
-    <UnsupportedOSPlatforms>browser;wasi</UnsupportedOSPlatforms>
+    <UnsupportedOSPlatforms>browser</UnsupportedOSPlatforms>
   </PropertyGroup>
 </Project>

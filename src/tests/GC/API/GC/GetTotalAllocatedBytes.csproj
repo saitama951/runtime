@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Needed for GCStressIncompatible, HeapVerifyIncompatible -->
-    <RequiresProcessIsolation>true</RequiresProcessIsolation>
+    <OutputType>Exe</OutputType>
     <HeapVerifyIncompatible Condition="'$(TargetArchitecture)' == 'arm'">true</HeapVerifyIncompatible>
   </PropertyGroup>
   <PropertyGroup>

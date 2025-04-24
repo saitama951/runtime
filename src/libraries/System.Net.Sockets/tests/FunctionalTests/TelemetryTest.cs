@@ -47,7 +47,6 @@ namespace System.Net.Sockets.Tests
         }
 
         [Fact]
-        [ActiveIssue("https://github.com/dotnet/runtime/issues/107981", TestPlatforms.Wasi)]
         public static void EventSource_ExistsWithCorrectId()
         {
             Type esType = typeof(Socket).Assembly.GetType("System.Net.Sockets.SocketsTelemetry", throwOnError: true, ignoreCase: false);
@@ -61,9 +60,9 @@ namespace System.Net.Sockets.Tests
 
         public static IEnumerable<object[]> SocketMethods_MemberData()
         {
-            if (!OperatingSystem.IsWasi()) yield return new[] { "Sync" };
+            yield return new[] { "Sync" };
             yield return new[] { "Task" };
-            if (!OperatingSystem.IsWasi()) yield return new[] { "Apm" };
+            yield return new[] { "Apm" };
             yield return new[] { "Eap" };
         }
 

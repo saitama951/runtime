@@ -12,11 +12,11 @@
 
 // It is illegal to cause a GC or EH to happen in an FCALL before setting
 // up a frame.  To prevent accidentally violating this rule, FCALLs turn
-// on BEGINGCFORBID, which ensures that these things can't happen in a
+// on BEGINGCFORBID, which insures that these things can't happen in a
 // checked build without causing an ASSERTE.  Once you set up a frame,
 // this state is turned off as long as the frame is active, and then is
 // turned on again when the frame is torn down.   This mechanism should
-// be sufficient to ensure that the rules are followed.
+// be sufficient to insure that the rules are followed.
 
 // In general you set up a frame by using the following macros
 
@@ -58,6 +58,9 @@
 // can use HELPER_METHOD_FRAME_BEGIN_NOPOLL and HELPER_METHOD_FRAME_END_POLL
 // to do the poll at the end.   If somewhere in the middle is the best
 // place you can do that too with HELPER_METHOD_POLL()
+
+// You don't need to erect a helper method frame to do a poll.  FC_GC_POLL
+// can do this (remember all your GC refs will be trashed).
 
 // Finally if your method is VERY small, you can get away without a poll,
 // you have to use FC_GC_POLL_NOT_NEEDED to mark this.
@@ -359,9 +362,11 @@ private:
 
 //==============================================================================================
 // This is where FCThrow ultimately ends up. Never call this directly.
-// Use the FCThrow() macro.
+// Use the FCThrow() macros. __FCThrowArgument is the helper to throw ArgumentExceptions
+// with a resource taken from the managed resource manager.
 //==============================================================================================
 LPVOID __FCThrow(LPVOID me, enum RuntimeExceptionKind reKind, UINT resID, LPCWSTR arg1, LPCWSTR arg2, LPCWSTR arg3);
+LPVOID __FCThrowArgument(LPVOID me, enum RuntimeExceptionKind reKind, LPCWSTR argumentName, LPCWSTR resourceName);
 
 //==============================================================================================
 // FDECLn: A set of macros for generating header declarations for FC targets.
@@ -522,7 +527,7 @@ LPVOID __FCThrow(LPVOID me, enum RuntimeExceptionKind reKind, UINT resID, LPCWST
 
 #endif // !SWIZZLE_STKARG_ORDER
 
-#define HELPER_FRAME_DECL(x) HelperMethodFrame_##x##OBJ __helperframe
+#define HELPER_FRAME_DECL(x) FrameWithCookie<HelperMethodFrame_##x##OBJ> __helperframe
 
 // use the capture state machinery if the architecture has one
 //
@@ -539,9 +544,13 @@ LPVOID __FCThrow(LPVOID me, enum RuntimeExceptionKind reKind, UINT resID, LPCWST
 #if defined(_PREFAST_)
   #define FORLAZYMACHSTATE_BEGINLOOP(x) x
   #define FORLAZYMACHSTATE_ENDLOOP(x)
+  #define FORLAZYMACHSTATE_DEBUG_OK_TO_RETURN_BEGIN
+  #define FORLAZYMACHSTATE_DEBUG_OK_TO_RETURN_END
 #else
   #define FORLAZYMACHSTATE_BEGINLOOP(x) x do
   #define FORLAZYMACHSTATE_ENDLOOP(x) while(x)
+  #define FORLAZYMACHSTATE_DEBUG_OK_TO_RETURN_BEGIN  DEBUG_OK_TO_RETURN_BEGIN(LAZYMACHSTATE)
+  #define FORLAZYMACHSTATE_DEBUG_OK_TO_RETURN_END    DEBUG_OK_TO_RETURN_END(LAZYMACHSTATE)
 #endif
 
 // BEGIN: before gcpoll
@@ -551,6 +560,10 @@ LPVOID __FCThrow(LPVOID me, enum RuntimeExceptionKind reKind, UINT resID, LPCWST
 // END: after gcpoll
 //__fcallGcCanTrigger.Leave(__FUNCTION__, __FILE__, __LINE__);
 
+// We have to put DEBUG_OK_TO_RETURN_BEGIN around the FORLAZYMACHSTATE
+// to allow the HELPER_FRAME to be installed inside an SO_INTOLERANT region
+// which does not allow a return.  The return is used by FORLAZYMACHSTATE
+// to capture the state, but is not an actual return, so it is ok.
 #define HELPER_METHOD_FRAME_BEGIN_EX_BODY(ret, helperFrame, gcpoll, allowGC)  \
         FORLAZYMACHSTATE_BEGINLOOP(int alwaysZero = 0;)         \
         {                                                       \
@@ -558,7 +571,9 @@ LPVOID __FCThrow(LPVOID me, enum RuntimeExceptionKind reKind, UINT resID, LPCWST
             PERMIT_HELPER_METHOD_FRAME_BEGIN();                 \
             CHECK_HELPER_METHOD_FRAME_PERMITTED();              \
             helperFrame;                                        \
+            FORLAZYMACHSTATE_DEBUG_OK_TO_RETURN_BEGIN;          \
             FORLAZYMACHSTATE(CAPTURE_STATE(__helperframe.MachineState(), ret);) \
+            FORLAZYMACHSTATE_DEBUG_OK_TO_RETURN_END;            \
             INDEBUG(__helperframe.SetAddrOfHaveCheckedRestoreState(&__haveCheckedRestoreState)); \
             DEBUG_ASSURE_NO_RETURN_BEGIN(HELPER_METHOD_FRAME);  \
             INCONTRACT(FCallGCCanTrigger::Enter());
@@ -567,8 +582,9 @@ LPVOID __FCThrow(LPVOID me, enum RuntimeExceptionKind reKind, UINT resID, LPCWST
         HELPER_METHOD_FRAME_BEGIN_EX_BODY(ret, helperFrame, gcpoll, allowGC)    \
             /* <TODO>TODO TURN THIS ON!!!   </TODO> */                    \
             /* gcpoll; */                                                       \
-            __helperframe.Push();         \
+            if (g_isNewExceptionHandlingEnabled) __helperframe.Push();         \
             INSTALL_MANAGED_EXCEPTION_DISPATCHER;                               \
+            if (!g_isNewExceptionHandlingEnabled) __helperframe.Push();          \
             MAKE_CURRENT_THREAD_AVAILABLE_EX(__helperframe.GetThread()); \
             INSTALL_UNWIND_AND_CONTINUE_HANDLER_FOR_HMF(&__helperframe);
 
@@ -580,7 +596,7 @@ LPVOID __FCThrow(LPVOID me, enum RuntimeExceptionKind reKind, UINT resID, LPCWST
             /* gcpoll; */
 
 // The while(__helperframe.RestoreState() needs a bit of explanation.
-// The issue is ensuring that the same machine state (which registers saved)
+// The issue is insuring that the same machine state (which registers saved)
 // exists when the machine state is probed (when the frame is created, and
 // when it is actually used (when the frame is popped.  We do this by creating
 // a flow of control from use to def.  Note that 'RestoreState' always returns false
@@ -601,8 +617,9 @@ LPVOID __FCThrow(LPVOID me, enum RuntimeExceptionKind reKind, UINT resID, LPCWST
 
 #define HELPER_METHOD_FRAME_END_EX(gcpoll,allowGC)                          \
             UNINSTALL_UNWIND_AND_CONTINUE_HANDLER;                          \
+            if (!g_isNewExceptionHandlingEnabled) __helperframe.Pop();      \
             UNINSTALL_MANAGED_EXCEPTION_DISPATCHER;                         \
-             __helperframe.Pop();                                           \
+            if (g_isNewExceptionHandlingEnabled) __helperframe.Pop();       \
         HELPER_METHOD_FRAME_END_EX_BODY(gcpoll,allowGC);
 
 #define HELPER_METHOD_FRAME_END_EX_NOTHROW(gcpoll,allowGC)                  \
@@ -778,13 +795,42 @@ LPVOID __FCThrow(LPVOID me, enum RuntimeExceptionKind reKind, UINT resID, LPCWST
 #define HELPER_METHOD_POLL()            { __helperframe.Poll(); INCONTRACT(__fCallCheck.SetDidPoll()); }
 
 // The HelperMethodFrame knows how to get its return address.  Let other code get at it, too.
-//  (Uses comma operator to call EnsureInit & discard result.
+//  (Uses comma operator to call InsureInit & discard result.
 #define HELPER_METHOD_FRAME_GET_RETURN_ADDRESS()                                        \
-    ( static_cast<UINT_PTR>( (__helperframe.EnsureInit(NULL)), (__helperframe.MachineState()->GetRetAddr()) ) )
+    ( static_cast<UINT_PTR>( (__helperframe.InsureInit(NULL)), (__helperframe.MachineState()->GetRetAddr()) ) )
 
     // Very short routines, or routines that are guaranteed to force GC or EH
     // don't need to poll the GC.  USE VERY SPARINGLY!!!
 #define FC_GC_POLL_NOT_NEEDED()    INCONTRACT(__fCallCheck.SetNotNeeded())
+
+Object* FC_GCPoll(void* me, Object* objToProtect = NULL);
+
+#define FC_GC_POLL_EX(ret)                                  \
+    {                                                       \
+        INCONTRACT(Thread::TriggersGC(GetThread());)        \
+        INCONTRACT(__fCallCheck.SetDidPoll();)              \
+        if (g_TrapReturningThreads)    \
+        {                                                   \
+            if (FC_GCPoll(__me))                            \
+                return ret;                                 \
+            while (0 == FC_NO_TAILCALL) { }; /* side effect the compile can't remove */  \
+        }                                                   \
+    }
+
+#define FC_GC_POLL()        FC_GC_POLL_EX(;)
+#define FC_GC_POLL_RET()    FC_GC_POLL_EX(0)
+
+#define FC_GC_POLL_AND_RETURN_OBJREF(obj)                   \
+    {                                                       \
+        INCONTRACT(__fCallCheck.SetDidPoll();)              \
+        Object* __temp = OBJECTREFToObject(obj);            \
+        if (g_TrapReturningThreads)    \
+        {                                                   \
+            __temp = FC_GCPoll(__me, __temp);               \
+            while (0 == FC_NO_TAILCALL) { }; /* side effect the compile can't remove */  \
+        }                                                   \
+        return __temp;                                      \
+    }
 
 #if defined(ENABLE_CONTRACTS)
 #define FC_CAN_TRIGGER_GC()         FCallGCCanTrigger::Enter()
@@ -864,7 +910,7 @@ void HCallAssert(void*& cache, void* target);
 // the helper routine to the end of the FCALL using trivial heurisitics.   The easiest (and only supported)
 // way of doing this is to place your helper right before a return (eg at the end of the method).  Generally
 // this is not a problem at all, since the FCALL itself will pick off some common case and then tail-call to
-// the helper for everything else.  You must use the code:FC_INNER_RETURN macros to do the call, to ensure
+// the helper for everything else.  You must use the code:FC_INNER_RETURN macros to do the call, to insure
 // that the C++ compiler does not tail-call optimize the call to the inner function and mess up the stack
 // depth.
 //
@@ -1183,12 +1229,65 @@ public:
 // Throws an exception from an FCall. See rexcep.h for a list of valid
 // exception codes.
 //==============================================================================================
-#define FCThrow(reKind)                                         \
+#define FCThrow(reKind) FCThrowEx(reKind, 0, 0, 0, 0)
+
+//==============================================================================================
+// This version lets you attach a message with inserts (similar to
+// COMPlusThrow()).
+//==============================================================================================
+#define FCThrowEx(reKind, resID, arg1, arg2, arg3)              \
     {                                                           \
         while (NULL ==                                          \
-            __FCThrow(__me, reKind, 0, 0, 0, 0)) {};            \
+            __FCThrow(__me, reKind, resID, arg1, arg2, arg3)) {}; \
         return 0;                                               \
     }
+
+//==============================================================================================
+// Like FCThrow but can be used for a VOID-returning FCall. The only
+// difference is in the "return" statement.
+//==============================================================================================
+#define FCThrowVoid(reKind) FCThrowExVoid(reKind, 0, 0, 0, 0)
+
+//==============================================================================================
+// This version lets you attach a message with inserts (similar to
+// COMPlusThrow()).
+//==============================================================================================
+#define FCThrowExVoid(reKind, resID, arg1, arg2, arg3)          \
+    {                                                           \
+        while (NULL ==                                          \
+            __FCThrow(__me, reKind, resID, arg1, arg2, arg3)) {}; \
+        return;                                                 \
+    }
+
+// Use FCThrowRes to throw an exception with a localized error message from the
+// ResourceManager in managed code.
+#define FCThrowRes(reKind, resourceName) FCThrowArgumentEx(reKind, NULL, resourceName)
+#define FCThrowArgumentNull(argName) FCThrowArgumentEx(kArgumentNullException, argName, NULL)
+#define FCThrowArgumentOutOfRange(argName, message) FCThrowArgumentEx(kArgumentOutOfRangeException, argName, message)
+#define FCThrowArgument(argName, message) FCThrowArgumentEx(kArgumentException, argName, message)
+
+#define FCThrowArgumentEx(reKind, argName, resourceName)        \
+    {                                                           \
+        while (NULL ==                                                  \
+            __FCThrowArgument(__me, reKind, argName, resourceName)) {}; \
+        return 0;                                               \
+    }
+
+// Use FCThrowRes to throw an exception with a localized error message from the
+// ResourceManager in managed code.
+#define FCThrowResVoid(reKind, resourceName) FCThrowArgumentVoidEx(reKind, NULL, resourceName)
+#define FCThrowArgumentNullVoid(argName) FCThrowArgumentVoidEx(kArgumentNullException, argName, NULL)
+#define FCThrowArgumentOutOfRangeVoid(argName, message) FCThrowArgumentVoidEx(kArgumentOutOfRangeException, argName, message)
+#define FCThrowArgumentVoid(argName, message) FCThrowArgumentVoidEx(kArgumentException, argName, message)
+
+#define FCThrowArgumentVoidEx(reKind, argName, resourceName)    \
+    {                                                           \
+        while (NULL ==                                                  \
+            __FCThrowArgument(__me, reKind, argName, resourceName)) {};  \
+        return;                                                 \
+    }
+
+
 
 // The managed calling convention expects returned small types (e.g. bool) to be
 // widened to 32-bit on return. The C/C++ calling convention does not guarantee returned

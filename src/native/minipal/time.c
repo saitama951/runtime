@@ -3,9 +3,8 @@
 
 #include <assert.h>
 #include <minipal/time.h>
-#include "minipalconfig.h"
 
-#if HAVE_WINDOWS_H
+#ifdef HOST_WINDOWS
 
 #include <Windows.h>
 
@@ -23,16 +22,14 @@ int64_t minipal_hires_tick_frequency()
     return ts.QuadPart;
 }
 
-#else // HAVE_WINDOWS_H
+#else // HOST_WINDOWS
 
 #include "minipalconfig.h"
 
 #include <time.h> // nanosleep
 #include <errno.h>
 
-inline static void YieldProcessor(void);
-
-inline static void YieldProcessor(void)
+inline static void YieldProcessor()
 {
 #if defined(HOST_X86) || defined(HOST_AMD64)
     __asm__ __volatile__(
@@ -56,12 +53,12 @@ inline static void YieldProcessor(void)
 }
 
 #define tccSecondsToNanoSeconds 1000000000      // 10^9
-int64_t minipal_hires_tick_frequency(void)
+int64_t minipal_hires_tick_frequency()
 {
     return tccSecondsToNanoSeconds;
 }
 
-int64_t minipal_hires_ticks(void)
+int64_t minipal_hires_ticks()
 {
 #if HAVE_CLOCK_GETTIME_NSEC_NP
     return (int64_t)clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
@@ -77,11 +74,11 @@ int64_t minipal_hires_ticks(void)
 #endif
 }
 
-#endif // !HAVE_WINDOWS_H
+#endif // !HOST_WINDOWS
 
 void minipal_microdelay(uint32_t usecs, uint32_t* usecsSinceYield)
 {
-#if HAVE_WINDOWS_H
+#ifdef HOST_WINDOWS
     if (usecs > 1000)
     {
         SleepEx(usecs / 1000, FALSE);

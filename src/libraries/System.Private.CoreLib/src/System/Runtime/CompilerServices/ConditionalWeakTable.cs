@@ -3,7 +3,6 @@
 
 using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
@@ -16,7 +15,7 @@ namespace System.Runtime.CompilerServices
         where TValue : class?
     {
         // Lifetimes of keys and values:
-        // Inserting a key and value into the dictionary will not
+        // Inserting a key and value into the dictonary will not
         // prevent the key from dying, even if the key is strongly reachable
         // from the value. Once the key dies, the dictionary automatically removes
         // the key/value entry.
@@ -48,7 +47,10 @@ namespace System.Runtime.CompilerServices
         /// If the key is not found, contains default(TValue).
         /// </param>
         /// <returns>Returns "true" if key was found, "false" otherwise.</returns>
-        /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
+        /// <remarks>
+        /// The key may get garbage collected during the TryGetValue operation. If so, TryGetValue
+        /// may at its discretion, return "false" and set "value" to the default (as if the key was not present.)
+        /// </remarks>
         public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
         {
             if (key is null)
@@ -62,8 +64,12 @@ namespace System.Runtime.CompilerServices
         /// <summary>Adds a key to the table.</summary>
         /// <param name="key">key to add. May not be null.</param>
         /// <param name="value">value to associate with key.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
-        /// <exception cref="ArgumentException"><paramref name="key"/> is already entered into the dictionary.</exception>
+        /// <remarks>
+        /// If the key is already entered into the dictionary, this method throws an exception.
+        /// The key may get garbage collected during the Add() operation. If so, Add()
+        /// has the right to consider any prior entries successfully removed and add a new entry without
+        /// throwing an exception.
+        /// </remarks>
         public void Add(TKey key, TValue value)
         {
             if (key is null)
@@ -87,7 +93,6 @@ namespace System.Runtime.CompilerServices
         /// <param name="key">The key to add.</param>
         /// <param name="value">The key's property value.</param>
         /// <returns>true if the key/value pair was added; false if the table already contained the key.</returns>
-        /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
         public bool TryAdd(TKey key, TValue value)
         {
             if (key is null)
@@ -111,7 +116,6 @@ namespace System.Runtime.CompilerServices
         /// <summary>Adds the key and value if the key doesn't exist, or updates the existing key's value if it does exist.</summary>
         /// <param name="key">key to add or update. May not be null.</param>
         /// <param name="value">value to associate with key.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
         public void AddOrUpdate(TKey key, TValue value)
         {
             if (key is null)
@@ -136,9 +140,13 @@ namespace System.Runtime.CompilerServices
         }
 
         /// <summary>Removes a key and its value from the table.</summary>
-        /// <param name="key">The key to remove.</param>
-        /// <returns><see langword="true"/> if the key is found and removed; otherwise, <see langword="false"/>.</returns>
-        /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
+        /// <param name="key">key to remove. May not be null.</param>
+        /// <returns>true if the key is found and removed. Returns false if the key was not in the dictionary.</returns>
+        /// <remarks>
+        /// The key may get garbage collected during the Remove() operation. If so,
+        /// Remove() will not fail or throw, however, the return value can be either true or false
+        /// depending on who wins the race.
+        /// </remarks>
         public bool Remove(TKey key)
         {
             if (key is null)
@@ -148,25 +156,7 @@ namespace System.Runtime.CompilerServices
 
             lock (_lock)
             {
-                return _container.Remove(key, out _);
-            }
-        }
-
-        /// <summary>Removes a key and its value from the table, and returns the removed value if it was present.</summary>
-        /// <param name="key">The key to remove.</param>
-        /// <param name="value">value removed from the table, if it was present.</param>
-        /// <returns><see langword="true"/> if the key is found and removed; otherwise, <see langword="false"/>.</returns>
-        /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
-        public bool Remove(TKey key, [MaybeNullWhen(false)] out TValue value)
-        {
-            if (key is null)
-            {
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.key);
-            }
-
-            lock (_lock)
-            {
-                return _container.Remove(key, out value);
+                return _container.Remove(key);
             }
         }
 
@@ -198,125 +188,36 @@ namespace System.Runtime.CompilerServices
         }
 
         /// <summary>
-        /// Searches for a specified key in the table and returns the corresponding value. If the key does
-        /// not exist in the table, the method adds the given value and binds it to the specified key.
-        /// </summary>
-        /// <param name="key">The key of the value to find. It cannot be <see langword="null"/>.</param>
-        /// <param name="value">The value to add and bind to <typeparamref name="TKey"/>, if one does not exist already.</param>
-        /// <returns>The value bound to <typeparamref name="TKey"/> in the current <see cref="ConditionalWeakTable{TKey, TValue}"/> instance, after the method completes.</returns>
-        /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
-        public TValue GetOrAdd(TKey key, TValue value)
-        {
-            // key is validated by TryGetValue
-            if (TryGetValue(key, out TValue? existingValue))
-            {
-                return existingValue;
-            }
-
-            return GetOrAddLocked(key, value);
-        }
-
-        /// <summary>
-        /// Searches for a specified key in the table and returns the corresponding value. If the key does not exist
-        /// in the table, the method invokes the supplied factory to create a value that is bound to the specified key.
-        /// </summary>
-        /// <param name="key">The key of the value to find. It cannot be <see langword="null"/>.</param>
-        /// <param name="valueFactory">The callback that creates a value for key, if one does not exist already. It cannot be <see langword="null"/>.</param>
-        /// <returns>The value bound to <typeparamref name="TKey"/> in the current <see cref="ConditionalWeakTable{TKey, TValue}"/> instance, after the method completes.</returns>
-        /// <exception cref="ArgumentNullException"><paramref name="key"/> or <paramref name="valueFactory"/> are <see langword="null"/>.</exception>
-        /// <remarks>
-        /// If multiple threads try to initialize the same key, the table may invoke <paramref name="valueFactory"/> multiple times
-        /// with the same key. Exactly one of these calls will succeed and the returned value of that call will be the one added to
-        /// the table and returned by all the racing <see cref="GetOrAdd(TKey, Func{TKey, TValue})"/> calls. This rule permits the
-        /// table to invoke <paramref name="valueFactory"/> outside the internal table lock, to prevent deadlocks.
-        /// </remarks>
-        public TValue GetOrAdd(TKey key, Func<TKey, TValue> valueFactory)
-        {
-            ArgumentNullException.ThrowIfNull(valueFactory);
-
-            // key is validated by TryGetValue
-            if (TryGetValue(key, out TValue? existingValue))
-            {
-                return existingValue;
-            }
-
-            // create the value outside of the lock
-            TValue value = valueFactory(key);
-
-            return GetOrAddLocked(key, value);
-        }
-
-        /// <summary>
-        /// Searches for a specified key in the table and returns the corresponding value. If the key does not exist
-        /// in the table, the method invokes the supplied factory to create a value that is bound to the specified key.
-        /// </summary>
-        /// <typeparam name="TArg">The type of the additional argument to use with the value factory.</typeparam>
-        /// <param name="key">The key of the value to find. It cannot be <see langword="null"/>.</param>
-        /// <param name="valueFactory">The callback that creates a value for key, if one does not exist already. It cannot be <see langword="null"/>.</param>
-        /// <param name="factoryArgument">The additional argument to supply to <paramref name="valueFactory"/> upon invocation.</param>
-        /// <returns>The value bound to <typeparamref name="TKey"/> in the current <see cref="ConditionalWeakTable{TKey, TValue}"/> instance, after the method completes.</returns>
-        /// <exception cref="ArgumentNullException"><paramref name="key"/> or <paramref name="valueFactory"/> are <see langword="null"/>.</exception>
-        /// <remarks>
-        /// If multiple threads try to initialize the same key, the table may invoke <paramref name="valueFactory"/> multiple times with the
-        /// same key. Exactly one of these calls will succeed and the returned value of that call will be the one added to the table and
-        /// returned by all the racing <see cref="GetOrAdd{TArg}(TKey, Func{TKey, TArg, TValue}, TArg)"/> calls. This rule permits the
-        /// table to invoke <paramref name="valueFactory"/> outside the internal table lock, to prevent deadlocks.
-        /// </remarks>
-        public TValue GetOrAdd<TArg>(TKey key, Func<TKey, TArg, TValue> valueFactory, TArg factoryArgument)
-            where TArg : allows ref struct
-        {
-            ArgumentNullException.ThrowIfNull(valueFactory);
-
-            // key is validated by TryGetValue
-            if (TryGetValue(key, out TValue? existingValue))
-            {
-                return existingValue;
-            }
-
-            // create the value outside of the lock
-            TValue value = valueFactory(key, factoryArgument);
-
-            return GetOrAddLocked(key, value);
-        }
-
-        /// <summary>
-        /// Searches for a specified key in the table and returns the corresponding value. If the key does not exist
-        /// in the table, the method invokes a callback method to create a value that is bound to the specified key.
+        /// Atomically searches for a specified key in the table and returns the corresponding value.
+        /// If the key does not exist in the table, the method invokes a callback method to create a
+        /// value that is bound to the specified key.
         /// </summary>
         /// <param name="key">key of the value to find. Cannot be null.</param>
         /// <param name="createValueCallback">callback that creates value for key. Cannot be null.</param>
         /// <returns></returns>
         /// <remarks>
-        /// <para>
         /// If multiple threads try to initialize the same key, the table may invoke createValueCallback
         /// multiple times with the same key. Exactly one of these calls will succeed and the returned
         /// value of that call will be the one added to the table and returned by all the racing GetValue() calls.
         /// This rule permits the table to invoke createValueCallback outside the internal table lock
         /// to prevent deadlocks.
-        /// </para>
-        /// <para>
-        /// Consider using <see cref="GetOrAdd(TKey, Func{TKey, TValue})"/> (or one of its overloads) instead.
-        /// </para>
         /// </remarks>
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public TValue GetValue(TKey key, CreateValueCallback createValueCallback)
         {
             ArgumentNullException.ThrowIfNull(createValueCallback);
 
             // key is validated by TryGetValue
-            if (TryGetValue(key, out TValue? existingValue))
-            {
-                return existingValue;
-            }
-
-            // create the value outside of the lock
-            TValue value = createValueCallback(key);
-
-            return GetOrAddLocked(key, value);
+            return TryGetValue(key, out TValue? existingValue) ?
+                existingValue :
+                GetValueLocked(key, createValueCallback);
         }
 
-        private TValue GetOrAddLocked(TKey key, TValue value)
+        private TValue GetValueLocked(TKey key, CreateValueCallback createValueCallback)
         {
+            // If we got here, the key was not in the table. Invoke the callback (outside the lock)
+            // to generate the new value for the key.
+            TValue newValue = createValueCallback(key);
+
             lock (_lock)
             {
                 // Now that we've taken the lock, must recheck in case we lost a race to add the key.
@@ -327,8 +228,8 @@ namespace System.Runtime.CompilerServices
                 else
                 {
                     // Verified in-lock that we won the race to add the key. Add it now.
-                    CreateEntry(key, value);
-                    return value;
+                    CreateEntry(key, newValue);
+                    return newValue;
                 }
             }
         }
@@ -338,13 +239,8 @@ namespace System.Runtime.CompilerServices
         /// to create new instances as needed.  If TValue does not have a default constructor, this will throw.
         /// </summary>
         /// <param name="key">key of the value to find. Cannot be null.</param>
-        /// <remarks>
-        /// Consider using <see cref="GetOrAdd(TKey, Func{TKey, TValue})"/> (or one of its overloads) instead.
-        /// </remarks>
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public TValue GetOrCreateValue(TKey key) => GetValue(key, _ => Activator.CreateInstance<TValue>());
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public delegate TValue CreateValueCallback(TKey key);
 
         /// <summary>Gets an enumerator for the table.</summary>
@@ -701,19 +597,17 @@ namespace System.Runtime.CompilerServices
             }
 
             /// <summary>Removes the specified key from the table, if it exists.</summary>
-            internal bool Remove(TKey key, [MaybeNullWhen(false)] out TValue value)
+            internal bool Remove(TKey key)
             {
                 VerifyIntegrity();
 
-                int entryIndex = FindEntry(key, out object? valueObject);
+                int entryIndex = FindEntry(key, out _);
                 if (entryIndex != -1)
                 {
                     RemoveIndex(entryIndex);
-                    value = Unsafe.As<TValue>(valueObject);
                     return true;
                 }
 
-                value = null;
                 return false;
             }
 
@@ -804,13 +698,10 @@ namespace System.Runtime.CompilerServices
                 Entry[] newEntries = new Entry[newSize];
                 int newEntriesIndex = 0;
                 bool activeEnumerators = _parent != null && _parent._activeEnumeratorRefCount > 0;
-                bool transferredHandles;
 
                 // Migrate existing entries to the new table.
                 if (activeEnumerators)
                 {
-                    transferredHandles = true;
-
                     // There's at least one active enumerator, which means we don't want to
                     // remove any expired/removed entries, in order to not affect existing
                     // entries indices.  Copy over the entries while rebuilding the buckets list,
@@ -830,8 +721,6 @@ namespace System.Runtime.CompilerServices
                 }
                 else
                 {
-                    transferredHandles = false;
-
                     // There are no active enumerators, which means we want to compact by
                     // removing expired/removed entries.
                     for (int entriesIndex = 0; entriesIndex < _entries.Length; entriesIndex++)
@@ -843,8 +732,6 @@ namespace System.Runtime.CompilerServices
                         {
                             if (depHnd.UnsafeGetTarget() is not null)
                             {
-                                transferredHandles = true;
-
                                 ref Entry newEntry = ref newEntries[newEntriesIndex];
 
                                 // Entry is used and has not expired. Link it into the appropriate bucket list.
@@ -878,13 +765,7 @@ namespace System.Runtime.CompilerServices
                     // from being finalized, as it no longer has any responsibility for any cleanup.
                     GC.SuppressFinalize(this);
                 }
-
-                if (transferredHandles)
-                {
-                    // Once this is set, the old container's finalizer will not free transferred dependent handles,
-                    // and the new container's finalizer can't be run until this container is no longer in use.
-                    _oldKeepAlive = newContainer;
-                }
+                _oldKeepAlive = newContainer; // once this is set, the old container's finalizer will not free transferred dependent handles
 
                 GC.KeepAlive(this); // ensure we don't get finalized while accessing DependentHandles.
 

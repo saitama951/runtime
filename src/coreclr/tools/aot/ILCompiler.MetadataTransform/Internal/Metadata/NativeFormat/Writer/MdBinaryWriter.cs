@@ -77,7 +77,7 @@ namespace Internal.Metadata.NativeFormat.Writer
         public static void Write(this NativeWriter writer, MetadataRecord record)
         {
             if (record != null)
-                writer.WriteUnsigned((uint)record.HandleType | (uint)(record.HandleOffset << 7));
+                writer.WriteUnsigned((uint)record.HandleType | (uint)(record.HandleOffset << 8));
             else
                 writer.WriteUnsigned(0);
         }

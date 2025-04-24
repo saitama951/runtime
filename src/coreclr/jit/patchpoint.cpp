@@ -47,6 +47,12 @@ public:
     //   Number of patchpoints transformed.
     int Run()
     {
+        // If the first block is a patchpoint, insert a scratch block.
+        if (compiler->fgFirstBB->HasFlag(BBF_PATCHPOINT))
+        {
+            compiler->fgEnsureFirstBBisScratch();
+        }
+
         int count = 0;
         for (BasicBlock* const block : compiler->Blocks(compiler->fgFirstBB->Next()))
         {
@@ -190,6 +196,8 @@ private:
     //  ppCounter = <initial value>
     void TransformEntry(BasicBlock* block)
     {
+        assert(!block->HasFlag(BBF_PATCHPOINT));
+
         int initialCounterValue = JitConfig.TC_OnStackReplacement_InitialCounter();
 
         if (initialCounterValue < 0)
@@ -200,7 +208,7 @@ private:
         GenTree* initialCounterNode = compiler->gtNewIconNode(initialCounterValue, TYP_INT);
         GenTree* ppCounterStore     = compiler->gtNewStoreLclVarNode(ppCounterLclNum, initialCounterNode);
 
-        compiler->fgNewStmtAtBeg(block, ppCounterStore);
+        compiler->fgNewStmtNearEnd(block, ppCounterStore);
     }
 
     //------------------------------------------------------------------------

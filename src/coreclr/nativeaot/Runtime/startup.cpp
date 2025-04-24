@@ -11,6 +11,7 @@
 #include "PalRedhawk.h"
 #include "rhassert.h"
 #include "slist.h"
+#include "varint.h"
 #include "regdisplay.h"
 #include "StackFrameIterator.h"
 #include "thread.h"
@@ -39,7 +40,7 @@ uint64_t g_startupTimelineEvents[NUM_STARTUP_TIMELINE_EVENTS] = { 0 };
 #endif // PROFILE_STARTUP
 
 #ifdef HOST_WINDOWS
-LONG WINAPI RhpVectoredExceptionHandler(PEXCEPTION_POINTERS pExPtrs);
+EXTERN_C LONG WINAPI RhpVectoredExceptionHandler(PEXCEPTION_POINTERS pExPtrs);
 #else
 int32_t RhpHardwareExceptionHandler(uintptr_t faultCode, uintptr_t faultAddress, PAL_LIMITED_CONTEXT* palContext, uintptr_t* arg0Reg, uintptr_t* arg1Reg);
 #endif
@@ -94,7 +95,7 @@ static bool InitDLL(HANDLE hPalInstance)
     //
     // Initialize interface dispatch.
     //
-    if (!InterfaceDispatch_Initialize())
+    if (!InitializeInterfaceDispatch())
         return false;
 #endif
 

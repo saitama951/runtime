@@ -672,7 +672,6 @@ namespace ILCompiler
             if (returnType is < TypeFlags.Boolean or > TypeFlags.UInt32
                 || method.IsIntrinsic
                 || method.IsNoInlining
-                || method.IsNoOptimization
                 || _nestedILProvider.GetMethodIL(method) is not MethodIL methodIL)
             {
                 constant = 0;

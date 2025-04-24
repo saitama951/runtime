@@ -144,7 +144,6 @@ namespace System.Data.Common
         // Prevent inlining so that reflection calls are not moved to caller that may be in a different assembly that may have a different grant set.
         [MethodImpl(MethodImplOptions.NoInlining)]
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public override object ConvertXmlToObject(string s)
         {
             if (_implementsIXmlSerializable)
@@ -169,7 +168,6 @@ namespace System.Data.Common
         // Prevent inlining so that reflection calls are not moved to caller that may be in a different assembly that may have a different grant set.
         [MethodImpl(MethodImplOptions.NoInlining)]
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public override object ConvertXmlToObject(XmlReader xmlReader, XmlRootAttribute? xmlAttrib)
         {
             if (null == xmlAttrib)
@@ -200,7 +198,6 @@ namespace System.Data.Common
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public override string ConvertObjectToXml(object value)
         {
             StringWriter strwriter = new StringWriter(FormatProvider);
@@ -220,7 +217,6 @@ namespace System.Data.Common
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public override void ConvertObjectToXml(object value, XmlWriter xmlWriter, XmlRootAttribute? xmlAttrib)
         {
             if (null == xmlAttrib)

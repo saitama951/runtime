@@ -187,7 +187,6 @@ namespace ILLink.Shared
 		_unused_DynamicallyAccessedMembersOnTypeReferencesCompilerGeneratedMemberOnBase = 2120,
 		RedundantSuppression = 2121,
 		TypeNameIsNotAssemblyQualified = 2122,
-		RequiresUnreferencedCodeOnEntryPoint = 2123,
 		_EndTrimAnalysisWarningsSentinel,
 
 		// Single-file diagnostic ids.
@@ -196,7 +195,6 @@ namespace ILLink.Shared
 		RequiresAssemblyFiles = 3002,
 		RequiresAssemblyFilesAttributeMismatch = 3003,
 		RequiresAssemblyFilesOnStaticConstructor = 3004,
-		RequiresAssemblyFilesOnEntryPoint = 3005,
 
 		// Dynamic code diagnostic ids.
 		RequiresDynamicCode = 3050,
@@ -206,7 +204,6 @@ namespace ILLink.Shared
 		GenericRecursionCycle = 3054,
 		CorrectnessOfAbstractDelegatesCannotBeGuaranteed = 3055,
 		RequiresDynamicCodeOnStaticConstructor = 3056,
-		RequiresDynamicCodeOnEntryPoint = 3057,
 		_EndAotAnalysisWarningsSentinel,
 
 		// Feature guard diagnostic ids.

@@ -337,6 +337,7 @@ MethodTable* Module::CreateArrayMethodTable(TypeHandle elemTypeHnd, CorElementTy
         pClass->SetInternalCorElementType(arrayKind);
         pClass->SetAttrClass (tdPublic | tdSerializable | tdSealed);  // This class is public, serializable, sealed
         pClass->SetRank (Rank);
+        pClass->SetArrayElementType (elemType);
         pClass->SetMethodTable (pMT);
 
         // Fill In the method table
@@ -657,8 +658,9 @@ public:
             hiddenArgIdx = 0;
         }
 #endif
-        CorElementType sigElementType = pMT->GetArrayElementType();
-        if (CorTypeInfo::IsObjRef(sigElementType))
+
+        ArrayClass *pcls = (ArrayClass*)(pMT->GetClass());
+        if(pcls->GetArrayElementType() == ELEMENT_TYPE_CLASS)
         {
             // Type Check
             if(m_pMD->GetArrayFuncIndex() == ArrayMethodDesc::ARRAY_FUNC_SET)

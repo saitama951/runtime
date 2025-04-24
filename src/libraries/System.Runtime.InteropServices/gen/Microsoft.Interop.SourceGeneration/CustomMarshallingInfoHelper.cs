@@ -174,7 +174,7 @@ namespace Microsoft.Interop
         {
             INamedTypeSymbol? marshallerType = compilation.GetBestTypeByMetadataName(marshallerName);
             if (marshallerType is null)
-                return NoMarshallingInfo.Instance;
+                return new MissingSupportMarshallingInfo();
 
             if (ManualTypeMarshallingHelper.HasEntryPointMarshallerAttribute(marshallerType))
             {
@@ -186,7 +186,7 @@ namespace Microsoft.Interop
                 }
             }
 
-            return NoMarshallingInfo.Instance;
+            return new MissingSupportMarshallingInfo();
         }
     }
 }

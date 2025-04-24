@@ -2,14 +2,12 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using Xunit;
 
 namespace Refresh
 {
-    public static class Program
+    internal static class Program
     {
-        [Fact]
-        public static int TestEntryPoint()
+        private static int Main()
         {
             long hundred_mb = 100 * 1024 * 1024;
             long two_hundred_mb = 2 * hundred_mb;

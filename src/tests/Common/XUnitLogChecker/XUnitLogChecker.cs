@@ -56,7 +56,7 @@ public class XUnitLogChecker
 
     private static LogCheckerConfigParameters s_configuration;
 
-    public static int Main(string[] args)
+    static int Main(string[] args)
     {
         s_configuration = new LogCheckerConfigParameters();
 

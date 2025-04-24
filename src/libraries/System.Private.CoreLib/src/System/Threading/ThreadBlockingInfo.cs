@@ -154,7 +154,7 @@ namespace System.Threading
             }
         }
 
-        public ref struct Scope
+        public unsafe ref struct Scope
         {
             private object? _object;
             private ThreadBlockingInfo _blockingInfo;

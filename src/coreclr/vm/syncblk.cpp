@@ -115,6 +115,7 @@ void InteropSyncBlockInfo::FreeUMEntryThunk()
         void *pUMEntryThunk = GetUMEntryThunk();
         if (pUMEntryThunk != NULL)
         {
+            COMDelegate::RemoveEntryFromFPtrHash((UPTR)pUMEntryThunk);
             UMEntryThunk::FreeUMEntryThunk((UMEntryThunk *)pUMEntryThunk);
         }
     }
@@ -1564,7 +1565,7 @@ AwareLock::EnterHelperResult ObjHeader::EnterObjMonitorHelperSpin(Thread* pCurTh
 
     if (g_SystemInfo.dwNumberOfProcessors == 1)
     {
-        return AwareLock::EnterHelperResult::Contention;
+        return AwareLock::EnterHelperResult_Contention;
     }
 
     YieldProcessorNormalizationInfo normalizationInfo;
@@ -1582,7 +1583,7 @@ AwareLock::EnterHelperResult ObjHeader::EnterObjMonitorHelperSpin(Thread* pCurTh
             // If we have a hash code already, we need to create a sync block
             if (oldValue & BIT_SBLK_IS_HASHCODE)
             {
-                return AwareLock::EnterHelperResult::UseSlowPath;
+                return AwareLock::EnterHelperResult_UseSlowPath;
             }
 
             SyncBlock *syncBlock = g_pSyncTable[oldValue & MASK_SYNCBLOCKINDEX].m_SyncBlock;
@@ -1590,7 +1591,7 @@ AwareLock::EnterHelperResult ObjHeader::EnterObjMonitorHelperSpin(Thread* pCurTh
             AwareLock *awareLock = &syncBlock->m_Monitor;
 
             AwareLock::EnterHelperResult result = awareLock->TryEnterBeforeSpinLoopHelper(pCurThread);
-            if (result != AwareLock::EnterHelperResult::Contention)
+            if (result != AwareLock::EnterHelperResult_Contention)
             {
                 return result;
             }
@@ -1610,11 +1611,11 @@ AwareLock::EnterHelperResult ObjHeader::EnterObjMonitorHelperSpin(Thread* pCurTh
                     }
 
                     result = awareLock->TryEnterInsideSpinLoopHelper(pCurThread);
-                    if (result == AwareLock::EnterHelperResult::Entered)
+                    if (result == AwareLock::EnterHelperResult_Entered)
                     {
-                        return AwareLock::EnterHelperResult::Entered;
+                        return AwareLock::EnterHelperResult_Entered;
                     }
-                    if (result == AwareLock::EnterHelperResult::UseSlowPath)
+                    if (result == AwareLock::EnterHelperResult_UseSlowPath)
                     {
                         break;
                     }
@@ -1623,7 +1624,7 @@ AwareLock::EnterHelperResult ObjHeader::EnterObjMonitorHelperSpin(Thread* pCurTh
 
             if (awareLock->TryEnterAfterSpinLoopHelper(pCurThread))
             {
-                return AwareLock::EnterHelperResult::Entered;
+                return AwareLock::EnterHelperResult_Entered;
             }
             break;
         }
@@ -1635,7 +1636,7 @@ AwareLock::EnterHelperResult ObjHeader::EnterObjMonitorHelperSpin(Thread* pCurTh
         {
             if (tid > SBLK_MASK_LOCK_THREADID)
             {
-                return AwareLock::EnterHelperResult::UseSlowPath;
+                return AwareLock::EnterHelperResult_UseSlowPath;
             }
 
             LONG newValue = oldValue | tid;
@@ -1645,7 +1646,7 @@ AwareLock::EnterHelperResult ObjHeader::EnterObjMonitorHelperSpin(Thread* pCurTh
             if (InterlockedCompareExchangeAcquire((LONG*)&m_SyncBlockValue, newValue, oldValue) == oldValue)
 #endif
             {
-                return AwareLock::EnterHelperResult::Entered;
+                return AwareLock::EnterHelperResult_Entered;
             }
 
             continue;
@@ -1663,7 +1664,7 @@ AwareLock::EnterHelperResult ObjHeader::EnterObjMonitorHelperSpin(Thread* pCurTh
             tid != (DWORD)(oldValue & SBLK_MASK_LOCK_THREADID));
     }
 
-    return AwareLock::EnterHelperResult::Contention;
+    return AwareLock::EnterHelperResult_Contention;
 }
 
 BOOL ObjHeader::LeaveObjMonitor()
@@ -1687,10 +1688,10 @@ BOOL ObjHeader::LeaveObjMonitor()
 
         switch(action)
         {
-        case AwareLock::LeaveHelperAction::None:
+        case AwareLock::LeaveHelperAction_None:
             // We are done
             return TRUE;
-        case AwareLock::LeaveHelperAction::Signal:
+        case AwareLock::LeaveHelperAction_Signal:
             {
                 // Signal the event
                 SyncBlock *psb = thisObj->GetHeader ()->PassiveGetSyncBlock();
@@ -1698,10 +1699,10 @@ BOOL ObjHeader::LeaveObjMonitor()
                     psb->QuickGetMonitor()->Signal();
             }
             return TRUE;
-        case AwareLock::LeaveHelperAction::Yield:
+        case AwareLock::LeaveHelperAction_Yield:
             YieldProcessorNormalized();
             continue;
-        case AwareLock::LeaveHelperAction::Contention:
+        case AwareLock::LeaveHelperAction_Contention:
             // Some thread is updating the syncblock value.
             {
                 //protect the object before switching mode
@@ -1713,7 +1714,7 @@ BOOL ObjHeader::LeaveObjMonitor()
             continue;
         default:
             // Must be an error otherwise - ignore it
-            _ASSERTE(action == AwareLock::LeaveHelperAction::Error);
+            _ASSERTE(action == AwareLock::LeaveHelperAction_Error);
             return FALSE;
         }
     }
@@ -1739,10 +1740,10 @@ BOOL ObjHeader::LeaveObjMonitorAtException()
 
         switch(action)
         {
-        case AwareLock::LeaveHelperAction::None:
+        case AwareLock::LeaveHelperAction_None:
             // We are done
             return TRUE;
-        case AwareLock::LeaveHelperAction::Signal:
+        case AwareLock::LeaveHelperAction_Signal:
             {
                 // Signal the event
                 SyncBlock *psb = PassiveGetSyncBlock();
@@ -1750,10 +1751,10 @@ BOOL ObjHeader::LeaveObjMonitorAtException()
                     psb->QuickGetMonitor()->Signal();
             }
             return TRUE;
-        case AwareLock::LeaveHelperAction::Yield:
+        case AwareLock::LeaveHelperAction_Yield:
             YieldProcessorNormalized();
             continue;
-        case AwareLock::LeaveHelperAction::Contention:
+        case AwareLock::LeaveHelperAction_Contention:
             // Some thread is updating the syncblock value.
             //
             // We never toggle GC mode while holding the spinlock (BeginNoTriggerGC/EndNoTriggerGC
@@ -1766,7 +1767,7 @@ BOOL ObjHeader::LeaveObjMonitorAtException()
             continue;
         default:
             // Must be an error otherwise - ignore it
-            _ASSERTE(action == AwareLock::LeaveHelperAction::Error);
+            _ASSERTE(action == AwareLock::LeaveHelperAction_Error);
             return FALSE;
         }
     }
@@ -1814,10 +1815,8 @@ BOOL ObjHeader::GetThreadOwningMonitorLock(DWORD *pThreadId, DWORD *pAcquisition
             SyncBlock* psb = g_pSyncTable[(int)index].m_SyncBlock;
 
             _ASSERTE(psb->GetMonitor() != NULL);
-            DWORD holdingThreadId = psb->GetMonitor()->GetHoldingThreadId();
-            // If the lock is orphaned during sync block creation, holdingThreadId would be assigned -1.
-            // Otherwise it would be the id of the holding thread if there is one or 0 if there isn't.
-            if (holdingThreadId == 0 || holdingThreadId == (DWORD)-1)
+            Thread* pThread = psb->GetMonitor()->GetHoldingThread();
+            if(pThread == NULL)
             {
                 *pThreadId = 0;
                 *pAcquisitionCount = 0;
@@ -1825,9 +1824,7 @@ BOOL ObjHeader::GetThreadOwningMonitorLock(DWORD *pThreadId, DWORD *pAcquisition
             }
             else
             {
-                // Notice this id now could have been reused for a different thread (in case the lock was orphaned),
-                // but orphaned locks shouldn't be expected to work correctly anyway.
-                *pThreadId = holdingThreadId;
+                *pThreadId = pThread->GetThreadId();
                 *pAcquisitionCount = psb->GetMonitor()->GetRecursionLevel();
                 return TRUE;
             }
@@ -2193,22 +2190,20 @@ SyncBlock *ObjHeader::GetSyncBlock()
                             _ASSERTE(lockThreadId != 0);
 
                             Thread *pThread = g_pThinLockThreadIdDispenser->IdToThreadWithValidation(lockThreadId);
-                            DWORD threadId = 0;
                             SIZE_T osThreadId;
 
                             if (pThread == NULL)
                             {
                                 // The lock is orphaned.
-                                threadId = -1;
+                                pThread = (Thread*) -1;
                                 osThreadId = (SIZE_T)-1;
                             }
                             else
                             {
-                                threadId = pThread->GetThreadId();
                                 osThreadId = pThread->GetOSThreadId64();
                             }
 
-                            syncBlock->InitState(recursionLevel + 1, threadId, osThreadId);
+                            syncBlock->InitState(recursionLevel + 1, pThread, osThreadId);
                         }
                     }
                     else if ((bits & BIT_SBLK_IS_HASHCODE) != 0)
@@ -2329,17 +2324,6 @@ void ObjHeader::PulseAll()
 //
 // ***************************************************************************
 
-#endif // !DACCESS_COMPILE
-
-// the DAC needs to have this method available
-PTR_Thread AwareLock::GetHoldingThread()
-{
-    LIMITED_METHOD_CONTRACT;
-    return g_pThinLockThreadIdDispenser->IdToThreadWithValidation(m_HoldingThreadId);
-}
-
-#ifndef DACCESS_COMPILE
-
 void AwareLock::AllocLockSemEvent()
 {
     CONTRACTL
@@ -2377,12 +2361,12 @@ void AwareLock::Enter()
 
     Thread *pCurThread = GetThread();
     LockState state = m_lockState.VolatileLoadWithoutBarrier();
-    if (!state.IsLocked() || m_HoldingThreadId != pCurThread->GetThreadId())
+    if (!state.IsLocked() || m_HoldingThread != pCurThread)
     {
         if (m_lockState.InterlockedTryLock_Or_RegisterWaiter(this, state))
         {
             // We get here if we successfully acquired the mutex.
-            m_HoldingThreadId = pCurThread->GetThreadId();
+            m_HoldingThread = pCurThread;
             m_HoldingOSThreadId = pCurThread->GetOSThreadId64();
             m_Recursion = 1;
 
@@ -2438,14 +2422,14 @@ BOOL AwareLock::TryEnter(INT32 timeOut)
     }
 
     LockState state = m_lockState.VolatileLoadWithoutBarrier();
-    if (!state.IsLocked() || m_HoldingThreadId != pCurThread->GetThreadId())
+    if (!state.IsLocked() || m_HoldingThread != pCurThread)
     {
         if (timeOut == 0
                 ? m_lockState.InterlockedTryLock(state)
                 : m_lockState.InterlockedTryLock_Or_RegisterWaiter(this, state))
         {
             // We get here if we successfully acquired the mutex.
-            m_HoldingThreadId = pCurThread->GetThreadId();
+            m_HoldingThread = pCurThread;
             m_HoldingOSThreadId = pCurThread->GetOSThreadId64();
             m_Recursion = 1;
 
@@ -2724,7 +2708,7 @@ BOOL AwareLock::EnterEpilogHelper(Thread* pCurThread, INT32 timeOut)
         return false;
     }
 
-    m_HoldingThreadId = pCurThread->GetThreadId();
+    m_HoldingThread = pCurThread;
     m_HoldingOSThreadId = pCurThread->GetOSThreadId64();
     m_Recursion = 1;
 
@@ -2755,16 +2739,16 @@ BOOL AwareLock::Leave()
 
     switch(action)
     {
-    case AwareLock::LeaveHelperAction::None:
+    case AwareLock::LeaveHelperAction_None:
         // We are done
         return TRUE;
-    case AwareLock::LeaveHelperAction::Signal:
+    case AwareLock::LeaveHelperAction_Signal:
         // Signal the event
         Signal();
         return TRUE;
     default:
         // Must be an error otherwise
-        _ASSERTE(action == AwareLock::LeaveHelperAction::Error);
+        _ASSERTE(action == AwareLock::LeaveHelperAction_Error);
         return FALSE;
     }
 }
@@ -2786,7 +2770,7 @@ LONG AwareLock::LeaveCompletely()
 BOOL AwareLock::OwnedByCurrentThread()
 {
     WRAPPER_NO_CONTRACT;
-    return (GetThread()->GetThreadId() == m_HoldingThreadId);
+    return (GetThread() == m_HoldingThread);
 }
 
 // ***************************************************************************

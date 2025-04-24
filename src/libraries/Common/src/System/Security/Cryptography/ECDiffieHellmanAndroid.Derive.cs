@@ -154,7 +154,7 @@ namespace System.Security.Cryptography
                     // Arbitrary limit. But it covers secp521r1, which is the biggest common case.
                     const int StackAllocMax = 66;
 
-                    if ((uint)secretLength > StackAllocMax)
+                    if (secretLength > StackAllocMax)
                     {
                         rented = CryptoPool.Rent(secretLength);
                         secret = new Span<byte>(rented, 0, secretLength);

@@ -223,19 +223,16 @@ namespace System.ComponentModel
 
             if (name != null)
             {
-                lock (_syncObj)
+                for (int i = 0; i < Math.Min(_siteCount, _sites!.Length); i++)
                 {
-                    for (int i = 0; i < Math.Min(_siteCount, _sites!.Length); i++)
-                    {
-                        ISite? s = _sites[i];
+                    ISite? s = _sites[i];
 
-                        if (s?.Name != null && string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase) && s.Component != component)
+                    if (s?.Name != null && string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase) && s.Component != component)
+                    {
+                        InheritanceAttribute inheritanceAttribute = (InheritanceAttribute)TypeDescriptor.GetAttributes(s.Component)[typeof(InheritanceAttribute)]!;
+                        if (inheritanceAttribute.InheritanceLevel != InheritanceLevel.InheritedReadOnly)
                         {
-                            InheritanceAttribute inheritanceAttribute = (InheritanceAttribute)TypeDescriptor.GetAttributes(s.Component)[typeof(InheritanceAttribute)]!;
-                            if (inheritanceAttribute.InheritanceLevel != InheritanceLevel.InheritedReadOnly)
-                            {
-                                throw new ArgumentException(SR.Format(SR.DuplicateComponentName, name));
-                            }
+                            throw new ArgumentException(SR.Format(SR.DuplicateComponentName, name));
                         }
                     }
                 }

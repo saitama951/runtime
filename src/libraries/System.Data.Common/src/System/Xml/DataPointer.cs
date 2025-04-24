@@ -552,7 +552,6 @@ namespace System.Xml
         internal string? Value
         {
             [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-            [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
             get
             {
                 RealFoliate();

@@ -7,7 +7,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Xunit;
 
 public class Test_Weak
 {
@@ -40,8 +39,7 @@ public class Test_Weak
         }
     }
 
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         CreateObj temp = new CreateObj();
         temp.RunTest();

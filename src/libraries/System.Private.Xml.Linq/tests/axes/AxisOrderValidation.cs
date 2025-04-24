@@ -336,7 +336,8 @@ namespace System.Xml.Linq.Tests
         public static void ReorderToDocumentOrder()
         {
             XDocument xDoc = TestData.GetDocumentWithContacts();
-            var randomOrderedElements = xDoc.Root.DescendantNodesAndSelf().Shuffle();
+            Random rnd = new Random();
+            var randomOrderedElements = xDoc.Root.DescendantNodesAndSelf().OrderBy(n => rnd.Next(0, int.MaxValue));
             using (var en = randomOrderedElements.InDocumentOrder().GetEnumerator())
             {
                 en.MoveNext();

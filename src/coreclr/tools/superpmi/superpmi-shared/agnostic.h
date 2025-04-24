@@ -173,6 +173,8 @@ struct Agnostic_CORINFO_EE_INFO
     {
         DWORD size;
         DWORD sizeWithSecretStubArg;
+        DWORD offsetOfGSCookie;
+        DWORD offsetOfFrameVptr;
         DWORD offsetOfFrameLink;
         DWORD offsetOfCallSiteSP;
         DWORD offsetOfCalleeSavedFP;
@@ -652,19 +654,11 @@ struct Agnostic_ResolveVirtualMethodResult
 {
     bool                            returnValue;
     DWORDLONG                       devirtualizedMethod;
-    bool                            isInstantiatingStub;
-    bool                            wasArrayInterfaceDevirt;
+    bool                            requiresInstMethodTableArg;
     DWORDLONG                       exactContext;
     DWORD                           detail;
     Agnostic_CORINFO_RESOLVED_TOKEN resolvedTokenDevirtualizedMethod;
     Agnostic_CORINFO_RESOLVED_TOKEN resolvedTokenDevirtualizedUnboxedMethod;
-};
-
-struct Agnostic_GetInstantiatedEntryResult
-{
-    DWORDLONG                       methodHandle;
-    DWORDLONG                       classHandle;
-    DWORDLONG                       result;
 };
 
 struct ResolveTokenValue

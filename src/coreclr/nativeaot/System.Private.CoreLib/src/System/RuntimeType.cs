@@ -46,6 +46,12 @@ namespace System
             RuntimeImports.RhHandleFree(_runtimeTypeInfoHandle);
         }
 
+        private static bool IsReflectionDisabled => false;
+
+        private static bool DoNotThrowForNames => AppContext.TryGetSwitch("Switch.System.Reflection.Disabled.DoNotThrowForNames", out bool doNotThrow) && doNotThrow;
+        private static bool DoNotThrowForAssembly => AppContext.TryGetSwitch("Switch.System.Reflection.Disabled.DoNotThrowForAssembly", out bool doNotThrow) && doNotThrow;
+        private static bool DoNotThrowForAttributes => AppContext.TryGetSwitch("Switch.System.Reflection.Disabled.DoNotThrowForAttributes", out bool doNotThrow) && doNotThrow;
+
         internal MethodTable* ToMethodTableMayBeNull() => _pUnderlyingEEType;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -66,6 +72,9 @@ namespace System
         [MethodImpl(MethodImplOptions.NoInlining)]
         private RuntimeTypeInfo InitializeRuntimeTypeInfoHandle()
         {
+            if (IsReflectionDisabled)
+                throw new NotSupportedException(SR.Reflection_Disabled);
+
             RuntimeTypeInfo runtimeTypeInfo = ExecutionDomain.GetRuntimeTypeInfo(_pUnderlyingEEType);
 
             // We assume that the RuntimeTypeInfo unifiers pick a winner when multiple threads
@@ -630,7 +639,7 @@ namespace System
                 return false;
             if (pEEType->IsNullable)
                 pEEType = pEEType->NullableType;
-            return TypeCast.IsInstanceOfAny(pEEType, o) != null;
+            return RuntimeImports.IsInstanceOf(pEEType, o) != null;
         }
 
         //
@@ -639,6 +648,9 @@ namespace System
 
         public override string ToString()
         {
+            if (IsReflectionDisabled)
+                return "0x" + ((nuint)_pUnderlyingEEType).ToString("x");
+
             return GetRuntimeTypeInfo().ToString();
         }
 
@@ -760,7 +772,7 @@ namespace System
         public override MemberInfo GetMemberWithSameMetadataDefinitionAs(MemberInfo member)
             => GetRuntimeTypeInfo().GetMemberWithSameMetadataDefinitionAs(member);
 
-        [DynamicallyAccessedMembers(InvokeMemberMembers)]
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         public override object? InvokeMember(string name, BindingFlags invokeAttr, Binder? binder, object? target, object?[]? args, ParameterModifier[]? modifiers, CultureInfo? culture, string[]? namedParameters)
             => GetRuntimeTypeInfo().InvokeMember(name, invokeAttr, binder, target, args, modifiers, culture, namedParameters);
 
@@ -787,11 +799,17 @@ namespace System
 
         public override object[] GetCustomAttributes(bool inherit)
         {
+            if (IsReflectionDisabled && DoNotThrowForAttributes)
+                return Array.Empty<object>();
+
             return GetRuntimeTypeInfo().GetCustomAttributes(inherit);
         }
 
         public override object[] GetCustomAttributes(Type attributeType, bool inherit)
         {
+            if (IsReflectionDisabled && DoNotThrowForAttributes)
+                return Array.Empty<object>();
+
             return GetRuntimeTypeInfo().GetCustomAttributes(attributeType, inherit);
         }
 
@@ -799,12 +817,18 @@ namespace System
         {
             get
             {
+                if (IsReflectionDisabled && DoNotThrowForAttributes)
+                    return Array.Empty<CustomAttributeData>();
+
                 return GetRuntimeTypeInfo().CustomAttributes;
             }
         }
 
         public override IList<CustomAttributeData> GetCustomAttributesData()
         {
+            if (IsReflectionDisabled && DoNotThrowForAttributes)
+                return Array.Empty<CustomAttributeData>();
+
             return GetRuntimeTypeInfo().GetCustomAttributesData();
         }
 
@@ -812,6 +836,9 @@ namespace System
         {
             get
             {
+                if (IsReflectionDisabled && DoNotThrowForNames)
+                    return ToString();
+
                 return GetRuntimeTypeInfo().Name;
             }
         }
@@ -820,6 +847,9 @@ namespace System
         {
             get
             {
+                if (IsReflectionDisabled && DoNotThrowForNames)
+                    return null;
+
                 return GetRuntimeTypeInfo().Namespace;
             }
         }
@@ -832,6 +862,9 @@ namespace System
         {
             get
             {
+                if (IsReflectionDisabled && DoNotThrowForAssembly)
+                    return Assembly.GetExecutingAssembly();
+
                 return GetRuntimeTypeInfo().Assembly;
             }
         }

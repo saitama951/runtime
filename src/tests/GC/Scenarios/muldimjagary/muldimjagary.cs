@@ -3,7 +3,6 @@
 
 namespace DefaultNamespace {
 using System;
-using Xunit;
 
 /*************************************************************/
 /* test: MulDimJagAry.cs
@@ -13,10 +12,9 @@ using Xunit;
 /*************************************************************/
 
 
-    public class MulDimJagAry
+    class MulDimJagAry
     {
-        [Fact]
-        public static void TestEntryPoint()
+        public static int Main()
         {
             int iDim1 = 100;
             int iDim2 = 100;
@@ -129,6 +127,10 @@ using Xunit;
                 //    Console.WriteLine( "HeapSize after GC: "+ GC.GetTotalMemory(false) );
                 //}
             }
+
+
+            return 100;
+
         }
 
         public void SetThreeDimJagAry( Object [][][] oJag, int iDim1, int iDim2 )

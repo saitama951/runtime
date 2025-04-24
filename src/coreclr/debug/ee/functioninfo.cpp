@@ -926,6 +926,8 @@ void DebuggerJitInfo::LazyInitBounds()
         LOG((LF_CORDB,LL_EVERYTHING, "DJI::LazyInitBounds: this=%p GetBoundariesAndVars success=%s\n",
             this, (fSuccess ? "true" : "false")));
 
+        // SetBoundaries uses the CodeVersionManager, need to take it now for lock ordering reasons
+        CodeVersionManager::LockHolder codeVersioningLockHolder;
         Debugger::DebuggerDataLockHolder debuggerDataLockHolder(g_pDebugger);
 
         if (!m_fAttemptInit)
@@ -1051,22 +1053,15 @@ void DebuggerJitInfo::SetBoundaries(ULONG32 cMap, ICorDebugInfo::OffsetMapping *
     // Pick a unique initial value (-10) so that the 1st doesn't accidentally match.
     int ilPrevOld = -10;
 
+    _ASSERTE(CodeVersionManager::IsLockOwnedByCurrentThread());
+
     InstrumentedILOffsetMapping mapping;
 
     ILCodeVersion ilVersion = m_nativeCodeVersion.GetILCodeVersion();
     if (!ilVersion.IsDefaultVersion())
     {
         // Did the current rejit provide a map?
-        const InstrumentedILOffsetMapping *pReJitMap = NULL;
-        if (ilVersion.GetRejitState() == RejitFlags::kStateActive)
-        {
-            pReJitMap = ilVersion.GetInstrumentedILMap();
-        }
-        else
-        {
-            _ASSERTE(!"Unexpected rejit state, should be active as there exists a native code version for this IL code version");
-        }
-
+        const InstrumentedILOffsetMapping *pReJitMap = ilVersion.GetInstrumentedILMap();
         if (pReJitMap != NULL)
         {
             mapping = *pReJitMap;
@@ -1432,7 +1427,7 @@ DebuggerMethodInfo::DebuggerMethodInfo(Module *module, mdMethodDef token) :
 
     _ASSERTE(g_pDebugger->HasDebuggerDataLock());
 
-    DebuggerModule * pModule = GetModule();
+    DebuggerModule * pModule = GetPrimaryModule();
 
     m_fJMCStatus = false;
 
@@ -1448,9 +1443,9 @@ DebuggerMethodInfo::DebuggerMethodInfo(Module *module, mdMethodDef token) :
 
 
 /******************************************************************************
- * Get the debugger module for this DMI. This is 1:1 w/ an EE Module.
+ * Get the primary debugger module for this DMI. This is 1:1 w/ an EE Module.
  ******************************************************************************/
-DebuggerModule* DebuggerMethodInfo::GetModule()
+DebuggerModule* DebuggerMethodInfo::GetPrimaryModule()
 {
     CONTRACTL
     {
@@ -1478,7 +1473,11 @@ DebuggerModule* DebuggerMethodInfo::GetModule()
         return NULL;
     }
 
-    return pModule;
+    // Only give back primary modules...
+    DebuggerModule * p2 = pModule->GetPrimaryModule();
+    _ASSERTE(p2 != NULL);
+
+    return p2;
 }
 
 /******************************************************************************
@@ -1608,6 +1607,7 @@ DebuggerJitInfo *DebuggerMethodInfo::FindOrCreateInitAndAddJitInfo(MethodDesc* f
     if (fd->IsVersionable())
     {
         CodeVersionManager *pCodeVersionManager = fd->GetCodeVersionManager();
+        CodeVersionManager::LockHolder codeVersioningLockHolder;
         nativeCodeVersion = pCodeVersionManager->GetNativeCodeVersion(fd, startAddr);
         if (nativeCodeVersion.IsNull())
         {
@@ -2023,8 +2023,8 @@ void DebuggerMethodInfo::CreateDJIsForNativeBlobs(AppDomain * pAppDomain, Method
         // This also handles the possibility of getting the same methoddesc back from the iterator.
         // It also lets EnC + generics play nice together (including if an generic method was EnC-ed)
         LoadedMethodDescIterator it(pAppDomain, m_module, m_token);
-        CollectibleAssemblyHolder<Assembly *> pAssembly;
-        while (it.Next(pAssembly.This()))
+        CollectibleAssemblyHolder<DomainAssembly *> pDomainAssembly;
+        while (it.Next(pDomainAssembly.This()))
         {
             MethodDesc * pDesc = it.Current();
             if (!pDesc->HasNativeCode())

@@ -25,7 +25,7 @@ Abstract:
 #if defined(__APPLE__) || defined(__FreeBSD__)
 #include <sys/param.h>
 #include <sys/mount.h>
-#elif !defined(__HAIKU__)
+#else
 #include <sys/vfs.h>
 #endif
 #include <errno.h>

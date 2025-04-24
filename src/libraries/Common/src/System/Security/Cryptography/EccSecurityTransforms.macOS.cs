@@ -64,17 +64,24 @@ namespace System.Security.Cryptography
         {
             AsnWriter keyWriter = EccKeyFormatHelper.WriteECPrivateKey(parameters);
 
+            byte[] rented = CryptoPool.Rent(keyWriter.GetEncodedLength());
+
+            if (!keyWriter.TryEncode(rented, out int written))
+            {
+                Debug.Fail("TryEncode failed with a pre-allocated buffer");
+                throw new InvalidOperationException();
+            }
+
+            // Explicitly clear the inner buffer
+            keyWriter.Reset();
+
             try
             {
-                return keyWriter.Encode(static encoded =>
-                {
-                    return Interop.AppleCrypto.ImportEphemeralKey(encoded, true);
-                });
+                return Interop.AppleCrypto.ImportEphemeralKey(rented.AsSpan(0, written), true);
             }
             finally
             {
-                // Explicitly clear the inner buffer
-                keyWriter.Reset();
+                CryptoPool.Return(rented, written);
             }
         }
     }

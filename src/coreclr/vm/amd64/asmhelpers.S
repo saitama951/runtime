@@ -44,14 +44,6 @@
 #
 # ***********************************************************
 
-# EXTERN_C void JIT_ProfilerEnterLeaveTailcallStub(UINT_PTR ProfilerHandle);
-# <NOTE>
-#
-# </NOTE>
-LEAF_ENTRY JIT_ProfilerEnterLeaveTailcallStub, _TEXT
-  ret
-LEAF_END JIT_ProfilerEnterLeaveTailcallStub, _TEXT
-
 # EXTERN_C void ProfileEnterNaked(FunctionIDOrClientID functionIDOrClientID, size_t profiledRsp);
 # <NOTE>
 #
@@ -279,7 +271,7 @@ NESTED_ENTRY ProfileTailcallNaked, _TEXT, NoHandler
   ret
 NESTED_END ProfileTailcallNaked, _TEXT
 
-#ifdef TARGET_APPLE
+#ifdef TARGET_OSX
 # EXTERN_C void* GetThreadVarsAddress()
 # <NOTE>
 # Helper to calculate the address of relevant __thread_vars section that holds the address of symbol tlv_get_address for thread
@@ -291,12 +283,10 @@ LEAF_ENTRY GetThreadVarsAddress, _TEXT
         ret
 LEAF_END GetThreadVarsAddress, _TEXT
 // ------------------------------------------------------------------
-#endif // TARGET_APPLE
+#endif // TARGET_OSX
 
-#ifndef TARGET_APPLE
+#ifndef TARGET_OSX
 # EXTERN_C void* GetTlsIndexObjectDescOffset();
-
-#ifndef TARGET_ANDROID
 
 # <NOTE>
 # Helper to calculate the offset of native thread local variable `t_ThreadStatics`. The offset has to be found at runtime
@@ -320,45 +310,4 @@ LEAF_ENTRY GetTlsIndexObjectDescOffset, _TEXT
         call    EXTERNAL_C_FUNC(__tls_get_addr)                      # dummy call to have linker see the code pattern to replace the offset
         int 3
 LEAF_END GetTlsIndexObjectDescOffset, _TEXT
-#endif // !TARGET_ANDROID
-#endif // !TARGET_OSX
-
-LEAF_ENTRY  JIT_PollGC, _TEXT
-        PREPARE_EXTERNAL_VAR g_TrapReturningThreads, rax
-        cmp     dword ptr [rax], 0
-        jnz     LOCAL_LABEL(JIT_PollGCRarePath)
-        ret
-LOCAL_LABEL(JIT_PollGCRarePath):
-        PREPARE_EXTERNAL_VAR g_pPollGC, rax
-        mov     rax, [rax]
-        jmp     rax
-LEAF_END  JIT_PollGC, _TEXT
-
-#ifdef FEATURE_INTERPRETER
-NESTED_ENTRY InterpreterStub, _TEXT, NoHandler
-
-        PROLOG_WITH_TRANSITION_BLOCK 8, 0, 0, 0, 0
-        mov             [rsp], rax // Return buffer in Swift calling convention
-
-        #
-        # call ExecuteInterpretedMethod
-        #
-        lea             rdi, [rsp + __PWTB_TransitionBlock]     // pTransitionBlock*
-        mov             rsi, METHODDESC_REGISTER
-        call            C_FUNC(ExecuteInterpretedMethod)
-
-        mov             rax, [rsp]
-        EPILOG_WITH_TRANSITION_BLOCK_RETURN
-
-NESTED_END InterpreterStub, _TEXT
-#endif // FEATURE_INTERPRETER
-
-//rdi -This pointer
-//rsi -ReturnBuffer
-LEAF_ENTRY ThisPtrRetBufPrecodeWorker, _TEXT
-    mov  METHODDESC_REGISTER, [METHODDESC_REGISTER + ThisPtrRetBufPrecodeData__Target]
-    mov r11, rsi
-    mov rsi, rdi
-    mov rdi, r11
-    jmp METHODDESC_REGISTER
-LEAF_END ThisPtrRetBufPrecodeWorker, _TEXT
+#endif

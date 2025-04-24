@@ -3,13 +3,11 @@
 
 using System;
 using System.Runtime.CompilerServices;
-using Xunit;
 
 public class Runtime_76219
 {
     [MethodImpl(MethodImplOptions.Synchronized)]
-    [Fact]
-    public static void TestEntryPoint()
+    public static int Main()
     {
         for (int i = 0; i < 100; i++)
         {
@@ -21,6 +19,7 @@ public class Runtime_76219
             GC.WaitForPendingFinalizers();
             GC.Collect();
         }
+        return 100;
     }
 
     [MethodImpl(MethodImplOptions.Synchronized | MethodImplOptions.NoInlining)]

@@ -58,7 +58,6 @@ namespace System.Security.Authentication.ExtendedProtection.Tests
 
         [Theory]
         [SkipOnPlatform(TestPlatforms.Browser, "System.Net.Security is not supported on this platform.")]
-        [SkipOnPlatform(TestPlatforms.Wasi, "System.Net.Security is not supported on this platform.")]
         [InlineData(typeof(int))]
         [InlineData(typeof(ExtendedProtectionPolicy))]
         [InlineData(typeof(bool))]

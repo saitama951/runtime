@@ -5,7 +5,6 @@
 
 using System;
 using System.Runtime.CompilerServices;
-using Xunit;
 
 public class Test_Finalize
 {
@@ -36,8 +35,7 @@ public class Test_Finalize
         }
     }
 
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         CreateObj temp = new CreateObj();
         temp.RunTest();

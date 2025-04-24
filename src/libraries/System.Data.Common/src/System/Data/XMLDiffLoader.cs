@@ -16,7 +16,6 @@ namespace System.Data
         private DataTable? _dataTable;
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal void LoadDiffGram(DataSet ds, XmlReader dataTextReader)
         {
             XmlReader reader = DataTextReader.CreateReader(dataTextReader);
@@ -49,7 +48,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal void LoadDiffGram(DataTable dt, XmlReader dataTextReader)
         {
             XmlReader reader = DataTextReader.CreateReader(dataTextReader);
@@ -73,7 +71,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal void ProcessDiffs(DataSet ds, XmlReader ssync)
         {
             DataTable? tableBefore;
@@ -125,7 +122,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal void ProcessDiffs(XmlReader ssync)
         {
             DataTable? tableBefore;
@@ -290,7 +286,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private int ReadOldRowData(DataSet? ds, ref DataTable? table, ref int pos, XmlReader row)
         {
             // read table information

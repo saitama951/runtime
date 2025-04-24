@@ -19,6 +19,7 @@ Abstract:
 
 #include "pal/palinternal.h"
 #include "pal/dbgmsg.h"
+#include "pal/misc.h"
 
 #include <time.h>
 #include <sys/time.h>

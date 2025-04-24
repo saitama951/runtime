@@ -18,7 +18,7 @@ namespace System.Net.Sockets.Tests
         }
 
         [Fact]
-        [PlatformSpecific(TestPlatforms.Windows | TestPlatforms.AnyUnix ^ TestPlatforms.Wasi)]
+        [PlatformSpecific(TestPlatforms.Windows | TestPlatforms.AnyUnix)]
         public void SafeSocketHandle_CanUseInPInvoke()
         {
             const int AF_INET = 2;

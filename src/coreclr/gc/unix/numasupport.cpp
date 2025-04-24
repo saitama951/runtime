@@ -10,11 +10,8 @@
 #include <dirent.h>
 #include <string.h>
 #include <limits.h>
-#include <minipal/utils.h>
-
-#ifdef TARGET_LINUX
 #include <sys/syscall.h>
-#endif
+#include <minipal/utils.h>
 
 // The highest NUMA node available
 int g_highestNumaNode = 0;
@@ -57,7 +54,7 @@ static int GetNodeNum(const char* path, bool firstOnly)
 void NUMASupportInitialize()
 {
 #ifdef TARGET_LINUX
-    if (syscall(__NR_get_mempolicy, NULL, NULL, 0, 0, 0) < 0)
+    if (syscall(__NR_get_mempolicy, NULL, NULL, 0, 0, 0) < 0 && errno == ENOSYS)
         return;
 
     int highestNumaNode = GetNodeNum("/sys/devices/system/node", false);

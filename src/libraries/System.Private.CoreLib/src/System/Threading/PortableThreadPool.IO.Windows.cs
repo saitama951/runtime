@@ -178,7 +178,7 @@ namespace System.Threading
             }
         }
 
-        internal sealed unsafe class IOCompletionPoller
+        private sealed unsafe class IOCompletionPoller
         {
             private const int NativeEventCapacity =
 #if DEBUG
@@ -189,7 +189,7 @@ namespace System.Threading
 
             private readonly nint _port;
             private readonly Interop.Kernel32.OVERLAPPED_ENTRY* _nativeEvents;
-            private readonly ThreadPoolTypedWorkItemQueue? _events;
+            private readonly ThreadPoolTypedWorkItemQueue<Event, Callback>? _events;
             private readonly Thread _thread;
 
             public IOCompletionPoller(nint port)
@@ -202,7 +202,7 @@ namespace System.Threading
                     _nativeEvents =
                         (Interop.Kernel32.OVERLAPPED_ENTRY*)
                         NativeMemory.Alloc(NativeEventCapacity, (nuint)sizeof(Interop.Kernel32.OVERLAPPED_ENTRY));
-                    _events = new ThreadPoolTypedWorkItemQueue();
+                    _events = new ThreadPoolTypedWorkItemQueue<Event, Callback>();
 
                     // These threads don't run user code, use a smaller stack size
                     _thread = new Thread(Poll, SmallStackSizeBytes);
@@ -299,26 +299,29 @@ namespace System.Threading
                 }
             }
 
-            internal readonly partial struct Event
+            private struct Callback : IThreadPoolTypedWorkItemQueueCallback<Event>
             {
-                public void Invoke()
+                public static void Invoke(Event e)
                 {
                     if (NativeRuntimeEventSource.Log.IsEnabled())
                     {
-                        NativeRuntimeEventSource.Log.ThreadPoolIODequeue(nativeOverlapped);
+                        NativeRuntimeEventSource.Log.ThreadPoolIODequeue(e.nativeOverlapped);
                     }
 
                     // The NtStatus code for the operation is in the InternalLow field
-                    uint ntStatus = (uint)(nint)nativeOverlapped->InternalLow;
+                    uint ntStatus = (uint)(nint)e.nativeOverlapped->InternalLow;
                     uint errorCode = Interop.Errors.ERROR_SUCCESS;
                     if (!Interop.StatusOptions.NT_SUCCESS(ntStatus))
                     {
                         errorCode = Interop.NtDll.RtlNtStatusToDosError((int)ntStatus);
                     }
 
-                    IOCompletionCallbackHelper.PerformSingleIOCompletionCallback(errorCode, bytesTransferred, nativeOverlapped);
+                    IOCompletionCallbackHelper.PerformSingleIOCompletionCallback(errorCode, e.bytesTransferred, e.nativeOverlapped);
                 }
+            }
 
+            private readonly struct Event
+            {
                 public readonly NativeOverlapped* nativeOverlapped;
                 public readonly uint bytesTransferred;
 

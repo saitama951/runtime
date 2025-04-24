@@ -1684,7 +1684,7 @@ StepWithCompactEncodingArm64(const libunwindInfo* info, compact_unwind_encoding_
         if (!ReadCompactEncodingRegisterPair(info, &addr, &context->Lr, &context->Fp)) {
             return false;
         }
-        // Strip pointer authentication bits
+        // Strip pointer authentication bits 
         context->Lr &= MACOS_ARM64_POINTER_AUTH_MASK;
     }
     else
@@ -1844,6 +1844,7 @@ static void GetContextPointers(unw_cursor_t *cursor, unw_context_t *unwContext, 
     GetContextPointer(cursor, unwContext, UNW_AARCH64_X29, (SIZE_T**)&contextPointers->Fp);
 #elif defined(TARGET_LOONGARCH64)
     GetContextPointer(cursor, unwContext, UNW_LOONGARCH64_R1, (SIZE_T **)&contextPointers->Ra);
+    GetContextPointer(cursor, unwContext, UNW_LOONGARCH64_R2, (SIZE_T **)&contextPointers->Tp);
     GetContextPointer(cursor, unwContext, UNW_LOONGARCH64_R22, (SIZE_T **)&contextPointers->Fp);
     GetContextPointer(cursor, unwContext, UNW_LOONGARCH64_R23, (SIZE_T **)&contextPointers->S0);
     GetContextPointer(cursor, unwContext, UNW_LOONGARCH64_R24, (SIZE_T **)&contextPointers->S1);
@@ -1962,6 +1963,7 @@ static void UnwindContextToContext(unw_cursor_t *cursor, CONTEXT *winContext)
     unw_get_reg(cursor, UNW_REG_IP, (unw_word_t *) &winContext->Pc);
     unw_get_reg(cursor, UNW_REG_SP, (unw_word_t *) &winContext->Sp);
     unw_get_reg(cursor, UNW_LOONGARCH64_R1, (unw_word_t *) &winContext->Ra);
+    unw_get_reg(cursor, UNW_LOONGARCH64_R2, (unw_word_t *) &winContext->Tp);
     unw_get_reg(cursor, UNW_LOONGARCH64_R22, (unw_word_t *) &winContext->Fp);
     unw_get_reg(cursor, UNW_LOONGARCH64_R23, (unw_word_t *) &winContext->S0);
     unw_get_reg(cursor, UNW_LOONGARCH64_R24, (unw_word_t *) &winContext->S1);
@@ -1972,7 +1974,7 @@ static void UnwindContextToContext(unw_cursor_t *cursor, CONTEXT *winContext)
     unw_get_reg(cursor, UNW_LOONGARCH64_R29, (unw_word_t *) &winContext->S6);
     unw_get_reg(cursor, UNW_LOONGARCH64_R30, (unw_word_t *) &winContext->S7);
     unw_get_reg(cursor, UNW_LOONGARCH64_R31, (unw_word_t *) &winContext->S8);
-    TRACE("sp %p pc %p fp %p ra %p\n", winContext->Sp, winContext->Pc, winContext->Fp, winContext->Ra);
+    TRACE("sp %p pc %p fp %p tp %p ra %p\n", winContext->Sp, winContext->Pc, winContext->Fp, winContext->Tp, winContext->Ra);
 #elif defined(TARGET_S390X)
     unw_get_reg(cursor, UNW_REG_IP, (unw_word_t *) &winContext->PSWAddr);
     unw_get_reg(cursor, UNW_REG_SP, (unw_word_t *) &winContext->R15);
@@ -2116,6 +2118,7 @@ access_reg(unw_addr_space_t as, unw_regnum_t regnum, unw_word_t *valp, int write
     case UNW_AARCH64_PC:   *valp = (unw_word_t)winContext->Pc; break;
 #elif defined(TARGET_LOONGARCH64)
     case UNW_LOONGARCH64_R1:    *valp = (unw_word_t)winContext->Ra; break;
+    case UNW_LOONGARCH64_R2:    *valp = (unw_word_t)winContext->Tp; break;
     case UNW_LOONGARCH64_R3:    *valp = (unw_word_t)winContext->Sp; break;
     case UNW_LOONGARCH64_R22:   *valp = (unw_word_t)winContext->Fp; break;
     case UNW_LOONGARCH64_R23:   *valp = (unw_word_t)winContext->S0; break;
@@ -2325,13 +2328,7 @@ find_proc_info(unw_addr_space_t as, unw_word_t ip, unw_proc_info_t *pip, int nee
         }
     }
 
-#if HAVE_GET_PROC_INFO_IN_RANGE || !defined(HOST_UNIX)
-    return unw_get_proc_info_in_range(start_ip, end_ip, ehFrameHdrAddr, ehFrameHdrLen, exidxFrameHdrAddr, exidxFrameHdrLen, as, ip, pip, need_unwind_info, arg);
-#else // HAVE_GET_PROC_INFO_IN_RANGE || !defined(HOST_UNIX)
-
-    // This branch is executed when using llvm-libunwind (macOS and similar platforms) 
-    // or HP-libunwind version 1.6 and earlier.
-
+#ifdef FEATURE_USE_SYSTEM_LIBUNWIND
     if (ehFrameHdrAddr == 0) {
         ASSERT("ELF: No PT_GNU_EH_FRAME program header\n");
         return -UNW_EINVAL;
@@ -2403,7 +2400,9 @@ find_proc_info(unw_addr_space_t as, unw_word_t ip, unw_proc_info_t *pip, int nee
     }
     info->FunctionStart = pip->start_ip;
     return UNW_ESUCCESS;
-#endif // HAVE_GET_PROC_INFO_IN_RANGE || !defined(HOST_UNIX)
+#else
+    return unw_get_proc_info_in_range(start_ip, end_ip, ehFrameHdrAddr, ehFrameHdrLen, exidxFrameHdrAddr, exidxFrameHdrLen, as, ip, pip, need_unwind_info, arg);
+#endif // FEATURE_USE_SYSTEM_LIBUNWIND
 
 #endif // __APPLE__
 }

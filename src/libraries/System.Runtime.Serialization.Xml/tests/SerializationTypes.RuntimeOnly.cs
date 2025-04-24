@@ -1144,10 +1144,10 @@ namespace SerializationTypes
         Option0, Option1, Option2
     }
 
-    public class TypeWithNestedGenericClassImplementingIXmlSerializable
+    public class TypeWithNestedGenericClassImplementingIXmlSerialiable
     {
         // T can only be string
-        public class NestedGenericClassImplementingIXmlSerializable<T> : IXmlSerializable
+        public class NestedGenericClassImplementingIXmlSerialiable<T> : IXmlSerializable
         {
             public static bool WriteXmlInvoked = false;
             public static bool ReadXmlInvoked = false;
@@ -1155,7 +1155,7 @@ namespace SerializationTypes
             public string StringValue { get; set; }
             private T GenericValue { get; set; }
 
-            public NestedGenericClassImplementingIXmlSerializable()
+            public NestedGenericClassImplementingIXmlSerialiable()
             {
                 GenericValue = default(T);
             }

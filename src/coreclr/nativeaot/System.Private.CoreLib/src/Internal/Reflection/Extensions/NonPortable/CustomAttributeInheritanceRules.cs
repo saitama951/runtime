@@ -171,7 +171,7 @@ namespace Internal.Reflection.Extensions.NonPortable
 
             public sealed override MethodInfo GetParent(MethodInfo e)
             {
-                return ReflectionAugments.GetImplicitlyOverriddenBaseClassMethod(e);
+                return ReflectionAugments.ReflectionCoreCallbacks.GetImplicitlyOverriddenBaseClassMethod(e);
             }
 
             public static readonly MethodCustomAttributeSearcher Default = new MethodCustomAttributeSearcher();
@@ -189,7 +189,7 @@ namespace Internal.Reflection.Extensions.NonPortable
 
             public sealed override PropertyInfo GetParent(PropertyInfo e)
             {
-                return ReflectionAugments.GetImplicitlyOverriddenBaseClassProperty(e);
+                return ReflectionAugments.ReflectionCoreCallbacks.GetImplicitlyOverriddenBaseClassProperty(e);
             }
 
             public static readonly PropertyCustomAttributeSearcher Default = new PropertyCustomAttributeSearcher();
@@ -208,7 +208,7 @@ namespace Internal.Reflection.Extensions.NonPortable
 
             public sealed override EventInfo GetParent(EventInfo e)
             {
-                return ReflectionAugments.GetImplicitlyOverriddenBaseClassEvent(e);
+                return ReflectionAugments.ReflectionCoreCallbacks.GetImplicitlyOverriddenBaseClassEvent(e);
             }
 
             public static readonly EventCustomAttributeSearcher Default = new EventCustomAttributeSearcher();

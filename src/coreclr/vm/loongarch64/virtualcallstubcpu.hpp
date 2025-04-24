@@ -343,7 +343,7 @@ struct ResolveHolder
         _stub._resolveWorkerTarget = resolveWorkerTarget;
 
         _ASSERTE(resolveWorkerTarget == (PCODE)ResolveWorkerChainLookupAsmStub);
-        _ASSERTE(patcherTarget == (PCODE)NULL);
+        _ASSERTE(patcherTarget == NULL);
 
 #undef DATA_OFFSET
 #undef PC_REL_OFFSET

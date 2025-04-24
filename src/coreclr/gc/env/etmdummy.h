@@ -419,4 +419,3 @@
 #define FireEtwEventSource(eventID, eventName, eventSourceName, payload) 0
 #define FireEtwWaitHandleWaitStart(WaitSource, AssociatedObjectID, ClrInstanceID) 0
 #define FireEtwWaitHandleWaitStop(ClrInstanceID) 0
-#define FireEtwYieldProcessorMeasurement(ClrInstanceID, NsPerYield, EstablishedNsPerYield) 0

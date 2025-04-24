@@ -9,7 +9,6 @@ using System.Net.Security;
 using System.Runtime.InteropServices.JavaScript;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Diagnostics.CodeAnalysis;
 
 namespace System.Net.Http
 {
@@ -135,9 +134,6 @@ namespace System.Net.Http
         private static readonly HttpRequestOptionsKey<bool> EnableStreamingResponse = new HttpRequestOptionsKey<bool>("WebAssemblyEnableStreamingResponse");
         private static readonly HttpRequestOptionsKey<IDictionary<string, object>> FetchOptions = new HttpRequestOptionsKey<IDictionary<string, object>>("WebAssemblyFetchOptions");
 
-        [FeatureSwitchDefinition("System.Net.Http.WasmEnableStreamingResponse")]
-        internal static bool FeatureEnableStreamingResponse { get; } = AppContextConfigHelper.GetBooleanConfig("System.Net.Http.WasmEnableStreamingResponse", "DOTNET_WASM_ENABLE_STREAMING_RESPONSE", defaultValue: true);
-
         internal readonly JSObject _jsController;
         private readonly CancellationTokenRegistration _abortRegistration;
         private readonly string[] _optionNames;
@@ -147,7 +143,7 @@ namespace System.Net.Http
         private readonly string uri;
         private readonly CancellationToken _cancellationToken;
         private readonly HttpRequestMessage _request;
-        internal bool _isDisposed;
+        private bool _isDisposed;
 
         public BrowserHttpController(HttpRequestMessage request, bool? allowAutoRedirect, CancellationToken cancellationToken)
         {
@@ -258,7 +254,7 @@ namespace System.Net.Http
                             var closePromise = BrowserHttpInterop.TransformStreamClose(_jsController);
                             await BrowserHttpInterop.CancellationHelper(closePromise, _cancellationToken, _jsController).ConfigureAwait(false);
                         }
-                        catch (JSException jse) when (jse.Message.Contains("BrowserHttpWriteStream.Rejected", StringComparison.Ordinal))
+                        catch(JSException jse) when (jse.Message.Contains("BrowserHttpWriteStream.Rejected", StringComparison.Ordinal))
                         {
                             // any error from pushing bytes will also appear in the fetch promise result
                         }
@@ -318,14 +314,10 @@ namespace System.Net.Http
                     responseMessage.SetReasonPhraseWithoutValidation(responseType);
                 }
 
-                bool streamingResponseEnabled = FeatureEnableStreamingResponse;
-                if (_request.Options.TryGetValue(EnableStreamingResponse, out var reqStreamingResponseEnabled))
+                bool streamingResponseEnabled = false;
+                if (BrowserHttpInterop.SupportsStreamingResponse())
                 {
-                    streamingResponseEnabled = reqStreamingResponseEnabled;
-                }
-                if (streamingResponseEnabled && !BrowserHttpInterop.SupportsStreamingResponse())
-                {
-                    throw new PlatformNotSupportedException("Streaming response is not supported in this browser.");
+                    _request.Options.TryGetValue(EnableStreamingResponse, out streamingResponseEnabled);
                 }
 
                 responseMessage.Content = streamingResponseEnabled
@@ -369,10 +361,10 @@ namespace System.Net.Http
     internal sealed class BrowserHttpWriteStream : Stream
     {
         private readonly BrowserHttpController _controller; // we don't own it, we don't dispose it from here
-
         public BrowserHttpWriteStream(BrowserHttpController controller)
         {
             ArgumentNullException.ThrowIfNull(controller);
+
             _controller = controller;
         }
 
@@ -400,7 +392,7 @@ namespace System.Net.Http
 
         public override bool CanRead => false;
         public override bool CanSeek => false;
-        public override bool CanWrite => !_controller._isDisposed;
+        public override bool CanWrite => true;
 
         protected override void Dispose(bool disposing)
         {
@@ -514,7 +506,7 @@ namespace System.Net.Http
 
     internal sealed class BrowserHttpReadStream : Stream
     {
-        private readonly BrowserHttpController _controller; // we own the object and have to dispose it
+        private BrowserHttpController _controller; // we own the object and have to dispose it
 
         public BrowserHttpReadStream(BrowserHttpController controller)
         {
@@ -548,7 +540,7 @@ namespace System.Net.Http
             return ReadAsync(new Memory<byte>(buffer, offset, count), cancellationToken).AsTask();
         }
 
-        public override bool CanRead => !_controller._isDisposed;
+        public override bool CanRead => true;
         public override bool CanSeek => false;
         public override bool CanWrite => false;
 
@@ -589,25 +581,5 @@ namespace System.Net.Http
             throw new NotSupportedException();
         }
         #endregion
-    }
-
-    internal static class AppContextConfigHelper
-    {
-        internal static bool GetBooleanConfig(string switchName, string envVariable, bool defaultValue = false)
-        {
-            string? str = Environment.GetEnvironmentVariable(envVariable);
-            if (str != null)
-            {
-                if (str == "1" || str.Equals("true", StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-                if (str == "0" || str.Equals("false", StringComparison.OrdinalIgnoreCase))
-                {
-                    return false;
-                }
-            }
-            return AppContext.TryGetSwitch(switchName, out bool value) ? value : defaultValue;
-        }
     }
 }

@@ -2230,7 +2230,7 @@ namespace DebuggerTests
         {
             public override string ToString()
             {
-                return "OverriddenToString";
+                return "OverridenToString";
             }
         }
         public static void run()

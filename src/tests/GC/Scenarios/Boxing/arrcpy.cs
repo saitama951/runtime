@@ -1,14 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit;
 namespace DefaultNamespace {
     using System;
 
-    public class ArrCpy
+    internal class ArrCpy
     {
-        [Fact]
-        public static void TestEntryPoint()
+        public static int Main()
         {
             int iSize = 100;
             int iRep = 10;
@@ -29,6 +27,8 @@ namespace DefaultNamespace {
                 }
                 GC.Collect();
             }
+            return 100;
+
         }
 
 

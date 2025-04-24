@@ -27,7 +27,6 @@ namespace Mono.Linker.Tests.Cases.Reflection
 			// derived types to access annotated methods without any warnings:
 			derivedFromSuppressed.GetType ().GetMethod ("RUCDerivedMethod");
 
-			_ = new AnnotatedAllSuppressed ();
 		}
 
 		[Kept]

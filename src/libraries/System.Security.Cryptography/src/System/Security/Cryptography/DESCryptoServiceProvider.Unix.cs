@@ -84,7 +84,5 @@ namespace System.Security.Cryptography
             get { return _impl.Padding; }
             set { _impl.Padding = value; }
         }
-
-        protected override void SetKeyCore(ReadOnlySpan<byte> key) => _impl.SetKey(key);
     }
 }

@@ -6,7 +6,6 @@ using System;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Reflection;
-using Xunit;
 
 public class Test_GetAllocatedBytesForCurrentThread 
 {
@@ -99,8 +98,7 @@ public class Test_GetAllocatedBytesForCurrentThread
         return true;
     }
 
-    [Fact]
-    public static int TestEntryPoint() 
+    public static int Main() 
     {
         // First test with collection
         if (!TestCore1(true))

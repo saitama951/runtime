@@ -12,55 +12,37 @@
 #define SWITCH_MIN_TESTS    3
 
 //-----------------------------------------------------------------------------
-//  optRecognizeAndOptimizeSwitchJumps: Optimize range check for `x == cns1 || x == cns2 || x == cns3 ...`
-//      pattern and convert it to a BBJ_SWITCH block (jump table), which then *might* be converted
+//  optSwitchRecognition: Optimize range check for `x == cns1 || x == cns2 || x == cns3 ...`
+//      pattern and convert it to Switch block (jump table) which is then *might* be converted
 //      to a bitmap test via TryLowerSwitchToBitTest.
-//      If we have PGO data, try peeling switches with dominant cases.
 //      TODO: recognize general jump table patterns.
 //
 //  Return Value:
-//      MODIFIED_EVERYTHING if any switches were newly identified and/or optimized, false otherwise
+//      MODIFIED_EVERYTHING if the optimization was applied.
 //
-PhaseStatus Compiler::optRecognizeAndOptimizeSwitchJumps()
+PhaseStatus Compiler::optSwitchRecognition()
 {
-    bool modified = false;
-
-    for (BasicBlock* block = fgFirstBB; block != nullptr; block = block->Next())
-    {
-        if (block->isRunRarely())
-        {
-            continue;
-        }
-
 // Limit to XARCH, ARM is already doing a great job with such comparisons using
 // a series of ccmp instruction (see ifConvert phase).
 #ifdef TARGET_XARCH
+    bool modified = false;
+    for (BasicBlock* block = fgFirstBB; block != nullptr; block = block->Next())
+    {
         // block->KindIs(BBJ_COND) check is for better throughput.
-        if (block->KindIs(BBJ_COND) && optSwitchDetectAndConvert(block))
+        if (block->KindIs(BBJ_COND) && !block->isRunRarely() && optSwitchDetectAndConvert(block))
         {
             JITDUMP("Converted block " FMT_BB " to switch\n", block->bbNum)
             modified = true;
-
-            // Converted switches won't have dominant cases, so we can skip the switch peeling check.
-            assert(!block->GetSwitchTargets()->bbsHasDominantCase);
-        }
-        else
-#endif
-
-            if (block->KindIs(BBJ_SWITCH) && block->GetSwitchTargets()->bbsHasDominantCase)
-        {
-            fgPeelSwitch(block);
-            modified = true;
-
-            // Switch peeling will convert this block into a check for the dominant case,
-            // and insert the updated switch block after, which doesn't have a dominant case.
-            // Skip over the switch block in the loop iteration.
-            assert(block->Next()->KindIs(BBJ_SWITCH));
-            block = block->Next();
         }
     }
 
-    return modified ? PhaseStatus::MODIFIED_EVERYTHING : PhaseStatus::MODIFIED_NOTHING;
+    if (modified)
+    {
+        fgRenumberBlocks();
+        return PhaseStatus::MODIFIED_EVERYTHING;
+    }
+#endif
+    return PhaseStatus::MODIFIED_NOTHING;
 }
 
 //------------------------------------------------------------------------------
@@ -68,19 +50,17 @@ PhaseStatus Compiler::optRecognizeAndOptimizeSwitchJumps()
 //    constant test? e.g. JTRUE(EQ/NE(X, CNS)).
 //
 // Arguments:
-//    block            - The block to check
-//    allowSideEffects - is variableNode allowed to have side-effects (COMMA)?
-//    trueTarget       - [out] The successor visited if X == CNS
-//    falseTarget      - [out] The successor visited if X != CNS
-//    isReversed       - [out] True if the condition is reversed (GT_NE)
-//    variableNode     - [out] The variable node (X in the example above)
-//    cns              - [out] The constant value (CNS in the example above)
+//    block        - The block to check
+//    trueEdge     - [out] The successor edge taken if X == CNS
+//    falseEdge    - [out] The successor edge taken if X != CNS
+//    isReversed   - [out] True if the condition is reversed (GT_NE)
+//    variableNode - [out] The variable node (X in the example above)
+//    cns          - [out] The constant value (CNS in the example above)
 //
 // Return Value:
 //    True if the block represents a constant test, false otherwise
 //
 bool IsConstantTestCondBlock(const BasicBlock* block,
-                             bool              allowSideEffects,
                              BasicBlock**      trueTarget,
                              BasicBlock**      falseTarget,
                              bool*             isReversed,
@@ -108,14 +88,8 @@ bool IsConstantTestCondBlock(const BasicBlock* block,
             // We're looking for "X EQ/NE CNS" or "CNS EQ/NE X" pattern
             if ((op1->IsCnsIntOrI() && !op1->IsIconHandle()) ^ (op2->IsCnsIntOrI() && !op2->IsIconHandle()))
             {
-                if (allowSideEffects)
-                {
-                    if (!op1->gtEffectiveVal()->OperIs(GT_LCL_VAR) && !op2->gtEffectiveVal()->OperIs(GT_LCL_VAR))
-                    {
-                        return false;
-                    }
-                }
-                else if (!op1->OperIs(GT_LCL_VAR) && !op2->OperIs(GT_LCL_VAR))
+                // TODO: relax this to support any side-effect free expression
+                if (!op1->OperIs(GT_LCL_VAR) && !op2->OperIs(GT_LCL_VAR))
                 {
                     return false;
                 }
@@ -174,7 +148,7 @@ bool Compiler::optSwitchDetectAndConvert(BasicBlock* firstBlock)
     // and then try to accumulate as many constant test blocks as possible. Once we hit
     // a block that doesn't match the pattern, we start processing the accumulated blocks.
     bool isReversed = false;
-    if (IsConstantTestCondBlock(firstBlock, true, &trueTarget, &falseTarget, &isReversed, &variableNode, &cns))
+    if (IsConstantTestCondBlock(firstBlock, &trueTarget, &falseTarget, &isReversed, &variableNode, &cns))
     {
         if (isReversed)
         {
@@ -195,12 +169,13 @@ bool Compiler::optSwitchDetectAndConvert(BasicBlock* firstBlock)
         weight_t          falseLikelihood = firstBlock->GetFalseEdge()->getLikelihood();
         const BasicBlock* prevBlock       = firstBlock;
 
-        // Now walk the chain of test blocks, and see if they are basically the same type of test
-        for (BasicBlock *currBb = falseTarget, *currFalseTarget; currBb != nullptr; currBb = currFalseTarget)
+        // Now walk the next blocks and see if they are basically the same type of test
+        for (const BasicBlock* currBb = firstBlock->Next(); currBb != nullptr; currBb = currBb->Next())
         {
             GenTree*    currVariableNode = nullptr;
             ssize_t     currCns          = 0;
             BasicBlock* currTrueTarget   = nullptr;
+            BasicBlock* currFalseTarget  = nullptr;
 
             if (!currBb->hasSingleStmt())
             {
@@ -210,8 +185,8 @@ bool Compiler::optSwitchDetectAndConvert(BasicBlock* firstBlock)
             }
 
             // Inspect secondary blocks
-            if (IsConstantTestCondBlock(currBb, false, &currTrueTarget, &currFalseTarget, &isReversed,
-                                        &currVariableNode, &currCns))
+            if (IsConstantTestCondBlock(currBb, &currTrueTarget, &currFalseTarget, &isReversed, &currVariableNode,
+                                        &currCns))
             {
                 if (currTrueTarget != trueTarget)
                 {
@@ -219,7 +194,7 @@ bool Compiler::optSwitchDetectAndConvert(BasicBlock* firstBlock)
                     return optSwitchConvert(firstBlock, testValueIndex, testValues, falseLikelihood, variableNode);
                 }
 
-                if (!GenTree::Compare(currVariableNode, variableNode->gtEffectiveVal()))
+                if (!GenTree::Compare(currVariableNode, variableNode))
                 {
                     // A different variable node is used, stop searching and process what we already have.
                     return optSwitchConvert(firstBlock, testValueIndex, testValues, falseLikelihood, variableNode);
@@ -341,21 +316,15 @@ bool Compiler::optSwitchConvert(
 
     // Find the last block in the chain
     const BasicBlock* lastBlock = firstBlock;
-    for (int i = 0; i < (testsCount - 1); i++)
+    for (int i = 0; i < testsCount - 1; i++)
     {
-        const GenTree* rootNode = lastBlock->lastStmt()->GetRootNode();
-        assert(lastBlock->KindIs(BBJ_COND));
-        assert(rootNode->OperIs(GT_JTRUE));
-
-        // We only support reversed tests (GT_NE) in the last block of the chain.
-        assert(rootNode->gtGetOp1()->OperIs(GT_EQ));
-        lastBlock = lastBlock->GetFalseTarget();
+        lastBlock = lastBlock->Next();
     }
 
     BasicBlock* blockIfTrue  = nullptr;
     BasicBlock* blockIfFalse = nullptr;
     bool        isReversed   = false;
-    const bool  isTest       = IsConstantTestCondBlock(lastBlock, false, &blockIfTrue, &blockIfFalse, &isReversed);
+    const bool  isTest       = IsConstantTestCondBlock(lastBlock, &blockIfTrue, &blockIfFalse, &isReversed);
     assert(isTest);
 
     assert(firstBlock->TrueTargetIs(blockIfTrue));
@@ -368,7 +337,7 @@ bool Compiler::optSwitchConvert(
     firstBlock->lastStmt()->GetRootNode()->ChangeOper(GT_SWITCH);
 
     // The root node is now SUB(nodeToTest, minValue) if minValue != 0
-    GenTree* switchValue = nodeToTest;
+    GenTree* switchValue = gtCloneExpr(nodeToTest);
     if (minValue != 0)
     {
         switchValue =
@@ -383,23 +352,50 @@ bool Compiler::optSwitchConvert(
     // Unlink and remove the whole chain of conditional blocks
     fgRemoveRefPred(falseEdge);
     BasicBlock* blockToRemove = falseEdge->getDestinationBlock();
-    for (int i = 0; i < (testsCount - 1); i++)
+    assert(firstBlock->NextIs(blockToRemove));
+    while (!lastBlock->NextIs(blockToRemove))
     {
-        // We always follow the false target because reversed tests are only supported for the last block.
-        assert(blockToRemove->KindIs(BBJ_COND));
-        BasicBlock* const nextBlockToRemove = blockToRemove->GetFalseTarget();
-        fgRemoveBlock(blockToRemove, true);
-        blockToRemove = nextBlockToRemove;
+        blockToRemove = fgRemoveBlock(blockToRemove, true);
     }
 
     const unsigned jumpCount = static_cast<unsigned>(maxValue - minValue + 1);
     assert((jumpCount > 0) && (jumpCount <= SWITCH_MAX_DISTANCE + 1));
     FlowEdge** jmpTab = new (this, CMK_FlowEdge) FlowEdge*[jumpCount + 1 /*default case*/];
 
+    // Quirk: lastBlock's false target may have diverged from bbNext. If the false target is behind firstBlock,
+    // we may create a cycle in the BasicBlock list by setting firstBlock->bbNext to it.
+    // Add a new BBJ_ALWAYS to the false target to avoid this.
+    // (We only need this if the false target is behind firstBlock,
+    // but it's cheaper to just check if the false target has diverged)
+    // TODO-NoFallThrough: Revisit this quirk?
+    bool skipPredRemoval = false;
+    if (!lastBlock->FalseTargetIs(lastBlock->Next()))
+    {
+        if (isReversed)
+        {
+            assert(lastBlock->FalseTargetIs(blockIfTrue));
+            fgRemoveRefPred(trueEdge);
+            BasicBlock* targetBlock = blockIfTrue;
+            blockIfTrue             = fgNewBBafter(BBJ_ALWAYS, firstBlock, true);
+            FlowEdge* const newEdge = fgAddRefPred(targetBlock, blockIfTrue);
+            skipPredRemoval         = true;
+            blockIfTrue->SetTargetEdge(newEdge);
+        }
+        else
+        {
+            assert(lastBlock->FalseTargetIs(blockIfFalse));
+            BasicBlock* targetBlock = blockIfFalse;
+            blockIfFalse            = fgNewBBafter(BBJ_ALWAYS, firstBlock, true);
+            FlowEdge* const newEdge = fgAddRefPred(targetBlock, blockIfFalse);
+            blockIfFalse->SetTargetEdge(newEdge);
+        }
+    }
+
     fgHasSwitch                                   = true;
     firstBlock->GetSwitchTargets()->bbsCount      = jumpCount + 1;
     firstBlock->GetSwitchTargets()->bbsHasDefault = true;
     firstBlock->GetSwitchTargets()->bbsDstTab     = jmpTab;
+    firstBlock->SetNext(isReversed ? blockIfTrue : blockIfFalse);
 
     // Splitting doesn't work well with jump-tables currently
     opts.compProcedureSplitting = false;
@@ -414,7 +410,10 @@ bool Compiler::optSwitchConvert(
     }
 
     // Unlink blockIfTrue from firstBlock, we're going to link it again in the loop below.
-    fgRemoveRefPred(trueEdge);
+    if (!skipPredRemoval)
+    {
+        fgRemoveRefPred(trueEdge);
+    }
 
     FlowEdge* switchTrueEdge = nullptr;
 
@@ -431,8 +430,6 @@ bool Compiler::optSwitchConvert(
             switchTrueEdge = newEdge;
         }
     }
-
-    assert(switchTrueEdge != nullptr);
 
     // Link the 'default' case
     FlowEdge* const switchDefaultEdge = fgAddRefPred(blockIfFalse, firstBlock);

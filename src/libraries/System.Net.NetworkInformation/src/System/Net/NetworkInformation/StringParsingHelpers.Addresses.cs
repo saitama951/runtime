@@ -131,30 +131,14 @@ namespace System.Net.NetworkInformation
                     string fileContents = ReadAllText(smbConfFilePath);
                     string label = "wins server = ";
                     int labelIndex = fileContents.IndexOf(label);
-
-                    if (labelIndex == -1)
-                    {
-                        return collection;
-                    }
-
                     int labelLineStart = fileContents.LastIndexOf(Environment.NewLine, labelIndex, StringComparison.Ordinal);
-
-                    while (labelIndex != -1)
+                    if (labelLineStart < labelIndex)
                     {
-                        int commentIndex = fileContents.IndexOfAny(CommentSymbols, labelLineStart, labelIndex - labelLineStart);
-                        if (commentIndex == -1)
-                        {
-                            break;
-                        }
-
-                        labelIndex = fileContents.IndexOf(label, labelIndex + 16);
-
-                        if (labelIndex == -1)
+                        int commentIndex = fileContents.IndexOf(';', labelLineStart, labelIndex - labelLineStart);
+                        if (commentIndex != -1)
                         {
                             return collection;
                         }
-
-                        labelLineStart = fileContents.LastIndexOf(Environment.NewLine, labelIndex, StringComparison.Ordinal);
                     }
                     int endOfLine = fileContents.IndexOf(Environment.NewLine, labelIndex, StringComparison.Ordinal);
                     ReadOnlySpan<char> addressSpan = fileContents.AsSpan(labelIndex + label.Length, endOfLine - (labelIndex + label.Length));
@@ -170,6 +154,5 @@ namespace System.Net.NetworkInformation
             return collection;
         }
 
-        private static readonly char[] CommentSymbols = [';', '#'];
     }
 }

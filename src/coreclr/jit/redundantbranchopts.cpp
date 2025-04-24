@@ -417,10 +417,8 @@ void Compiler::optRelopImpliesRelop(RelopImplicationInfo* rii)
         const ValueNum relatedVN = vnStore->GetRelatedRelop(rii->domCmpNormVN, vnRelation);
         if ((relatedVN != ValueNumStore::NoVN) && (relatedVN == rii->treeNormVN))
         {
-            rii->canInfer     = true;
-            rii->vnRelation   = vnRelation;
-            rii->reverseSense = (rii->vnRelation == ValueNumStore::VN_RELATION_KIND::VRK_Reverse) ||
-                                (rii->vnRelation == ValueNumStore::VN_RELATION_KIND::VRK_SwapReverse);
+            rii->canInfer   = true;
+            rii->vnRelation = vnRelation;
             return;
         }
     }
@@ -545,40 +543,21 @@ void Compiler::optRelopImpliesRelop(RelopImplicationInfo* rii)
                 // If dom predicate is wrapped in EQ(*,0) then a true dom
                 // predicate implies a false branch outcome, and vice versa.
                 //
-                rii->reverseSense = (rii->vnRelation == ValueNumStore::VN_RELATION_KIND::VRK_Reverse) ||
-                                    (rii->vnRelation == ValueNumStore::VN_RELATION_KIND::VRK_SwapReverse);
+                // And if the dom predicate is GT_NOT we reverse yet again.
+                //
+                rii->reverseSense = (oper == GT_EQ) ^ (predOper == GT_NOT);
 
-                // We only get partial knowledge in the AND/OR cases.
+                // We only get partial knowledge in these cases.
                 //
                 //   AND(p1,p2) = true  ==> both p1 and p2 must be true
                 //   AND(p1,p2) = false ==> don't know p1 or p2
                 //    OR(p1,p2) = true  ==> don't know p1 or p2
                 //    OR(p1,p2) = false ==> both p1 and p2 must be false
                 //
-                if (predOper == GT_AND)
+                if (predOper != GT_NOT)
                 {
-                    // EQ(AND, 0) false ==> AND true ==> AND operands true
-                    rii->canInferFromFalse = (oper == GT_EQ);
-                    // NE(AND, 0) true ==> AND true ==> AND operands true
-                    rii->canInferFromTrue = (oper == GT_NE);
-                    rii->reverseSense ^= (oper == GT_EQ);
-                }
-                else if (predOper == GT_OR)
-                {
-                    // NE(OR, 0) false ==> OR false ==> OR operands false
-                    rii->canInferFromFalse = (oper == GT_NE);
-                    // EQ(OR, 0) true ==> OR false ==> OR operands false
-                    rii->canInferFromTrue = (oper == GT_EQ);
-                    rii->reverseSense ^= (oper == GT_EQ);
-                }
-                else
-                {
-                    assert(predOper == GT_NOT);
-                    // NE(NOT(x), 0) ==> NOT(X)
-                    // EQ(NOT(x), 0) ==> X
-                    rii->canInferFromTrue  = true;
-                    rii->canInferFromFalse = true;
-                    rii->reverseSense ^= (oper == GT_NE);
+                    rii->canInferFromFalse = rii->reverseSense ^ (predOper == GT_OR);
+                    rii->canInferFromTrue  = rii->reverseSense ^ (predOper == GT_AND);
                 }
 
                 JITDUMP("Inferring predicate value from %s\n", GenTree::OpName(predOper));
@@ -681,21 +660,19 @@ bool Compiler::optRelopTryInferWithOneEqualOperand(const VNFuncApp&      domApp,
     // BB4:
     //   return;
 
-    // Check whether the dominating compare being "true" or false" implies the dominated compare is known
+    // Check whether the dominating compare being "false" implies the dominated compare is known
     // to be either "true" or "false".
-    RelopResult ifTrueStatus  = IsCmp2ImpliedByCmp1(domOper, domCns, treeOper, treeCns);
-    RelopResult ifFalseStatus = IsCmp2ImpliedByCmp1(GenTree::ReverseRelop(domOper), domCns, treeOper, treeCns);
-
-    if ((ifTrueStatus == RelopResult::Unknown) && (ifFalseStatus == RelopResult::Unknown))
+    RelopResult treeOperStatus = IsCmp2ImpliedByCmp1(GenTree::ReverseRelop(domOper), domCns, treeOper, treeCns);
+    if (treeOperStatus == RelopResult::Unknown)
     {
         return false;
     }
 
     rii->canInfer          = true;
     rii->vnRelation        = ValueNumStore::VN_RELATION_KIND::VRK_Inferred;
-    rii->canInferFromTrue  = (ifTrueStatus != RelopResult::Unknown);
-    rii->canInferFromFalse = (ifFalseStatus != RelopResult::Unknown);
-    rii->reverseSense      = (ifFalseStatus == RelopResult::AlwaysTrue) || (ifTrueStatus == RelopResult::AlwaysFalse);
+    rii->canInferFromTrue  = false;
+    rii->canInferFromFalse = true;
+    rii->reverseSense      = treeOperStatus == RelopResult::AlwaysTrue;
     return true;
 }
 
@@ -834,12 +811,10 @@ bool Compiler::optRedundantBranch(BasicBlock* const block)
                     //
                     if (domIsInferredRelop)
                     {
-                        // We used to assert rii.canInferFromTrue ^ rii.canInferFromFalse here.
+                        // This inference should be one-sided
                         //
-                        // But now we can find fully redundant compares with different relops,
-                        // eg LT x, 47 dominating LE x, 46. The second relop's value is equal to the first.
-                        //
-                        JITDUMP("\nDominator " FMT_BB " of " FMT_BB " can infer value of dominated relop\n",
+                        assert(rii.canInferFromTrue ^ rii.canInferFromFalse);
+                        JITDUMP("\nDominator " FMT_BB " of " FMT_BB " has same VN operands but different relop\n",
                                 domBlock->bbNum, block->bbNum);
                     }
                     else
@@ -850,6 +825,9 @@ bool Compiler::optRedundantBranch(BasicBlock* const block)
                     DISPTREE(domCmpTree);
                     JITDUMP(" Redundant compare; current relop:\n");
                     DISPTREE(tree);
+
+                    const bool domIsSameRelop = (rii.vnRelation == ValueNumStore::VN_RELATION_KIND::VRK_Same) ||
+                                                (rii.vnRelation == ValueNumStore::VN_RELATION_KIND::VRK_Swap);
 
                     BasicBlock* const trueSuccessor  = domBlock->GetTrueTarget();
                     BasicBlock* const falseSuccessor = domBlock->GetFalseTarget();
@@ -873,7 +851,7 @@ bool Compiler::optRedundantBranch(BasicBlock* const block)
                         // However we may be able to update the flow from block's predecessors so they
                         // bypass block and instead transfer control to jump's successors (aka jump threading).
                         //
-                        const bool wasThreaded = optJumpThreadDom(block, domBlock, !rii.reverseSense);
+                        const bool wasThreaded = optJumpThreadDom(block, domBlock, domIsSameRelop);
 
                         if (wasThreaded)
                         {
@@ -884,7 +862,7 @@ bool Compiler::optRedundantBranch(BasicBlock* const block)
                     {
                         // True path in dominator reaches, false path doesn't; relop must be true/false.
                         //
-                        const bool relopIsTrue = !rii.reverseSense;
+                        const bool relopIsTrue = rii.reverseSense ^ (domIsSameRelop | domIsInferredRelop);
                         JITDUMP("True successor " FMT_BB " of " FMT_BB " reaches, relop [%06u] must be %s\n",
                                 domBlock->GetTrueTarget()->bbNum, domBlock->bbNum, dspTreeID(tree),
                                 relopIsTrue ? "true" : "false");
@@ -895,7 +873,7 @@ bool Compiler::optRedundantBranch(BasicBlock* const block)
                     {
                         // False path from dominator reaches, true path doesn't; relop must be false/true.
                         //
-                        const bool relopIsFalse = !rii.reverseSense;
+                        const bool relopIsFalse = rii.reverseSense ^ (domIsSameRelop | domIsInferredRelop);
                         JITDUMP("False successor " FMT_BB " of " FMT_BB " reaches, relop [%06u] must be %s\n",
                                 domBlock->GetFalseTarget()->bbNum, domBlock->bbNum, dspTreeID(tree),
                                 relopIsFalse ? "false" : "true");
@@ -980,7 +958,7 @@ bool Compiler::optRedundantBranch(BasicBlock* const block)
 
     JITDUMP("\nRedundant branch opt in " FMT_BB ":\n", block->bbNum);
 
-    fgMorphBlockStmt(block, stmt DEBUGARG(__FUNCTION__), /* invalidateDFSTreeOnFGChange */ false);
+    fgMorphBlockStmt(block, stmt DEBUGARG(__FUNCTION__));
     Metrics.RedundantBranchesEliminated++;
     return true;
 }
@@ -998,9 +976,8 @@ struct JumpThreadInfo
         , m_trueTarget(block->GetTrueTarget())
         , m_falseTarget(block->GetFalseTarget())
         , m_ambiguousVNBlock(nullptr)
-        , traits(comp->m_dfsTree->PostOrderTraits())
-        , m_truePreds(BitVecOps::MakeEmpty(&traits))
-        , m_ambiguousPreds(BitVecOps::MakeEmpty(&traits))
+        , m_truePreds(BlockSetOps::MakeEmpty(comp))
+        , m_ambiguousPreds(BlockSetOps::MakeEmpty(comp))
         , m_numPreds(0)
         , m_numAmbiguousPreds(0)
         , m_numTruePreds(0)
@@ -1018,13 +995,11 @@ struct JumpThreadInfo
     BasicBlock* const m_falseTarget;
     // Block that brings in the ambiguous VN
     BasicBlock* m_ambiguousVNBlock;
-    // Traits for the below BitVecs
-    BitVecTraits traits;
     // Pred blocks for which the predicate will be true
-    BitVec m_truePreds;
+    BlockSet m_truePreds;
     // Pred blocks that can't be threaded or for which the predicate
     // value can't be determined
-    BitVec m_ambiguousPreds;
+    BlockSet m_ambiguousPreds;
     // Total number of predecessors
     int m_numPreds;
     // Number of predecessors that can't be threaded or for which the predicate
@@ -1049,6 +1024,12 @@ struct JumpThreadInfo
 //
 bool Compiler::optJumpThreadCheck(BasicBlock* const block, BasicBlock* const domBlock)
 {
+    if (fgCurBBEpochSize != (fgBBNumMax + 1))
+    {
+        JITDUMP("Looks like we've added a new block (e.g. during optLoopHoist) since last renumber, so no threading\n");
+        return false;
+    }
+
     // If the block is the first block of try-region, then skip jump threading
     if (bbIsTryBeg(block))
     {
@@ -1305,7 +1286,7 @@ bool Compiler::optJumpThreadDom(BasicBlock* const block, BasicBlock* const domBl
         if (predBlock->KindIs(BBJ_SWITCH))
         {
             JITDUMP(FMT_BB " is a switch pred\n", predBlock->bbNum);
-            BitVecOps::AddElemD(&jti.traits, jti.m_ambiguousPreds, predBlock->bbPostorderNum);
+            BlockSetOps::AddElemD(this, jti.m_ambiguousPreds, predBlock->bbNum);
             jti.m_numAmbiguousPreds++;
             continue;
         }
@@ -1326,7 +1307,7 @@ bool Compiler::optJumpThreadDom(BasicBlock* const block, BasicBlock* const domBl
             // lead to more complications, and it isn't that common. So we tolerate it.
             //
             JITDUMP(FMT_BB " is an ambiguous pred\n", predBlock->bbNum);
-            BitVecOps::AddElemD(&jti.traits, jti.m_ambiguousPreds, predBlock->bbPostorderNum);
+            BlockSetOps::AddElemD(this, jti.m_ambiguousPreds, predBlock->bbNum);
             jti.m_numAmbiguousPreds++;
             continue;
         }
@@ -1337,12 +1318,12 @@ bool Compiler::optJumpThreadDom(BasicBlock* const block, BasicBlock* const domBl
             {
                 JITDUMP(FMT_BB " is an eh constrained pred\n", predBlock->bbNum);
                 jti.m_numAmbiguousPreds++;
-                BitVecOps::AddElemD(&jti.traits, jti.m_ambiguousPreds, predBlock->bbPostorderNum);
+                BlockSetOps::AddElemD(this, jti.m_ambiguousPreds, predBlock->bbNum);
                 continue;
             }
 
             jti.m_numTruePreds++;
-            BitVecOps::AddElemD(&jti.traits, jti.m_truePreds, predBlock->bbPostorderNum);
+            BlockSetOps::AddElemD(this, jti.m_truePreds, predBlock->bbNum);
             JITDUMP(FMT_BB " is a true pred\n", predBlock->bbNum);
         }
         else
@@ -1352,7 +1333,7 @@ bool Compiler::optJumpThreadDom(BasicBlock* const block, BasicBlock* const domBl
             if (!BasicBlock::sameEHRegion(predBlock, jti.m_falseTarget))
             {
                 JITDUMP(FMT_BB " is an eh constrained pred\n", predBlock->bbNum);
-                BitVecOps::AddElemD(&jti.traits, jti.m_ambiguousPreds, predBlock->bbPostorderNum);
+                BlockSetOps::AddElemD(this, jti.m_ambiguousPreds, predBlock->bbNum);
                 jti.m_numAmbiguousPreds++;
                 continue;
             }
@@ -1534,7 +1515,7 @@ bool Compiler::optJumpThreadPhi(BasicBlock* block, GenTree* tree, ValueNum treeN
         {
             JITDUMP("Could not map phi inputs from pred " FMT_BB "\n", predBlock->bbNum);
             JITDUMP(FMT_BB " is an ambiguous pred\n", predBlock->bbNum);
-            BitVecOps::AddElemD(&jti.traits, jti.m_ambiguousPreds, predBlock->bbPostorderNum);
+            BlockSetOps::AddElemD(this, jti.m_ambiguousPreds, predBlock->bbNum);
             jti.m_numAmbiguousPreds++;
             continue;
         }
@@ -1566,12 +1547,12 @@ bool Compiler::optJumpThreadPhi(BasicBlock* block, GenTree* tree, ValueNum treeN
                 {
                     JITDUMP(FMT_BB " is an eh constrained pred\n", predBlock->bbNum);
                     jti.m_numAmbiguousPreds++;
-                    BitVecOps::AddElemD(&jti.traits, jti.m_ambiguousPreds, predBlock->bbPostorderNum);
+                    BlockSetOps::AddElemD(this, jti.m_ambiguousPreds, predBlock->bbNum);
                     continue;
                 }
 
                 jti.m_numTruePreds++;
-                BitVecOps::AddElemD(&jti.traits, jti.m_truePreds, predBlock->bbPostorderNum);
+                BlockSetOps::AddElemD(this, jti.m_truePreds, predBlock->bbNum);
                 JITDUMP(FMT_BB " is a true pred\n", predBlock->bbNum);
             }
             else
@@ -1579,7 +1560,7 @@ bool Compiler::optJumpThreadPhi(BasicBlock* block, GenTree* tree, ValueNum treeN
                 if (!BasicBlock::sameEHRegion(predBlock, jti.m_falseTarget))
                 {
                     JITDUMP(FMT_BB " is an eh constrained pred\n", predBlock->bbNum);
-                    BitVecOps::AddElemD(&jti.traits, jti.m_ambiguousPreds, predBlock->bbPostorderNum);
+                    BlockSetOps::AddElemD(this, jti.m_ambiguousPreds, predBlock->bbNum);
                     jti.m_numAmbiguousPreds++;
                     continue;
                 }
@@ -1591,7 +1572,7 @@ bool Compiler::optJumpThreadPhi(BasicBlock* block, GenTree* tree, ValueNum treeN
         else
         {
             JITDUMP(FMT_BB " is an ambiguous pred\n", predBlock->bbNum);
-            BitVecOps::AddElemD(&jti.traits, jti.m_ambiguousPreds, predBlock->bbPostorderNum);
+            BlockSetOps::AddElemD(this, jti.m_ambiguousPreds, predBlock->bbNum);
             jti.m_numAmbiguousPreds++;
 
             // If this was the first ambiguous pred, remember the substVN
@@ -1674,14 +1655,11 @@ bool Compiler::optJumpThreadCore(JumpThreadInfo& jti)
     // If this pred is in the set that will reuse block, do nothing.
     // Else revise pred to branch directly to the appropriate successor of block.
     //
-    bool modifiedProfile = false;
-    for (FlowEdge* const predEdge : jti.m_block->PredEdgesEditing())
+    for (BasicBlock* const predBlock : jti.m_block->PredBlocksEditing())
     {
-        BasicBlock* const predBlock = predEdge->getSourceBlock();
-
         // If this was an ambiguous pred, skip.
         //
-        if (BitVecOps::IsMember(&jti.traits, jti.m_ambiguousPreds, predBlock->bbPostorderNum))
+        if (BlockSetOps::IsMember(this, jti.m_ambiguousPreds, predBlock->bbNum))
         {
             if (setNoCseIn && !jti.m_block->HasFlag(BBF_NO_CSE_IN))
             {
@@ -1691,49 +1669,38 @@ bool Compiler::optJumpThreadCore(JumpThreadInfo& jti)
             continue;
         }
 
-        const bool isTruePred = BitVecOps::IsMember(&jti.traits, jti.m_truePreds, predBlock->bbPostorderNum);
+        const bool isTruePred = BlockSetOps::IsMember(this, jti.m_truePreds, predBlock->bbNum);
 
         // Jump to the appropriate successor.
         //
-        BasicBlock* newTarget = nullptr;
         if (isTruePred)
         {
             JITDUMP("Jump flow from pred " FMT_BB " -> " FMT_BB
                     " implies predicate true; we can safely redirect flow to be " FMT_BB " -> " FMT_BB "\n",
                     predBlock->bbNum, jti.m_block->bbNum, predBlock->bbNum, jti.m_trueTarget->bbNum);
-            newTarget = jti.m_trueTarget;
+
+            fgReplaceJumpTarget(predBlock, jti.m_block, jti.m_trueTarget);
+
+            if (setNoCseIn && !jti.m_trueTarget->HasFlag(BBF_NO_CSE_IN))
+            {
+                JITDUMP(FMT_BB " => BBF_NO_CSE_IN\n", jti.m_trueTarget->bbNum);
+                jti.m_trueTarget->SetFlags(BBF_NO_CSE_IN);
+            }
         }
         else
         {
             JITDUMP("Jump flow from pred " FMT_BB " -> " FMT_BB
                     " implies predicate false; we can safely redirect flow to be " FMT_BB " -> " FMT_BB "\n",
                     predBlock->bbNum, jti.m_block->bbNum, predBlock->bbNum, jti.m_falseTarget->bbNum);
-            newTarget = jti.m_falseTarget;
+
+            fgReplaceJumpTarget(predBlock, jti.m_block, jti.m_falseTarget);
+
+            if (setNoCseIn && !jti.m_falseTarget->HasFlag(BBF_NO_CSE_IN))
+            {
+                JITDUMP(FMT_BB " => BBF_NO_CSE_IN\n", jti.m_falseTarget->bbNum);
+                jti.m_falseTarget->SetFlags(BBF_NO_CSE_IN);
+            }
         }
-
-        fgReplaceJumpTarget(predBlock, jti.m_block, newTarget);
-
-        if (setNoCseIn && !newTarget->HasFlag(BBF_NO_CSE_IN))
-        {
-            JITDUMP(FMT_BB " => BBF_NO_CSE_IN\n", newTarget->bbNum);
-            newTarget->SetFlags(BBF_NO_CSE_IN);
-        }
-
-        if (predBlock->hasProfileWeight())
-        {
-            newTarget->increaseBBProfileWeight(predEdge->getLikelyWeight());
-            modifiedProfile = true;
-        }
-    }
-
-    // jti.m_block is unreachable, but we won't remove it until the next flowgraph simplification pass.
-    // Mark the profile as inconsistent to pass the post-phase checks.
-    if (modifiedProfile)
-    {
-        JITDUMP("RBO: " FMT_BB
-                " is now unreachable, and flow into its successors needs to be removed. Data %s inconsistent.\n",
-                jti.m_block->bbNum, fgPgoConsistent ? "is now" : "was already");
-        fgPgoConsistent = false;
     }
 
     // If block didn't get fully optimized, and now has just one pred, see if
@@ -1745,7 +1712,7 @@ bool Compiler::optJumpThreadCore(JumpThreadInfo& jti)
     BasicBlock* const ambBlock = jti.m_ambiguousVNBlock;
     if ((ambBlock != nullptr) && jti.m_block->KindIs(BBJ_COND) && (jti.m_block->GetUniquePred(this) == ambBlock))
     {
-        JITDUMP(FMT_BB " has just one remaining predecessor " FMT_BB "\n", jti.m_block->bbNum, ambBlock->bbNum);
+        JITDUMP(FMT_BB " has just one remaining predcessor " FMT_BB "\n", jti.m_block->bbNum, ambBlock->bbNum);
 
         Statement* const stmt = jti.m_block->lastStmt();
         assert(stmt != nullptr);

@@ -199,12 +199,9 @@ namespace System.Net.Http
 
                 // Since the underlying byte[] will never be exposed, we use an ArrayPool-backed
                 // stream to which we copy all of the data from the response.
-                using var buffer = new HttpContent.LimitArrayPoolWriteStream(
-                    _maxResponseContentBufferSize,
-                    c.Headers.ContentLength.GetValueOrDefault(),
-                    getFinalSizeFromPool: true);
-
                 using Stream responseStream = c.TryReadAsStream() ?? await c.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
+                using var buffer = new HttpContent.LimitArrayPoolWriteStream(_maxResponseContentBufferSize, (int)c.Headers.ContentLength.GetValueOrDefault());
+
                 try
                 {
                     await responseStream.CopyToAsync(buffer, cts.Token).ConfigureAwait(false);
@@ -214,8 +211,14 @@ namespace System.Net.Http
                     throw HttpContent.WrapStreamCopyException(e);
                 }
 
-                // Decode and return the data from the buffer.
-                return HttpContent.ReadBufferAsString(buffer, c.Headers);
+                if (buffer.Length > 0)
+                {
+                    // Decode and return the data from the buffer.
+                    return HttpContent.ReadBufferAsString(buffer.GetBuffer(), c.Headers);
+                }
+
+                // No content to return.
+                return string.Empty;
             }
             catch (Exception e)
             {
@@ -269,16 +272,17 @@ namespace System.Net.Http
                     responseContentTelemetryStarted = true;
                 }
 
-                // If we got a content length, then we assume that it's correct. If that's the case,
-                // we can opportunistically allocate the exact-sized buffer while buffering the content.
+                // If we got a content length, then we assume that it's correct and create a MemoryStream
+                // to which the content will be transferred.  That way, assuming we actually get the exact
+                // amount we were expecting, we can simply return the MemoryStream's underlying buffer.
                 // If we didn't get a content length, then we assume we're going to have to grow
                 // the buffer potentially several times and that it's unlikely the underlying buffer
                 // at the end will be the exact size needed, in which case it's more beneficial to use
                 // ArrayPool buffers and copy out to a new array at the end.
-                using var buffer = new HttpContent.LimitArrayPoolWriteStream(
-                    _maxResponseContentBufferSize,
-                    c.Headers.ContentLength.GetValueOrDefault(),
-                    getFinalSizeFromPool: false);
+                long? contentLength = c.Headers.ContentLength;
+                using Stream buffer = contentLength.HasValue ?
+                    new HttpContent.LimitMemoryStream(_maxResponseContentBufferSize, (int)contentLength.GetValueOrDefault()) :
+                    new HttpContent.LimitArrayPoolWriteStream(_maxResponseContentBufferSize);
 
                 using Stream responseStream = c.TryReadAsStream() ?? await c.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
                 try
@@ -290,7 +294,10 @@ namespace System.Net.Http
                     throw HttpContent.WrapStreamCopyException(e);
                 }
 
-                return buffer.ToArray();
+                return
+                    buffer.Length == 0 ? Array.Empty<byte>() :
+                    buffer is HttpContent.LimitMemoryStream lms ? lms.GetSizedBuffer() :
+                    ((HttpContent.LimitArrayPoolWriteStream)buffer).ToArray();
             }
             catch (Exception e)
             {

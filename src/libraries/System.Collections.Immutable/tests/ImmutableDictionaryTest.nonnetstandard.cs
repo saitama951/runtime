@@ -2,6 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using Xunit;
 
 namespace System.Collections.Immutable.Tests
@@ -22,14 +25,14 @@ namespace System.Collections.Immutable.Tests
             this.EnumeratorTestHelper(emptyMap);
         }
 
-        internal override BinaryTreeProxy GetRootNode<TKey, TValue>(IImmutableDictionary<TKey, TValue> dictionary)
+        internal override IBinaryTree GetRootNode<TKey, TValue>(IImmutableDictionary<TKey, TValue> dictionary)
         {
-            return ((ImmutableDictionary<TKey, TValue>)dictionary).GetBinaryTreeProxy();
+            return ((ImmutableDictionary<TKey, TValue>)dictionary).Root;
         }
 
         private void EmptyTestHelperHash<TKey, TValue>(IImmutableDictionary<TKey, TValue> empty, TKey someKey)
         {
-            Assert.Same(EqualityComparer<TKey>.Default, ((ImmutableDictionary<TKey, TValue>)empty).KeyComparer);
+            Assert.Same(EqualityComparer<TKey>.Default, ((IHashKeyCollection<TKey>)empty).KeyComparer);
         }
     }
 }

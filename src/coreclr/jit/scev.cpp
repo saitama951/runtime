@@ -60,19 +60,6 @@
 
 #include "jitpch.h"
 
-ScevConstant::ScevConstant(var_types type, int64_t value)
-    : Scev(ScevOper::Constant, type)
-{
-    if (genTypeSize(type) == 4)
-    {
-        Value = (int32_t)value;
-    }
-    else
-    {
-        Value = value;
-    }
-}
-
 //------------------------------------------------------------------------
 // GetConstantValue: If this SSA use refers to a constant, then fetch that
 // constant.
@@ -528,11 +515,6 @@ Scev* ScalarEvolutionContext::CreateScevForConstant(GenTreeIntConCommon* tree)
 //
 Scev* ScalarEvolutionContext::AnalyzeNew(BasicBlock* block, GenTree* tree, int depth)
 {
-    if (!varTypeIsIntegralOrI(tree->TypeGet()))
-    {
-        return nullptr;
-    }
-
     switch (tree->OperGet())
     {
         case GT_CNS_INT:
@@ -576,10 +558,17 @@ Scev* ScalarEvolutionContext::AnalyzeNew(BasicBlock* block, GenTree* tree, int d
                 return nullptr;
             }
 
-            return Analyze(ssaDsc->GetBlock(), ssaDsc->GetDefNode()->Data(), depth + 1);
+            return Analyze(ssaDsc->GetBlock(), ssaDsc->GetDefNode(), depth + 1);
         }
-        case GT_PHI:
+        case GT_STORE_LCL_VAR:
         {
+            GenTreeLclVarCommon* store = tree->AsLclVarCommon();
+            GenTree*             data  = store->Data();
+            if (!data->OperIs(GT_PHI))
+            {
+                return Analyze(block, data, depth + 1);
+            }
+
             if (block != m_loop->GetHeader())
             {
                 return nullptr;
@@ -587,7 +576,7 @@ Scev* ScalarEvolutionContext::AnalyzeNew(BasicBlock* block, GenTree* tree, int d
 
             // We have a phi def for the current loop. Look for a primary
             // induction variable.
-            GenTreePhi*    phi         = tree->AsPhi();
+            GenTreePhi*    phi         = data->AsPhi();
             GenTreePhiArg* enterSsa    = nullptr;
             GenTreePhiArg* backedgeSsa = nullptr;
 
@@ -612,7 +601,7 @@ Scev* ScalarEvolutionContext::AnalyzeNew(BasicBlock* block, GenTree* tree, int d
 
             ScevLocal* enterScev = NewLocal(enterSsa->GetLclNum(), enterSsa->GetSsaNum());
 
-            LclVarDsc*    dsc    = m_comp->lvaGetDesc(enterSsa->GetLclNum());
+            LclVarDsc*    dsc    = m_comp->lvaGetDesc(store);
             LclSsaVarDsc* ssaDsc = dsc->GetPerSsaData(backedgeSsa->GetSsaNum());
 
             if (ssaDsc->GetDefNode() == nullptr)
@@ -621,7 +610,7 @@ Scev* ScalarEvolutionContext::AnalyzeNew(BasicBlock* block, GenTree* tree, int d
                 return nullptr;
             }
 
-            if (ssaDsc->GetDefNode()->GetLclNum() != enterSsa->GetLclNum())
+            if (ssaDsc->GetDefNode()->GetLclNum() != store->GetLclNum())
             {
                 assert(dsc->lvIsStructField && ssaDsc->GetDefNode()->GetLclNum() == dsc->lvParentLcl);
                 return nullptr;
@@ -631,7 +620,7 @@ Scev* ScalarEvolutionContext::AnalyzeNew(BasicBlock* block, GenTree* tree, int d
 
             // Try simple but most common case first, where we have a direct
             // add recurrence like i = i + 1.
-            Scev* simpleAddRec = CreateSimpleAddRec(phi, enterScev, ssaDsc->GetBlock(), ssaDsc->GetDefNode()->Data());
+            Scev* simpleAddRec = CreateSimpleAddRec(store, enterScev, ssaDsc->GetBlock(), ssaDsc->GetDefNode()->Data());
             if (simpleAddRec != nullptr)
             {
                 return simpleAddRec;
@@ -676,8 +665,8 @@ Scev* ScalarEvolutionContext::AnalyzeNew(BasicBlock* block, GenTree* tree, int d
             // single operand is the recurrence, we can represent it as an add
             // recurrence. See MakeAddRecFromRecursiveScev for the details.
             //
-            ScevConstant* symbolicAddRec = NewConstant(phi->TypeGet(), 0xdeadbeef);
-            m_ephemeralCache.Emplace(phi, symbolicAddRec);
+            ScevConstant* symbolicAddRec = NewConstant(data->TypeGet(), 0xdeadbeef);
+            m_ephemeralCache.Emplace(store, symbolicAddRec);
 
             Scev* result;
             if (m_usingEphemeralCache)
@@ -778,7 +767,7 @@ Scev* ScalarEvolutionContext::AnalyzeNew(BasicBlock* block, GenTree* tree, int d
 // "i = i + 1".
 //
 // Parameters:
-//   headerPhi    - Phi value of the candidate primary induction variable
+//   headerStore  - Phi definition of the candidate primary induction variable
 //   enterScev    - SCEV describing start value of the primary induction variable
 //   stepDefBlock - Block containing the def of the step value
 //   stepDefData  - Value of the def of the step value
@@ -786,10 +775,10 @@ Scev* ScalarEvolutionContext::AnalyzeNew(BasicBlock* block, GenTree* tree, int d
 // Returns:
 //   SCEV node if this is a simple addrec shape. Otherwise nullptr.
 //
-Scev* ScalarEvolutionContext::CreateSimpleAddRec(GenTreePhi* headerPhi,
-                                                 ScevLocal*  enterScev,
-                                                 BasicBlock* stepDefBlock,
-                                                 GenTree*    stepDefData)
+Scev* ScalarEvolutionContext::CreateSimpleAddRec(GenTreeLclVarCommon* headerStore,
+                                                 ScevLocal*           enterScev,
+                                                 BasicBlock*          stepDefBlock,
+                                                 GenTree*             stepDefData)
 {
     if (!stepDefData->OperIs(GT_ADD))
     {
@@ -799,34 +788,13 @@ Scev* ScalarEvolutionContext::CreateSimpleAddRec(GenTreePhi* headerPhi,
     GenTree* stepTree;
     GenTree* op1 = stepDefData->gtGetOp1();
     GenTree* op2 = stepDefData->gtGetOp2();
-
-    auto getUseValue = [this](GenTree* value) -> GenTree* {
-        if (!value->OperIs(GT_LCL_VAR))
-        {
-            return nullptr;
-        }
-
-        GenTreeLclVarCommon* lcl = value->AsLclVarCommon();
-        if (!lcl->HasSsaName())
-        {
-            return nullptr;
-        }
-
-        LclVarDsc*    lclDsc = m_comp->lvaGetDesc(lcl);
-        LclSsaVarDsc* ssaDsc = lclDsc->GetPerSsaData(lcl->GetSsaNum());
-        if (ssaDsc->GetDefNode() == nullptr)
-        {
-            return nullptr;
-        }
-
-        return ssaDsc->GetDefNode()->Data();
-    };
-
-    if (getUseValue(op1) == headerPhi)
+    if (op1->OperIs(GT_LCL_VAR) && (op1->AsLclVar()->GetLclNum() == headerStore->GetLclNum()) &&
+        (op1->AsLclVar()->GetSsaNum() == headerStore->GetSsaNum()))
     {
         stepTree = op2;
     }
-    else if (getUseValue(op2) == headerPhi)
+    else if (op2->OperIs(GT_LCL_VAR) && (op2->AsLclVar()->GetLclNum() == headerStore->GetLclNum()) &&
+             (op2->AsLclVar()->GetSsaNum() == headerStore->GetSsaNum()))
     {
         stepTree = op1;
     }
@@ -1572,18 +1540,22 @@ RelopEvaluationResult ScalarEvolutionContext::EvaluateRelop(ValueNum vn)
             continue;
         }
 
+        bool domIsInferredRelop = (rii.vnRelation == ValueNumStore::VN_RELATION_KIND::VRK_Inferred);
+        bool domIsSameRelop     = (rii.vnRelation == ValueNumStore::VN_RELATION_KIND::VRK_Same) ||
+                              (rii.vnRelation == ValueNumStore::VN_RELATION_KIND::VRK_Swap);
+
         bool trueReaches  = m_comp->optReachable(idom->GetTrueTarget(), m_loop->GetHeader(), idom);
         bool falseReaches = m_comp->optReachable(idom->GetFalseTarget(), m_loop->GetHeader(), idom);
 
         if (trueReaches && !falseReaches && rii.canInferFromTrue)
         {
-            bool relopIsTrue = !rii.reverseSense;
+            bool relopIsTrue = rii.reverseSense ^ (domIsSameRelop | domIsInferredRelop);
             return relopIsTrue ? RelopEvaluationResult::True : RelopEvaluationResult::False;
         }
 
         if (falseReaches && !trueReaches && rii.canInferFromFalse)
         {
-            bool relopIsFalse = !rii.reverseSense;
+            bool relopIsFalse = rii.reverseSense ^ (domIsSameRelop | domIsInferredRelop);
             return relopIsFalse ? RelopEvaluationResult::False : RelopEvaluationResult::True;
         }
     }

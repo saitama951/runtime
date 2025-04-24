@@ -6,12 +6,10 @@
 
 using System;
 using System.Runtime.InteropServices;
-using Xunit;
 
 public class Test_PinObj_neg
 {
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         Object[] array = new Object[25];
 

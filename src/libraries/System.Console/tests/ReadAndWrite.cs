@@ -105,7 +105,6 @@ public class ReadAndWrite
         Console.Write(50UL);
         Console.Write(new object());
         Console.Write("Hello World");
-        Console.Write("Hello World".AsSpan());
     }
 
     private static void WriteLineCore()
@@ -146,7 +145,6 @@ public class ReadAndWrite
         Console.WriteLine(50UL);
         Console.WriteLine(new object());
         Console.WriteLine("Hello World");
-        Console.WriteLine("Hello World".AsSpan());
     }
 
     [Fact]
@@ -189,7 +187,6 @@ public class ReadAndWrite
                 writer.Write(50UL);
                 writer.Write(new object());
                 writer.Write("Hello World");
-                writer.Write("Hello World".AsSpan());
 
                 writer.Flush();
 

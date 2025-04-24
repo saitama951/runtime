@@ -2014,14 +2014,17 @@ namespace System
             // This optimizes for chars being unlikely to match a separator.
             else
             {
-                var map = new ProbabilisticMap(separators);
-                ref uint charMap = ref Unsafe.As<ProbabilisticMap, uint>(ref map);
-
-                for (int i = 0; i < source.Length; i++)
+                unsafe
                 {
-                    if (ProbabilisticMap.Contains(ref charMap, separators, source[i]))
+                    var map = new ProbabilisticMap(separators);
+                    ref uint charMap = ref Unsafe.As<ProbabilisticMap, uint>(ref map);
+
+                    for (int i = 0; i < source.Length; i++)
                     {
-                        sepListBuilder.Append(i);
+                        if (ProbabilisticMap.Contains(ref charMap, separators, source[i]))
+                        {
+                            sepListBuilder.Append(i);
+                        }
                     }
                 }
             }

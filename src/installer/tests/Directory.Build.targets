@@ -1,16 +1,14 @@
 <Project>
 
-  <!-- Exclude any ProjectReferences to framework assemblies on the latest framework -->
-  <Import Project="$(LibrariesProjectRoot)NetCoreAppLibrary.props" Condition="'$(TargetFramework)' == '$(NetCoreAppCurrent)'" />
-  <ItemGroup Condition="'$(TargetFramework)' == '$(NetCoreAppCurrent)'">
-    <ProjectReferenceExclusion Include="@(NetCoreAppLibrary)" />
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp'">
+    <!-- Update and drop package assets from Json, we'll use the framework version -->
+    <PackageReference Include="System.Text.Json" Version="$(SystemTextJsonVersion)" PrivateAssets="All" ExcludeAssets="All" />
   </ItemGroup>
-
-  <Target Name="GetTargetDir" Returns="$([System.IO.Path]::GetFullPath('$(TargetDir)'))" />
 
   <Target Name="SetupTestContextVariables"
           Condition="'$(IsTestProject)' == 'true'"
           DependsOnTargets="
+            GetProductVersions;
             DetermineTestOutputDirectory"
           BeforeTargets="Build">
     <PropertyGroup>
@@ -60,12 +58,6 @@
       File="$(OutDir)TestContextVariables.txt"
       Overwrite="true"
       Lines="@(TestContextVariable)" />
-
-    <!-- Write an empty global.json to the output, such that running the test -->
-    <WriteLinesToFile
-      File="$(OutDir)global.json"
-      Lines="{}"
-      WriteOnlyWhenDifferent="true" />
   </Target>
 
   <Target Name="DetermineTestOutputDirectory">

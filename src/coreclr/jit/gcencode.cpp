@@ -397,7 +397,7 @@ static void regenLog(unsigned codeDelta,
 
     if (logFile == NULL)
     {
-        logFile = fopen_utf8("regen.txt", "a");
+        logFile = fopen("regen.txt", "a");
         InitializeCriticalSection(&logFileLock);
     }
 
@@ -424,7 +424,7 @@ static void regenLog(unsigned encoding, InfoHdr* header, InfoHdr* state)
 {
     if (logFile == NULL)
     {
-        logFile = fopen_utf8("regen.txt", "a");
+        logFile = fopen("regen.txt", "a");
         InitializeCriticalSection(&logFileLock);
     }
 
@@ -1588,7 +1588,10 @@ size_t GCInfo::gcInfoBlockHdrSave(
         assert(header->revPInvokeOffset != INVALID_REV_PINVOKE_OFFSET);
     }
 
-    size_t argCount = compiler->lvaParameterStackSize / REGSIZE_BYTES;
+    assert((compiler->compArgSize & 0x3) == 0);
+
+    size_t argCount =
+        (compiler->compArgSize - (compiler->codeGen->intRegState.rsCalleeRegArgCount * REGSIZE_BYTES)) / REGSIZE_BYTES;
     assert(argCount <= MAX_USHORT_SIZE_T);
     header->argCount = static_cast<unsigned short>(argCount);
 
@@ -3199,24 +3202,9 @@ size_t GCInfo::gcMakeRegPtrTable(BYTE* dest, int mask, const InfoHdr& header, un
 
                     callArgCnt = genRegPtrTemp->rpdPtrArg;
 
-                    unsigned gcrefRegMask = 0;
+                    unsigned gcrefRegMask = genRegPtrTemp->rpdCallGCrefRegs;
 
-                    byrefRegMask = 0;
-
-                    // The order here is fixed: it must agree with the order assumed in eetwain.
-                    // NB: x86 GC decoder does not report return registers at call sites.
-                    static const regNumber calleeSaveOrder[] = {REG_EDI, REG_ESI, REG_EBX, REG_EBP};
-                    for (unsigned i = 0; i < ArrLen(calleeSaveOrder); i++)
-                    {
-                        if ((genRegPtrTemp->rpdCallGCrefRegs & (1 << (calleeSaveOrder[i] - REG_INT_FIRST))) != 0)
-                        {
-                            gcrefRegMask |= 1u << i;
-                        }
-                        if ((genRegPtrTemp->rpdCallByrefRegs & (1 << (calleeSaveOrder[i] - REG_INT_FIRST))) != 0)
-                        {
-                            byrefRegMask |= 1u << i;
-                        }
-                    }
+                    byrefRegMask = genRegPtrTemp->rpdCallByrefRegs;
 
                     assert((gcrefRegMask & byrefRegMask) == 0);
 
@@ -3721,6 +3709,15 @@ public:
         }
     }
 
+    void SetReturnKind(ReturnKind returnKind)
+    {
+        m_gcInfoEncoder->SetReturnKind(returnKind);
+        if (m_doLogging)
+        {
+            printf("Set ReturnKind to %s.\n", ReturnKindToString(returnKind));
+        }
+    }
+
     void SetStackBaseRegister(UINT32 registerNumber)
     {
         m_gcInfoEncoder->SetStackBaseRegister(registerNumber);
@@ -3789,7 +3786,7 @@ public:
             printf("Set WantsReportOnlyLeaf.\n");
         }
     }
-#elif defined(TARGET_ARMARCH) || defined(TARGET_RISCV64) || defined(TARGET_LOONGARCH64)
+#elif defined(TARGET_ARMARCH)
     void SetHasTailCalls()
     {
         m_gcInfoEncoder->SetHasTailCalls();
@@ -3834,6 +3831,8 @@ void GCInfo::gcInfoBlockHdrSave(GcInfoEncoder* gcInfoEncoder, unsigned methodSiz
     // Can't create tables if we've not saved code.
 
     gcInfoEncoderWithLog->SetCodeLength(methodSize);
+
+    gcInfoEncoderWithLog->SetReturnKind(getReturnKind());
 
     if (compiler->isFramePointerUsed())
     {
@@ -3975,12 +3974,12 @@ void GCInfo::gcInfoBlockHdrSave(GcInfoEncoder* gcInfoEncoder, unsigned methodSiz
     }
 #endif // TARGET_AMD64
 
-#if defined(TARGET_ARMARCH) || defined(TARGET_RISCV64) || defined(TARGET_LOONGARCH64)
+#ifdef TARGET_ARMARCH
     if (compiler->codeGen->GetHasTailCalls())
     {
         gcInfoEncoderWithLog->SetHasTailCalls();
     }
-#endif // TARGET_ARMARCH || TARGET_RISCV64 || TARGET_LOONGARCH64
+#endif // TARGET_ARMARCH
 
 #if FEATURE_FIXED_OUT_ARGS
     // outgoing stack area size
@@ -4065,7 +4064,14 @@ void GCInfo::gcMakeRegPtrTable(
 {
     GCENCODER_WITH_LOGGING(gcInfoEncoderWithLog, gcInfoEncoder);
 
-    const bool noTrackedGCSlots = compiler->opts.MinOpts();
+    // TODO: Decide on whether we should enable this optimization for all
+    // targets: https://github.com/dotnet/runtime/issues/103917
+#ifdef TARGET_XARCH
+    const bool noTrackedGCSlots =
+        compiler->opts.MinOpts() && !compiler->opts.jitFlags->IsSet(JitFlags::JIT_FLAG_PREJIT);
+#else
+    const bool noTrackedGCSlots = false;
+#endif
 
     if (mode == MAKE_REG_PTR_MODE_ASSIGN_SLOTS)
     {
@@ -4480,8 +4486,8 @@ void GCInfo::gcMakeRegPtrTable(
             assert(call->u1.cdArgMask == 0 && call->cdArgCnt == 0);
 
             // Other than that, we just have to deal with the regmasks.
-            regMaskSmall gcrefRegMask = call->cdGCrefRegs;
-            regMaskSmall byrefRegMask = call->cdByrefRegs;
+            regMaskSmall gcrefRegMask = call->cdGCrefRegs & RBM_CALL_GC_REGS.GetIntRegSet();
+            regMaskSmall byrefRegMask = call->cdByrefRegs & RBM_CALL_GC_REGS.GetIntRegSet();
 
             assert((gcrefRegMask & byrefRegMask) == 0);
 
@@ -4567,8 +4573,11 @@ void GCInfo::gcMakeRegPtrTable(
                 {
                     // This is a true call site.
 
-                    regMaskSmall gcrefRegMask = regMaskSmall(genRegPtrTemp->rpdCallGCrefRegs << REG_INT_FIRST);
-                    regMaskSmall byrefRegMask = regMaskSmall(genRegPtrTemp->rpdCallByrefRegs << REG_INT_FIRST);
+                    regMaskSmall gcrefRegMask =
+                        genRegMaskFromCalleeSavedMask(genRegPtrTemp->rpdCallGCrefRegs).GetIntRegSet();
+
+                    regMaskSmall byrefRegMask =
+                        genRegMaskFromCalleeSavedMask(genRegPtrTemp->rpdCallByrefRegs).GetIntRegSet();
 
                     assert((gcrefRegMask & byrefRegMask) == 0);
 

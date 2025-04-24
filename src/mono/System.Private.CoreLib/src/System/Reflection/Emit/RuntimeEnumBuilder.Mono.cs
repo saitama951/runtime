@@ -370,7 +370,7 @@ namespace System.Reflection.Emit
             return _tb.HasElementType;
         }
 
-        [DynamicallyAccessedMembers(InvokeMemberMembers)]
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         public override object? InvokeMember(
             string name, BindingFlags invokeAttr, Binder? binder,
             object? target, object?[]? args,

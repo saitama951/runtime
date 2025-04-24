@@ -301,7 +301,7 @@ namespace System
                                 break; // end of list; stop iteration and fall through to slower path
                             }
 
-                            if (candidate is RtFieldInfo candidateRtFI && candidateRtFI.GetFieldDesc() == field.Value)
+                            if (candidate is RtFieldInfo candidateRtFI && candidateRtFI.GetFieldHandle() == field.Value)
                             {
                                 return candidateRtFI; // match!
                             }
@@ -335,16 +335,31 @@ namespace System
                     if (string.IsNullOrEmpty(name) ||
                         (cacheType == CacheType.Constructor && name[0] != '.' && name[0] != '*'))
                     {
-                        list = GetListByName(string.Empty, Span<byte>.Empty, listType, cacheType);
+                        list = GetListByName(null, 0, null, 0, listType, cacheType);
                     }
                     else
                     {
-                        int cUtf8Name = Encoding.UTF8.GetByteCount(name);
-                        // allocating on the stack is faster than allocating on the GC heap
-                        // but we surely don't want to cause a stack overflow
-                        // no one should be looking for a member whose name is longer than 1024
-                        Span<byte> utf8Name = (uint)cUtf8Name > MAXNAMELEN ? new byte[cUtf8Name] : stackalloc byte[cUtf8Name];
-                        list = GetListByName(name, utf8Name, listType, cacheType);
+                        int cNameLen = name.Length;
+                        fixed (char* pName = name)
+                        {
+                            int cUtf8Name = Encoding.UTF8.GetByteCount(pName, cNameLen);
+                            // allocating on the stack is faster than allocating on the GC heap
+                            // but we surely don't want to cause a stack overflow
+                            // no one should be looking for a member whose name is longer than 1024
+                            if (cUtf8Name > MAXNAMELEN)
+                            {
+                                byte[] utf8Name = new byte[cUtf8Name];
+                                fixed (byte* pUtf8Name = &utf8Name[0])
+                                {
+                                    list = GetListByName(pName, cNameLen, pUtf8Name, cUtf8Name, listType, cacheType);
+                                }
+                            }
+                            else
+                            {
+                                byte* pUtf8Name = stackalloc byte[cUtf8Name];
+                                list = GetListByName(pName, cNameLen, pUtf8Name, cUtf8Name, listType, cacheType);
+                            }
+                        }
                     }
 
                     Insert(ref list, name, listType);
@@ -352,45 +367,43 @@ namespace System
                     return list;
                 }
 
-                private unsafe T[] GetListByName(string name, Span<byte> utf8Name, MemberListType listType, CacheType cacheType)
+                private unsafe T[] GetListByName(char* pName, int cNameLen, byte* pUtf8Name, int cUtf8Name, MemberListType listType, CacheType cacheType)
                 {
-                    if (name.Length != 0)
-                        Encoding.UTF8.GetBytes(name, utf8Name);
+                    if (cNameLen != 0)
+                        Encoding.UTF8.GetBytes(pName, cNameLen, pUtf8Name, cUtf8Name);
 
-                    fixed (byte* pUtf8Name = utf8Name)
+                    Filter filter = new Filter(pUtf8Name, cUtf8Name, listType);
+                    object list = null!;
+
+                    switch (cacheType)
                     {
-                        Filter filter = new Filter(pUtf8Name, utf8Name.Length, listType);
-                        object list = null!;
-
-                        switch (cacheType)
-                        {
-                            case CacheType.Method:
-                                list = PopulateMethods(filter);
-                                break;
-                            case CacheType.Field:
-                                list = PopulateFields(filter);
-                                break;
-                            case CacheType.Constructor:
-                                list = PopulateConstructors(filter);
-                                break;
-                            case CacheType.Property:
-                                list = PopulateProperties(filter);
-                                break;
-                            case CacheType.Event:
-                                list = PopulateEvents(filter);
-                                break;
-                            case CacheType.NestedType:
-                                list = PopulateNestedClasses(filter);
-                                break;
-                            case CacheType.Interface:
-                                list = PopulateInterfaces(filter);
-                                break;
-                            default:
-                                Debug.Fail("Invalid CacheType");
-                                break;
-                        }
-                        return (T[])list;
+                        case CacheType.Method:
+                            list = PopulateMethods(filter);
+                            break;
+                        case CacheType.Field:
+                            list = PopulateFields(filter);
+                            break;
+                        case CacheType.Constructor:
+                            list = PopulateConstructors(filter);
+                            break;
+                        case CacheType.Property:
+                            list = PopulateProperties(filter);
+                            break;
+                        case CacheType.Event:
+                            list = PopulateEvents(filter);
+                            break;
+                        case CacheType.NestedType:
+                            list = PopulateNestedClasses(filter);
+                            break;
+                        case CacheType.Interface:
+                            list = PopulateInterfaces(filter);
+                            break;
+                        default:
+                            Debug.Fail("Invalid CacheType");
+                            break;
                     }
+
+                    return (T[])list;
                 }
 
                 // May replace the list with a new one if certain cache
@@ -637,10 +650,8 @@ namespace System
 
                         int numVirtuals = RuntimeTypeHandle.GetNumVirtuals(declaringType);
 
-                        // We don't expect too many virtual methods on a type, but let's be safe
-                        // and switch to heap allocation if we have more than 512 (arbitrary limit).
-                        Span<bool> overrides = (uint)numVirtuals > 512 ? new bool[numVirtuals] : stackalloc bool[numVirtuals];
-                        overrides.Clear();
+                        bool* overrides = stackalloc bool[numVirtuals];
+                        new Span<bool>(overrides, numVirtuals).Clear();
 
                         bool isValueType = declaringType.IsActualValueType;
 
@@ -732,7 +743,7 @@ namespace System
                                 #endregion
                             }
 
-                            declaringType = declaringType.GetParentType()!;
+                            declaringType = RuntimeTypeHandle.GetBaseType(declaringType);
                         } while (declaringType != null);
                         #endregion
                     }
@@ -803,33 +814,41 @@ namespace System
                     while (RuntimeTypeHandle.IsGenericVariable(declaringType))
                         declaringType = declaringType.GetBaseType()!;
 
-                    RuntimeType? populatingType = declaringType;
-                    while (populatingType != null)
+                    while (declaringType != null)
                     {
-                        PopulateRtFields(filter, populatingType, ref list);
+                        PopulateRtFields(filter, declaringType, ref list);
 
-                        PopulateLiteralFields(filter, populatingType, ref list);
+                        PopulateLiteralFields(filter, declaringType, ref list);
 
-                        populatingType = populatingType.GetParentType();
+                        declaringType = RuntimeTypeHandle.GetBaseType(declaringType);
                     }
                     #endregion
 
                     #region Populate Literal Fields on Interfaces
-                    Type[] interfaces;
                     if (ReflectedType.IsGenericParameter)
                     {
-                        interfaces = ReflectedType.BaseType!.GetInterfaces();
+                        Type[] interfaces = ReflectedType.BaseType!.GetInterfaces();
+
+                        for (int i = 0; i < interfaces.Length; i++)
+                        {
+                            // Populate literal fields defined on any of the interfaces implemented by the declaring type
+                            PopulateLiteralFields(filter, (RuntimeType)interfaces[i], ref list);
+                            PopulateRtFields(filter, (RuntimeType)interfaces[i], ref list);
+                        }
                     }
                     else
                     {
-                        interfaces = RuntimeTypeHandle.GetInterfaces(ReflectedType);
-                    }
+                        Type[]? interfaces = RuntimeTypeHandle.GetInterfaces(ReflectedType);
 
-                    foreach (Type iface in interfaces)
-                    {
-                        // Populate literal fields defined on any of the interfaces implemented by the declaring type
-                        PopulateLiteralFields(filter, (RuntimeType)iface, ref list);
-                        PopulateRtFields(filter, (RuntimeType)iface, ref list);
+                        if (interfaces != null)
+                        {
+                            for (int i = 0; i < interfaces.Length; i++)
+                            {
+                                // Populate literal fields defined on any of the interfaces implemented by the declaring type
+                                PopulateLiteralFields(filter, (RuntimeType)interfaces[i], ref list);
+                                PopulateRtFields(filter, (RuntimeType)interfaces[i], ref list);
+                            }
+                        }
                     }
                     #endregion
 
@@ -838,22 +857,25 @@ namespace System
 
                 private unsafe void PopulateRtFields(Filter filter, RuntimeType declaringType, ref ListBuilder<RuntimeFieldInfo> list)
                 {
-                    Span<IntPtr> result = stackalloc IntPtr[64];
-                    int count;
-                    while (!RuntimeTypeHandle.GetFields(declaringType, result, out count))
-                    {
-                        Debug.Assert(count > result.Length);
-                        result = new IntPtr[count];
-                    }
+                    IntPtr* pResult = stackalloc IntPtr[64];
+                    int count = 64;
 
-                    if (count > 0)
+                    if (!RuntimeTypeHandle.GetFields(declaringType, pResult, &count))
                     {
-                        PopulateRtFields(filter, result.Slice(0, count), declaringType, ref list);
+                        fixed (IntPtr* pBigResult = new IntPtr[count])
+                        {
+                            RuntimeTypeHandle.GetFields(declaringType, pBigResult, &count);
+                            PopulateRtFields(filter, pBigResult, count, declaringType, ref list);
+                        }
+                    }
+                    else if (count > 0)
+                    {
+                        PopulateRtFields(filter, pResult, count, declaringType, ref list);
                     }
                 }
 
-                private void PopulateRtFields(Filter filter,
-                    ReadOnlySpan<IntPtr> fieldHandles, RuntimeType declaringType, ref ListBuilder<RuntimeFieldInfo> list)
+                private unsafe void PopulateRtFields(Filter filter,
+                    IntPtr* ppFieldHandles, int count, RuntimeType declaringType, ref ListBuilder<RuntimeFieldInfo> list)
                 {
                     Debug.Assert(declaringType != null);
                     Debug.Assert(ReflectedType != null);
@@ -861,9 +883,9 @@ namespace System
                     bool needsStaticFieldForGeneric = declaringType.IsGenericType && !RuntimeTypeHandle.ContainsGenericVariables(declaringType);
                     bool isInherited = declaringType != ReflectedType;
 
-                    foreach (IntPtr handle in fieldHandles)
+                    for (int i = 0; i < count; i++)
                     {
-                        RuntimeFieldHandleInternal runtimeFieldHandle = new RuntimeFieldHandleInternal(handle);
+                        RuntimeFieldHandleInternal runtimeFieldHandle = new RuntimeFieldHandleInternal(ppFieldHandles[i]);
 
                         if (filter.RequiresStringComparison())
                         {
@@ -994,24 +1016,28 @@ namespace System
 
                     if (!RuntimeTypeHandle.IsGenericVariable(declaringType))
                     {
-                        Type[] ifaces = RuntimeTypeHandle.GetInterfaces(declaringType);
-                        foreach (Type iface in ifaces)
+                        Type[]? ifaces = RuntimeTypeHandle.GetInterfaces(declaringType);
+
+                        if (ifaces != null)
                         {
-                            RuntimeType interfaceType = (RuntimeType)iface;
-
-                            if (filter.RequiresStringComparison())
+                            for (int i = 0; i < ifaces.Length; i++)
                             {
-                                if (!filter.Match(RuntimeTypeHandle.GetUtf8Name(interfaceType)))
-                                    continue;
-                            }
+                                RuntimeType interfaceType = (RuntimeType)ifaces[i];
 
-                            Debug.Assert(interfaceType.IsInterface);
-                            list.Add(interfaceType);
+                                if (filter.RequiresStringComparison())
+                                {
+                                    if (!filter.Match(RuntimeTypeHandle.GetUtf8Name(interfaceType)))
+                                        continue;
+                                }
+
+                                Debug.Assert(interfaceType.IsInterface);
+                                list.Add(interfaceType);
+                            }
                         }
 
                         if (ReflectedType.IsSZArray)
                         {
-                            RuntimeType arrayType = (RuntimeType)ReflectedType.GetElementType()!;
+                            RuntimeType arrayType = (RuntimeType)ReflectedType.GetElementType();
 
                             if (!arrayType.IsPointer)
                             {
@@ -1126,11 +1152,10 @@ namespace System
                             declaringType = declaringType.GetBaseType()!;
 
                         // Populate associates off of the class hierarchy
-                        RuntimeType? populatingType = declaringType;
-                        while (populatingType != null)
+                        while (declaringType != null)
                         {
-                            PopulateEvents(filter, populatingType, csEventInfos, ref list);
-                            populatingType = populatingType.GetParentType();
+                            PopulateEvents(filter, declaringType, csEventInfos, ref list);
+                            declaringType = RuntimeTypeHandle.GetBaseType(declaringType);
                         }
                     }
                     else
@@ -1224,16 +1249,23 @@ namespace System
 
                         // All elements initialized to false.
                         int numVirtuals = RuntimeTypeHandle.GetNumVirtuals(declaringType);
-                        Span<bool> usedSlots = (uint)numVirtuals > 128 ? new bool[numVirtuals] : stackalloc bool[numVirtuals];
-                        usedSlots.Clear(); // we don't have to clear it for > 128, but we assume it's a rare case.
+                        scoped Span<bool> usedSlots;
+                        if (numVirtuals <= 128) // arbitrary stack limit
+                        {
+                            usedSlots = stackalloc bool[numVirtuals];
+                            usedSlots.Clear();
+                        }
+                        else
+                        {
+                            usedSlots = new bool[numVirtuals];
+                        }
 
                         // Populate associates off of the class hierarchy
-                        RuntimeType? populatingType = declaringType;
-                        while (populatingType != null)
+                        do
                         {
-                            PopulateProperties(filter, populatingType, csPropertyInfos, usedSlots, isInterface: false, ref list);
-                            populatingType = populatingType.GetParentType();
-                        }
+                            PopulateProperties(filter, declaringType, csPropertyInfos, usedSlots, isInterface: false, ref list);
+                            declaringType = RuntimeTypeHandle.GetBaseType(declaringType);
+                        } while (declaringType != null);
                     }
                     else
                     {
@@ -1562,7 +1594,7 @@ namespace System
                 if (m_enclosingType == null)
                 {
                     // Use void as a marker of null enclosing type
-                    RuntimeType? enclosingType = RuntimeTypeHandle.GetDeclaringType(GetRuntimeType());
+                    RuntimeType enclosingType = RuntimeTypeHandle.GetDeclaringType(GetRuntimeType());
                     Debug.Assert(enclosingType != typeof(void));
                     m_enclosingType = enclosingType ?? (RuntimeType)typeof(void);
                 }
@@ -1746,28 +1778,6 @@ namespace System
         #region Static Members
 
         #region Internal
-
-        // Returns the type from which the current type directly inherits from (without reflection quirks).
-        // The parent type is null for interfaces, pointers, byrefs and generic parameters.
-        internal unsafe RuntimeType? GetParentType()
-        {
-            TypeHandle typeHandle = GetNativeTypeHandle();
-            if (typeHandle.IsTypeDesc)
-            {
-                return null;
-            }
-
-            MethodTable* pParentMT = typeHandle.AsMethodTable()->ParentMethodTable;
-            if (pParentMT == null)
-            {
-                return null;
-            }
-
-            RuntimeType result = RuntimeTypeHandle.GetRuntimeType(pParentMT);
-            GC.KeepAlive(this);
-            return result;
-        }
-
         [RequiresUnreferencedCode("Trimming changes metadata tokens")]
         internal static MethodBase? GetMethodBase(RuntimeModule scope, int typeMetadataToken)
         {
@@ -1992,30 +2002,36 @@ namespace System
 
         internal static void ValidateGenericArguments(MemberInfo definition, RuntimeType[] genericArguments, Exception? e)
         {
-            RuntimeType? typeContext;
-            RuntimeMethodInfo? methodContext = null;
+            RuntimeType[]? typeContext = null;
+            RuntimeType[]? methodContext = null;
             RuntimeType[] genericParameters;
 
             if (definition is Type)
             {
-                typeContext = (RuntimeType)definition;
-                genericParameters = typeContext.GetGenericArgumentsInternal();
+                RuntimeType genericTypeDefinition = (RuntimeType)definition;
+                genericParameters = genericTypeDefinition.GetGenericArgumentsInternal();
+                typeContext = genericArguments;
             }
             else
             {
-                methodContext = (RuntimeMethodInfo)definition;
-                typeContext = (RuntimeType?)methodContext.DeclaringType;
-                genericParameters = methodContext.GetGenericArgumentsInternal();
+                RuntimeMethodInfo genericMethodDefinition = (RuntimeMethodInfo)definition;
+                genericParameters = genericMethodDefinition.GetGenericArgumentsInternal();
+                methodContext = genericArguments;
+
+                RuntimeType? declaringType = (RuntimeType?)genericMethodDefinition.DeclaringType;
+                if (declaringType != null)
+                {
+                    typeContext = declaringType.TypeHandle.GetInstantiationInternal();
+                }
             }
 
-            Debug.Assert(genericArguments.Length == genericParameters.Length);
             for (int i = 0; i < genericArguments.Length; i++)
             {
                 Type genericArgument = genericArguments[i];
                 Type genericParameter = genericParameters[i];
 
-                if (!RuntimeTypeHandle.SatisfiesConstraints(genericParameter.TypeHandle.GetRuntimeTypeChecked(),
-                    typeContext, methodContext, genericArgument.TypeHandle.GetRuntimeTypeChecked()))
+                if (!RuntimeTypeHandle.SatisfiesConstraints(genericParameter.TypeHandle.GetTypeChecked(),
+                    typeContext, methodContext, genericArgument.TypeHandle.GetTypeChecked()))
                 {
                     throw new ArgumentException(
                         SR.Format(SR.Argument_GenConstraintViolation, i.ToString(), genericArgument, definition, genericParameter), e);
@@ -3251,7 +3267,8 @@ namespace System
                 if (!IsGenericParameter)
                     throw new InvalidOperationException(SR.Arg_NotGenericParameter);
 
-                IRuntimeMethodInfo? declaringMethod = RuntimeTypeHandle.GetDeclaringMethodForGenericParameter(this);
+                IRuntimeMethodInfo declaringMethod = RuntimeTypeHandle.GetDeclaringMethod(this);
+
                 if (declaringMethod == null)
                     return null;
 
@@ -3287,13 +3304,6 @@ namespace System
                 return true;
 
             return false;
-        }
-
-        public override unsafe bool IsInstanceOfType([NotNullWhen(true)] object? o)
-        {
-            bool ret = CastHelpers.IsInstanceOfAny(GetUnderlyingNativeHandle().ToPointer(), o) is not null;
-            GC.KeepAlive(this);
-            return ret;
         }
 
 #if FEATURE_TYPEEQUIVALENCE
@@ -3353,49 +3363,18 @@ namespace System
 
         #region Attributes
 
-        public override unsafe Guid GUID
+        public override Guid GUID
         {
             get
             {
-                TypeHandle th = GetNativeTypeHandle();
-                if (th.IsTypeDesc || th.AsMethodTable()->IsArray)
-                {
-                    return Guid.Empty;
-                }
-
-                Guid result;
-#if FEATURE_COMINTEROP
-                Debug.Assert(OperatingSystem.IsWindows());
-                // The fully qualified name is needed since the RuntimeType has a TypeHandle property.
-                if (System.Runtime.CompilerServices.TypeHandle.AreSameType(th, System.Runtime.CompilerServices.TypeHandle.TypeHandleOf<__ComObject>()))
-                {
-                    GetComObjectGuidWorker(this, &result);
-                }
-                else
-#endif // FEATURE_COMINTEROP
-                {
-                    GetGuid(th.AsMethodTable(), &result);
-                }
-                GC.KeepAlive(this); // Ensure TypeHandle remains alive.
+                Guid result = default;
+                GetGUID(ref result);
                 return result;
             }
         }
 
-        [LibraryImport(RuntimeHelpers.QCall, EntryPoint = "ReflectionInvocation_GetGuid")]
-        private static unsafe partial void GetGuid(MethodTable* pMT, Guid* result);
-
-#if FEATURE_COMINTEROP
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static unsafe void GetComObjectGuidWorker(RuntimeType type, Guid* result)
-        {
-            Debug.Assert(type.IsGenericCOMObjectImpl());
-            Debug.Assert(result is not null);
-            GetComObjectGuid(ObjectHandleOnStack.Create(ref type), result);
-        }
-
-        [LibraryImport(RuntimeHelpers.QCall, EntryPoint = "ReflectionInvocation_GetComObjectGuid")]
-        private static unsafe partial void GetComObjectGuid(ObjectHandleOnStack type, Guid* result);
-#endif // FEATURE_COMINTEROP
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        private extern void GetGUID(ref Guid result);
 
         protected override unsafe bool IsValueTypeImpl()
         {
@@ -3568,18 +3547,18 @@ namespace System
         }
 
         [RequiresUnreferencedCode("If some of the generic arguments are annotated (either with DynamicallyAccessedMembersAttribute, or generic constraints), trimming can't validate that the requirements of those annotations are met.")]
-        public override Type MakeGenericType(Type[] typeArguments)
+        public override Type MakeGenericType(Type[] instantiation)
         {
-            ArgumentNullException.ThrowIfNull(typeArguments);
+            ArgumentNullException.ThrowIfNull(instantiation);
 
             if (!IsGenericTypeDefinition)
                 throw new InvalidOperationException(SR.Format(SR.Arg_NotGenericTypeDefinition, this));
 
             RuntimeType[] genericParameters = GetGenericArgumentsInternal();
-            if (genericParameters.Length != typeArguments.Length)
-                throw new ArgumentException(SR.Argument_GenericArgsCount, nameof(typeArguments));
+            if (genericParameters.Length != instantiation.Length)
+                throw new ArgumentException(SR.Argument_GenericArgsCount, nameof(instantiation));
 
-            if (typeArguments.Length == 1 && typeArguments[0] is RuntimeType rt)
+            if (instantiation.Length == 1 && instantiation[0] is RuntimeType rt)
             {
                 ThrowIfTypeNeverValidGenericArgument(rt);
                 try
@@ -3593,13 +3572,13 @@ namespace System
                 }
             }
 
-            RuntimeType[] instantiationRuntimeType = new RuntimeType[typeArguments.Length];
+            RuntimeType[] instantiationRuntimeType = new RuntimeType[instantiation.Length];
 
             bool foundSigType = false;
             bool foundNonRuntimeType = false;
-            for (int i = 0; i < typeArguments.Length; i++)
+            for (int i = 0; i < instantiation.Length; i++)
             {
-                Type instantiationElem = typeArguments[i] ?? throw new ArgumentNullException();
+                Type instantiationElem = instantiation[i] ?? throw new ArgumentNullException();
                 RuntimeType? rtInstantiationElem = instantiationElem as RuntimeType;
 
                 if (rtInstantiationElem == null)
@@ -3617,9 +3596,9 @@ namespace System
             if (foundNonRuntimeType)
             {
                 if (foundSigType)
-                    return new SignatureConstructedGenericType(this, typeArguments);
+                    return new SignatureConstructedGenericType(this, instantiation);
 
-                return Reflection.Emit.TypeBuilderInstantiation.MakeGenericType(this, (Type[])(typeArguments.Clone()));
+                return Reflection.Emit.TypeBuilderInstantiation.MakeGenericType(this, (Type[])(instantiation.Clone()));
             }
 
             SanityCheckGenericArguments(instantiationRuntimeType, genericParameters);
@@ -3675,13 +3654,6 @@ namespace System
             }
         }
 
-        internal CorElementType GetCorElementType()
-        {
-            CorElementType ret = (CorElementType)GetNativeTypeHandle().GetCorElementType();
-            GC.KeepAlive(this);
-            return ret;
-        }
-
         public sealed override bool HasSameMetadataDefinitionAs(MemberInfo other) => HasSameMetadataDefinitionAsCore<RuntimeType>(other);
 
         public override Type MakePointerType() => new RuntimeTypeHandle(this).MakePointer();
@@ -3704,43 +3676,14 @@ namespace System
 
         #region Invoke Member
 
-        private static bool CanValueSpecialCast(RuntimeType valueType, RuntimeType targetType)
-        {
-            Debug.Assert(targetType.IsPointer || targetType.IsEnum || targetType.IsPrimitive || targetType.IsFunctionPointer);
-
-            if (targetType.IsPointer || targetType.IsFunctionPointer)
-            {
-                // The object must be an IntPtr or a System.Reflection.Pointer
-                if (valueType == typeof(IntPtr))
-                {
-                    // It's an IntPtr, it's good.
-                    return true;
-                }
-
-                // void* assigns to any pointer
-                if (targetType == typeof(void*))
-                {
-                    return true;
-                }
-
-                // otherwise the type of the pointer must match.
-                return valueType.IsAssignableTo(targetType);
-            }
-            else
-            {
-                // The type is an enum or a primitive. To have any chance of assignment
-                // the object type must be an enum or primitive as well.
-                // So get the internal cor element and that must be the same or widen.
-                CorElementType valueCorElement = valueType.GetUnderlyingCorElementType();
-                CorElementType targetCorElement = targetType.GetUnderlyingCorElementType();
-                return valueCorElement.IsPrimitiveType() && RuntimeHelpers.CanPrimitiveWiden(valueCorElement, targetCorElement);
-            }
-        }
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        private static extern bool CanValueSpecialCast(RuntimeType valueType, RuntimeType targetType);
 
         private CheckValueStatus TryChangeTypeSpecial(ref object value)
         {
             Pointer? pointer = value as Pointer;
             RuntimeType srcType = pointer != null ? pointer.GetPointerType() : (RuntimeType)value.GetType();
+
             if (!CanValueSpecialCast(srcType, this))
             {
                 return CheckValueStatus.ArgumentException;
@@ -3752,8 +3695,8 @@ namespace System
             }
             else
             {
-                CorElementType srcElementType = srcType.GetUnderlyingCorElementType();
-                CorElementType dstElementType = GetUnderlyingCorElementType();
+                CorElementType srcElementType = GetUnderlyingType(srcType);
+                CorElementType dstElementType = GetUnderlyingType(this);
                 if (dstElementType != srcElementType)
                 {
                     value = InvokeUtils.ConvertOrWiden(srcType, value, this, dstElementType);
@@ -3899,18 +3842,13 @@ namespace System
                 }
 
                 MethodBase? invokeMethod;
-                object? state;
+                object? state = null;
 
                 try
                 {
                     invokeMethod = binder.BindToMethod(bindingAttr, cons, ref args, null, culture, null, out state);
                 }
-                catch (MissingMethodException innerMME)
-                {
-                    // Rethrows to rewrite a message to include the class name.
-                    // Make sure the original exception is set as an inner exception.
-                    throw new MissingMethodException(SR.Format(SR.MissingConstructor_Name, FullName), innerMME);
-                }
+                catch (MissingMethodException) { invokeMethod = null; }
 
                 if (invokeMethod is null)
                 {
@@ -4043,58 +3981,22 @@ namespace System
 
         internal void InvalidateCachedNestedType() => Cache.InvalidateCachedNestedType();
 
+        internal bool IsGenericCOMObjectImpl() => RuntimeTypeHandle.IsComObject(this, true);
+
+        #endregion
+
+        #region Legacy internal static
+
 #if FEATURE_COMINTEROP
-        protected override bool IsCOMObjectImpl() => RuntimeTypeHandle.CanCastTo(this, (RuntimeType)typeof(__ComObject));
-
-        // We need to check the type handle values - not the instances - to determine if the runtime type is a generic ComObject.
-        internal bool IsGenericCOMObjectImpl() => TypeHandle.Value == typeof(__ComObject).TypeHandle.Value;
-#else
-        protected override bool IsCOMObjectImpl() => false;
-
-#pragma warning disable CA1822 // Mark members as static
-        internal bool IsGenericCOMObjectImpl() => false;
-#pragma warning restore CA1822
-#endif
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        private extern object InvokeDispMethod(
+            string name, BindingFlags invokeAttr, object target, object?[]? args,
+            bool[]? byrefModifiers, int culture, string[]? namedParameters);
+#endif // FEATURE_COMINTEROP
 
         #endregion
 
 #if FEATURE_COMINTEROP
-        [LibraryImport(RuntimeHelpers.QCall, EntryPoint = "ReflectionInvocation_InvokeDispMethod")]
-        private static partial void InvokeDispMethod(
-            ObjectHandleOnStack type,
-            ObjectHandleOnStack name,
-            BindingFlags invokeAttr,
-            ObjectHandleOnStack target,
-            ObjectHandleOnStack args,
-            ObjectHandleOnStack byrefModifiers,
-            int lcid,
-            ObjectHandleOnStack namedParameters,
-            ObjectHandleOnStack result);
-
-        private object InvokeDispMethod(
-            string name,
-            BindingFlags invokeAttr,
-            object target,
-            object?[]? args,
-            bool[]? byrefModifiers,
-            int culture,
-            string[]? namedParameters)
-        {
-            RuntimeType _this = this;
-            object? result = null;
-            InvokeDispMethod(
-                ObjectHandleOnStack.Create(ref _this),
-                ObjectHandleOnStack.Create(ref name),
-                invokeAttr,
-                ObjectHandleOnStack.Create(ref target),
-                ObjectHandleOnStack.Create(ref args),
-                ObjectHandleOnStack.Create(ref byrefModifiers),
-                culture,
-                ObjectHandleOnStack.Create(ref namedParameters),
-                ObjectHandleOnStack.Create(ref result));
-            return result!;
-        }
-
         [RequiresUnreferencedCode("The member might be removed")]
         private object? ForwardCallToInvokeMember(
             string memberName,

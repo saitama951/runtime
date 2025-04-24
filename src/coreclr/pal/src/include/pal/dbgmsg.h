@@ -494,7 +494,7 @@ if new_level is -1, the nesting level will not be modified
 --*/
 int DBG_change_entrylevel(int new_level);
 
-#ifdef TARGET_OSX
+#ifdef __APPLE__
 /*++
 Function :
     PAL_DisplayDialog
@@ -514,10 +514,10 @@ Function :
 
 --*/
 void PAL_DisplayDialogFormatted(const char *szTitle, const char *szTextFormat, ...);
-#else // TARGET_OSX
+#else // __APPLE__
 #define PAL_DisplayDialog(_szTitle, _szText)
 #define PAL_DisplayDialogFormatted(_szTitle, _szTextFormat, args...)
-#endif // TARGET_OSX
+#endif // __APPLE__
 
 #ifdef __cplusplus
 }

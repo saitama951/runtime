@@ -3,7 +3,7 @@
 
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
+
 using FluentAssertions;
 using Microsoft.DotNet.Cli.Build.Framework;
 using Microsoft.DotNet.CoreSetup.Test;
@@ -122,8 +122,7 @@ namespace HostActivation.Tests
             HostWriter.CreateAppHost(
                 Binaries.AppHost.FilePath,
                 appExe,
-                Path.GetRelativePath(subDir, app.AppDll),
-                enableMacOSCodeSign: RuntimeInformation.IsOSPlatform(OSPlatform.OSX));
+                Path.GetRelativePath(subDir, app.AppDll));
 
             Command.Create(appExe)
                 .CaptureStdErr()

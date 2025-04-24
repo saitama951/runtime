@@ -559,11 +559,14 @@ HRESULT CorHost2::CreateAppDomainWithManager(
 
     BEGIN_EXTERNAL_ENTRYPOINT(&hr);
 
-    AppDomain* pDomain = AppDomain::GetCurrentDomain();
+    AppDomain* pDomain = SystemDomain::System()->DefaultDomain();
 
     pDomain->SetFriendlyName(wszFriendlyName);
 
-    ETW::LoaderLog::DomainLoad((LPWSTR)wszFriendlyName);
+    ETW::LoaderLog::DomainLoad(pDomain, (LPWSTR)wszFriendlyName);
+
+    if (dwFlags & APPDOMAIN_IGNORE_UNHANDLED_EXCEPTIONS)
+        pDomain->SetIgnoreUnhandledExceptions();
 
     if (dwFlags & APPDOMAIN_FORCE_TRIVIAL_WAIT_OPERATIONS)
         pDomain->SetForceTrivialWaitOperations();

@@ -5058,10 +5058,7 @@ mono_arch_output_basic_block (MonoCompile *cfg, MonoBasicBlock *bb)
 			break;
 			/* Atomic */
 		case OP_MEMORY_BARRIER:
-			if (ins->backend.memory_barrier_kind == MONO_MEMORY_BARRIER_ACQ)
-				arm_dmb (code, ARM_DMB_ISHLD);
-			else
-				arm_dmb (code, ARM_DMB_ISH);
+			arm_dmb (code, ARM_DMB_ISH);
 			break;
 		case OP_ATOMIC_ADD_I4: {
 			guint8 *buf [16];

@@ -9,7 +9,6 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using TestLibrary;
-using Xunit;
 
 public class Test_Finalizer
 {
@@ -33,8 +32,7 @@ public class Test_Finalizer
         var t = new Test_Finalizer();
     }
 
-    [Fact]
-    public static void TestEntryPoint()
+    public static int Main()
     {
         CreateAndReleaseFinalizable();
         TestFramework.LogInformation("First Alloc");
@@ -46,5 +44,6 @@ public class Test_Finalizer
         GCUtil.FreePins();
 
         TestFramework.LogInformation("Test passed");
+        return 100;
     }
 }

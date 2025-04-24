@@ -5,12 +5,10 @@
 
 using System;
 using System.Runtime.InteropServices;
-using Xunit;
 
 public class Test_Target_neg
 {
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         bool passed = true;
 

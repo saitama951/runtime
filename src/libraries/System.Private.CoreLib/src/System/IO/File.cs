@@ -174,12 +174,9 @@ namespace System.IO
         // File and Directory UTC APIs treat a DateTimeKind.Unspecified as UTC whereas
         // ToUniversalTime treats this as local.
         internal static DateTimeOffset GetUtcDateTimeOffset(DateTime dateTime)
-        {
-            if (dateTime.Kind == DateTimeKind.Local)
-                dateTime = dateTime.ToUniversalTime();
-
-            return new DateTimeOffset(dateTime.Ticks, default);
-        }
+            => dateTime.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(dateTime, DateTimeKind.Utc)
+                : dateTime.ToUniversalTime();
 
         public static void SetCreationTime(string path, DateTime creationTime)
             => FileSystem.SetCreationTime(Path.GetFullPath(path), creationTime, asDirectory: false);
@@ -822,7 +819,6 @@ namespace System.IO
         /// <param name="path">The file to append to.</param>
         /// <param name="bytes">The bytes to append to the file.</param>
         /// <param name="cancellationToken">The token to monitor for cancellation requests. The default value is <see cref="CancellationToken.None"/>.</param>
-        /// <returns>A task that represents the asynchronous append operation.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="path"/> is null.</exception>
         /// <exception cref="ArgumentNullException"><paramref name="bytes"/> is null.</exception>
         /// <exception cref="ArgumentException"><paramref name="path"/> is empty.</exception>
@@ -841,7 +837,6 @@ namespace System.IO
         /// <param name="path">The file to append to.</param>
         /// <param name="bytes">The bytes to append to the file.</param>
         /// <param name="cancellationToken">The token to monitor for cancellation requests. The default value is <see cref="CancellationToken.None"/>.</param>
-        /// <returns>A task that represents the asynchronous append operation.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="path"/> is null.</exception>
         /// <exception cref="ArgumentException"><paramref name="path"/> is empty.</exception>
         /// <exception cref="OperationCanceledException">The cancellation token was canceled. This exception is stored into the returned task.</exception>
@@ -1518,9 +1513,9 @@ namespace System.IO
                 return;
             }
 
-            int bytesNeeded = checked(preambleSize + encoding.GetMaxByteCount(Math.Min(contents.Length, ChunkSize)));
+            int bytesNeeded = preambleSize + encoding.GetMaxByteCount(Math.Min(contents.Length, ChunkSize));
             byte[]? rentedBytes = null;
-            Span<byte> bytes = (uint)bytesNeeded <= 1024 ? stackalloc byte[1024] : (rentedBytes = ArrayPool<byte>.Shared.Rent(bytesNeeded));
+            Span<byte> bytes = bytesNeeded <= 1024 ? stackalloc byte[1024] : (rentedBytes = ArrayPool<byte>.Shared.Rent(bytesNeeded));
 
             try
             {

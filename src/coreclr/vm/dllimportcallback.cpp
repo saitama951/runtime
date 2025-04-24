@@ -57,13 +57,13 @@ public:
         if (pThunk == NULL)
             return NULL;
 
-        m_pHead = m_pHead->GetData()->m_pNextFreeThunk;
+        m_pHead = m_pHead->m_pNextFreeThunk;
         --m_count;
 
         return pThunk;
     }
 
-    void AddToList(UMEntryThunk *pThunk)
+    void AddToList(UMEntryThunk *pThunkRX, UMEntryThunk *pThunkRW)
     {
         CONTRACTL
         {
@@ -75,16 +75,17 @@ public:
 
         if (m_pHead == NULL)
         {
-            m_pHead = pThunk;
-            m_pTail = pThunk;
+            m_pHead = pThunkRX;
+            m_pTail = pThunkRX;
         }
         else
         {
-            m_pTail->GetData()->m_pNextFreeThunk = pThunk;
-            m_pTail = pThunk;
+            ExecutableWriterHolder<UMEntryThunk> tailThunkWriterHolder(m_pTail, sizeof(UMEntryThunk));
+            tailThunkWriterHolder.GetRW()->m_pNextFreeThunk = pThunkRX;
+            m_pTail = pThunkRX;
         }
 
-        pThunk->GetData()->m_pNextFreeThunk = NULL;
+        pThunkRW->m_pNextFreeThunk = NULL;
 
         ++m_count;
     }
@@ -157,13 +158,15 @@ UMEntryThunk *UMEntryThunkCache::GetUMEntryThunk(MethodDesc *pMD)
         Holder<UMEntryThunk *, DoNothing, UMEntryThunk::FreeUMEntryThunk> umHolder;
         umHolder.Assign(pThunk);
 
-        UMThunkMarshInfo *pMarshInfo = (UMThunkMarshInfo *)(void *)(m_pDomain->GetLowFrequencyHeap()->AllocMem(S_SIZE_T(sizeof(UMThunkMarshInfo))));
+        UMThunkMarshInfo *pMarshInfo = (UMThunkMarshInfo *)(void *)(m_pDomain->GetStubHeap()->AllocMem(S_SIZE_T(sizeof(UMThunkMarshInfo))));
         Holder<UMThunkMarshInfo *, DoNothing, UMEntryThunkCache::DestroyMarshInfo> miHolder;
         miHolder.Assign(pMarshInfo);
 
-        pMarshInfo->LoadTimeInit(pMD);
+        ExecutableWriterHolder<UMThunkMarshInfo> marshInfoWriterHolder(pMarshInfo, sizeof(UMThunkMarshInfo));
+        marshInfoWriterHolder.GetRW()->LoadTimeInit(pMD);
 
-        pThunk->LoadTimeInit((PCODE)NULL, NULL, pMarshInfo, pMD);
+        ExecutableWriterHolder<UMEntryThunk> thunkWriterHolder(pThunk, sizeof(UMEntryThunk));
+        thunkWriterHolder.GetRW()->LoadTimeInit(pThunk, (PCODE)NULL, NULL, pMarshInfo, pMD);
 
         // add it to the cache
         CacheElement element;
@@ -192,7 +195,7 @@ extern "C" VOID STDCALL ReversePInvokeBadTransition()
                                             );
 }
 
-PCODE TheUMEntryPrestubWorker(UMEntryThunkData * pUMEntryThunkData)
+PCODE TheUMEntryPrestubWorker(UMEntryThunk * pUMEntryThunk)
 {
     STATIC_CONTRACT_THROWS;
     STATIC_CONTRACT_GC_TRIGGERS;
@@ -204,8 +207,6 @@ PCODE TheUMEntryPrestubWorker(UMEntryThunkData * pUMEntryThunkData)
         CREATETHREAD_IF_NULL_FAILFAST(pThread, W("Failed to setup new thread during reverse P/Invoke"));
     }
 
-    UMEntryThunk* pUMEntryThunk = pUMEntryThunkData->m_pUMEntryThunk;
-
     // Verify the current thread isn't in COOP mode.
     if (pThread->PreemptiveGCDisabled())
         ReversePInvokeBadTransition();
@@ -216,7 +217,8 @@ PCODE TheUMEntryPrestubWorker(UMEntryThunkData * pUMEntryThunkData)
     // exceptions don't leak out into managed code.
     INSTALL_UNWIND_AND_CONTINUE_HANDLER;
 
-    pUMEntryThunk->RunTimeInit();
+    ExecutableWriterHolder<UMEntryThunk> uMEntryThunkWriterHolder(pUMEntryThunk, sizeof(UMEntryThunk));
+    uMEntryThunkWriterHolder.GetRW()->RunTimeInit(pUMEntryThunk);
 
     UNINSTALL_UNWIND_AND_CONTINUE_HANDLER;
     UNINSTALL_MANAGED_EXCEPTION_DISPATCHER;
@@ -241,18 +243,7 @@ UMEntryThunk* UMEntryThunk::CreateUMEntryThunk()
     p = s_thunkFreeList.GetUMEntryThunk();
 
     if (p == NULL)
-    {
-        SIZE_T size = sizeof(UMEntryThunk);
-        LoaderAllocator *pLoaderAllocator = SystemDomain::GetGlobalLoaderAllocator();
-        AllocMemTracker amTracker;
-        AllocMemTracker *pamTracker = &amTracker;
-       
-        UMEntryThunkData *pData = (UMEntryThunkData *)pamTracker->Track(pLoaderAllocator->GetLowFrequencyHeap()->AllocMem(S_SIZE_T(sizeof(UMEntryThunkData))));
-        p = (UMEntryThunk*)pamTracker->Track(pLoaderAllocator->GetNewStubPrecodeHeap()->AllocAlignedMem(size, 1));
-        pData->m_pUMEntryThunk = p;
-        p->Init(p, dac_cast<TADDR>(pData), NULL, dac_cast<TADDR>(PRECODE_UMENTRY_THUNK));
-        pamTracker->SuppressRelease();
-    }
+        p = (UMEntryThunk *)(void *)SystemDomain::GetGlobalLoaderAllocator()->GetExecutableHeap()->AllocMem(S_SIZE_T(sizeof(UMEntryThunk)));
 
     RETURN p;
 }
@@ -266,15 +257,16 @@ void UMEntryThunk::Terminate()
     }
     CONTRACTL_END;
 
-    SetTargetUnconditional((TADDR)UMEntryThunk::ReportViolation);
+    ExecutableWriterHolder<UMEntryThunk> thunkWriterHolder(this, sizeof(UMEntryThunk));
+    m_code.Poison();
 
     if (GetObjectHandle())
     {
         DestroyLongWeakHandle(GetObjectHandle());
-        GetData()->m_pObjectHandle = 0;
+        thunkWriterHolder.GetRW()->m_pObjectHandle = 0;
     }
 
-    s_thunkFreeList.AddToList(this);
+    s_thunkFreeList.AddToList(this, thunkWriterHolder.GetRW());
 }
 
 VOID UMEntryThunk::FreeUMEntryThunk(UMEntryThunk* p)
@@ -298,18 +290,16 @@ VOID UMEntryThunk::FreeUMEntryThunk(UMEntryThunk* p)
 // function will not be called in all cases of the collected delegate call,
 // also it may crash while trying to report the problem.
 //-------------------------------------------------------------------------
-VOID __fastcall UMEntryThunk::ReportViolation(UMEntryThunkData* pEntryThunkData)
+VOID __fastcall UMEntryThunk::ReportViolation(UMEntryThunk* pEntryThunk)
 {
     CONTRACTL
     {
         THROWS;
         GC_TRIGGERS;
         MODE_COOPERATIVE;
-        PRECONDITION(CheckPointer(pEntryThunkData));
+        PRECONDITION(CheckPointer(pEntryThunk));
     }
     CONTRACTL_END;
-
-    UMEntryThunk* pEntryThunk = pEntryThunkData->m_pUMEntryThunk;
 
     MethodDesc* pMethodDesc = pEntryThunk->GetMethod();
 

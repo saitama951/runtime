@@ -5,7 +5,7 @@
 //
 
 //
-// Header file for Runtime Controller classes of the CLR Debugging Services.
+// Header file for Runtime Controller classes of the COM+ Debugging Services.
 //
 //*****************************************************************************
 
@@ -451,7 +451,7 @@ typedef DPTR(class DebuggerModule) PTR_DebuggerModule;
 class DebuggerModule
 {
   public:
-    DebuggerModule(Module * pRuntimeModule, DomainAssembly * pDomainAssembly);
+    DebuggerModule(Module * pRuntimeModule, DomainAssembly * pDomainAssembly, AppDomain * pAppDomain);
 
     // Do we have any optimized code in the module?
     // JMC-probes aren't emitted in optimized code,
@@ -465,27 +465,61 @@ class DebuggerModule
     BOOL ClassLoadCallbacksEnabled(void);
     void EnableClassLoadCallbacks(BOOL f);
 
+    AppDomain* GetAppDomain();
+
     Module * GetRuntimeModule();
 
+
+    // <TODO> (8/12/2002)
+    // Currently we create a new DebuggerModules for each appdomain a shared
+    // module lives in. We then pretend there aren't any shared modules.
+    // This is bad. We need to move away from this.
+    // Once we stop lying, then every module will be it's own PrimaryModule. :)
+    //
+    // Currently, Module* is 1:n w/ DebuggerModule.
+    // We add a notion of PrimaryModule so that:
+    // Module* is 1:1 w/ DebuggerModule::GetPrimaryModule();
+    // This should help transition towards exposing shared modules.
+    // If the Runtime module is shared, then this gives a common DM.
+    // If the runtime module is not shared, then this is an identity function.
+    //
+    // The runtime has the notion of "DomainAssembly", which is 1:1 with DebuggerModule
+    // and thus 1:1 with CordbModule.  The CordbModule hash table on the RS now uses
+    // the DomainAssembly as the key instead of DebuggerModule.  This is a temporary
+    // workaround to facilitate the removal of DebuggerModule.
+    // </TODO>
+    DebuggerModule * GetPrimaryModule();
     DomainAssembly * GetDomainAssembly()
     {
         LIMITED_METHOD_DAC_CONTRACT;
         return m_pRuntimeDomainAssembly;
     }
 
+    // Called by DebuggerModuleTable to set our primary module
+    void SetPrimaryModule(DebuggerModule * pPrimary);
+
     void SetCanChangeJitFlags(bool fCanChangeJitFlags);
 
   private:
     BOOL            m_enableClassLoadCallbacks;
 
+    // First step in moving away from hiding shared modules.
+    DebuggerModule* m_pPrimaryModule;
+
     PTR_Module     m_pRuntimeModule;
     PTR_DomainAssembly m_pRuntimeDomainAssembly;
 
+    AppDomain*     m_pAppDomain;
+
     bool m_fHasOptimizedCode;
+
+    void PickPrimaryModule();
 
     // Can we change jit flags on the module?
     // This is true during the Module creation
     bool           m_fCanChangeJitFlags;
+
+
 };
 
 /* ------------------------------------------------------------------------ *
@@ -1075,13 +1109,12 @@ public:
     // correct IL offset if this code happens to be instrumented
     ULONG32 TranslateToInstIL(const InstrumentedILOffsetMapping * pMapping, ULONG32 offOrig, bool fOrigToInst);
 
-private:
+
     // We don't always have a debugger module. (Ex: we're tracking debug info,
     // but no debugger's attached). So this may return NULL alot.
     // If we can, we should use the RuntimeModule when ever possible.
-    DebuggerModule* GetModule();
+    DebuggerModule* GetPrimaryModule();
 
-public:
     // We always have a runtime module.
     Module * GetRuntimeModule();
 
@@ -1984,28 +2017,34 @@ public:
                     LPCWSTR pszModuleName,
                     DWORD dwModuleName,
                     Assembly *pAssembly,
+                    AppDomain *pAppDomain,
                     DomainAssembly * pDomainAssembly,
                     BOOL fAttaching);
     DebuggerModule * AddDebuggerModule(DomainAssembly * pDomainAssembly);
 
-    void UnloadModule(Module* pRuntimeModule);
+
+    void UnloadModule(Module* pRuntimeModule,
+                      AppDomain *pAppDomain);
     void DestructModule(Module *pModule);
 
     void RemoveModuleReferences(Module * pModule);
 
 
-    void SendUpdateModuleSymsEventAndBlock(Module * pRuntimeModule);
-    void SendRawUpdateModuleSymsEvent(Module * pRuntimeModule);
+    void SendUpdateModuleSymsEventAndBlock(Module * pRuntimeModule, AppDomain * pAppDomain);
+    void SendRawUpdateModuleSymsEvent(Module * pRuntimeModule, AppDomain * pAppDomain);
 
     BOOL LoadClass(TypeHandle th,
                    mdTypeDef classMetadataToken,
-                   Module* classModule);
+                   Module* classModule,
+                   AppDomain *pAppDomain);
     void UnloadClass(mdTypeDef classMetadataToken,
-                     Module* classModule);
+                     Module* classModule,
+                     AppDomain *pAppDomain);
 
     void SendClassLoadUnloadEvent (mdTypeDef classMetadataToken,
                                    DebuggerModule *classModule,
                                    Assembly *pAssembly,
+                                   AppDomain *pAppDomain,
                                    BOOL fIsLoadEvent);
     BOOL SendSystemClassLoadUnloadEvent (mdTypeDef classMetadataToken,
                                          Module *classModule,
@@ -2159,7 +2198,7 @@ public:
 
     DebuggerModule * LookupOrCreateModule(VMPTR_DomainAssembly vmDomainAssembly);
     DebuggerModule * LookupOrCreateModule(DomainAssembly * pDomainAssembly);
-    DebuggerModule * LookupOrCreateModule(Module * pModule);
+    DebuggerModule * LookupOrCreateModule(Module * pModule, AppDomain * pAppDomain);
 
     HRESULT GetAndSendInterceptCommand(DebuggerIPCEvent *event);
 
@@ -2611,10 +2650,6 @@ public:
     bool ThisIsHelperThread(void);
 
     HRESULT ReDaclEvents(PSECURITY_DESCRIPTOR securityDescriptor);
-#ifndef DACCESS_COMPILE
-    void MulticastTraceNextStep(DELEGATEREF pbDel, INT32 count);
-    void ExternalMethodFixupNextStep(PCODE address);
-#endif
 
 #ifdef DACCESS_COMPILE
     virtual void EnumMemoryRegions(CLRDataEnumMemoryFlags flags);
@@ -3333,15 +3368,24 @@ public:
 
     void AddModule(DebuggerModule *module);
 
-    void RemoveModule(Module* module);
+    void RemoveModule(Module* module, AppDomain *pAppDomain);
+
 
     void Clear();
 
+    //
+    // RemoveModules removes any module loaded into the given appdomain from the hash.  This is used when we send an
+    // ExitAppdomain event to ensure that there are no leftover modules in the hash. This can happen when we have shared
+    // modules that aren't properly accounted for in the CLR. We miss sending UnloadModule events for those modules, so
+    // we clean them up with this method.
+    //
+    void RemoveModules(AppDomain *pAppDomain);
 #endif // #ifndef DACCESS_COMPILE
 
     DebuggerModule *GetModule(Module* module);
 
     // We should never look for a NULL Module *
+    DebuggerModule *GetModule(Module* module, AppDomain* pAppDomain);
     DebuggerModule *GetFirstModule(HASHFIND *info);
     DebuggerModule *GetNextModule(HASHFIND *info);
 };
@@ -3994,8 +4038,6 @@ HANDLE OpenWin32EventOrThrow(
 // Returns true if the specified IL offset has a special meaning (eg. prolog, etc.)
 bool DbgIsSpecialILOffset(DWORD offset);
 
-#if defined(TARGET_WINDOWS)
 void FixupDispatcherContext(T_DISPATCHER_CONTEXT* pDispatcherContext, T_CONTEXT* pContext, PEXCEPTION_ROUTINE pUnwindPersonalityRoutine = NULL);
-#endif
 
 #endif /* DEBUGGER_H_ */

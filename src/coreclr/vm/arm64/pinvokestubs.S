@@ -82,7 +82,8 @@ LOCAL_LABEL(\__PInvokeStubFuncName\()_0):
 
 // ------------------------------------------------------------------
 // IN:
-// InlinedCallFrame (x0) = pointer to the InlinedCallFrame data
+// InlinedCallFrame (x0) = pointer to the InlinedCallFrame data, including the GS cookie slot (GS cookie right
+//                         before actual InlinedCallFrame data)
 //
 //
     NESTED_ENTRY JIT_PInvokeBegin, _TEXT, NoHandler
@@ -90,12 +91,16 @@ LOCAL_LABEL(\__PInvokeStubFuncName\()_0):
         PROLOG_SAVE_REG_PAIR_INDEXED   fp, lr, -32
         PROLOG_SAVE_REG    x19, 16           //the stack slot at sp+24 is empty for 16 byte alignment
 
-        mov     x19, x0
+        PREPARE_EXTERNAL_VAR s_gsCookie, x9
+        ldr     x9, [x9]
+        str     x9, [x0]
+        add     x19, x0, SIZEOF__GSCookie
 
         // x19 = pFrame
 
-        // set first slot to the value of InlinedCallFrame identifier (checked by runtime code)
-        mov     x9, #FRAMETYPE_InlinedCallFrame
+        // set first slot to the value of InlinedCallFrame::`vftable' (checked by runtime code)
+        PREPARE_EXTERNAL_VAR _ZTV16InlinedCallFrame, x9
+        add     x9, x9, 16
         str     x9, [x19]
 
         str     xzr, [x19, #InlinedCallFrame__m_Datum]
@@ -129,11 +134,13 @@ LOCAL_LABEL(\__PInvokeStubFuncName\()_0):
 
 // ------------------------------------------------------------------
 // IN:
-// InlinedCallFrame (x0) = pointer to the InlinedCallFrame data
+// InlinedCallFrame (x0) = pointer to the InlinedCallFrame data, including the GS cookie slot (GS cookie right
+//                         before actual InlinedCallFrame data)
 //
 //
     LEAF_ENTRY JIT_PInvokeEnd, _TEXT
 
+        add     x0, x0, SIZEOF__GSCookie
         ldr     x1, [x0, #InlinedCallFrame__m_pThread]
 
         // x0 = pFrame

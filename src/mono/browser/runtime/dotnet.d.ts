@@ -1,7 +1,7 @@
 //! Licensed to the .NET Foundation under one or more agreements.
 //! The .NET Foundation licenses this file to you under the MIT license.
 //!
-//! This is generated file, see src/mono/browser/runtime/rollup.config.js
+//! This is generated file, see src/mono/wasm/runtime/rollup.config.js
 
 //! This is not considered public API with backward compatibility guarantees. 
 
@@ -58,11 +58,11 @@ declare type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Arra
 interface DotnetHostBuilder {
     /**
      * @param config default values for the runtime configuration. It will be merged with the default values.
-     * Note that if you provide resources and don't provide custom configSrc URL, the dotnet.boot.js will be downloaded and applied by default.
+     * Note that if you provide resources and don't provide custom configSrc URL, the blazor.boot.json will be downloaded and applied by default.
      */
     withConfig(config: MonoConfig): DotnetHostBuilder;
     /**
-     * @param configSrc URL to the configuration file. ./dotnet.boot.js is a default config file location.
+     * @param configSrc URL to the configuration file. ./blazor.boot.json is a default config file location.
      */
     withConfigSrc(configSrc: string): DotnetHostBuilder;
     /**
@@ -256,7 +256,7 @@ interface ResourceGroups {
     corePdb?: ResourceList;
     pdb?: ResourceList;
     jsModuleWorker?: ResourceList;
-    jsModuleDiagnostics?: ResourceList;
+    jsModuleGlobalization?: ResourceList;
     jsModuleNative: ResourceList;
     jsModuleRuntime: ResourceList;
     wasmSymbols?: ResourceList;
@@ -292,10 +292,7 @@ type ResourceList = {
  * @returns A URI string or a Response promise to override the loading process, or null/undefined to allow the default loading behavior.
  * When returned string is not qualified with `./` or absolute URL, it will be resolved against the application base URI.
  */
-type LoadBootResourceCallback = (type: WebAssemblyBootResourceType, name: string, defaultUri: string, integrity: string, behavior: AssetBehaviors) => string | Promise<Response> | Promise<BootModule> | null | undefined;
-type BootModule = {
-    config: MonoConfig;
-};
+type LoadBootResourceCallback = (type: WebAssemblyBootResourceType, name: string, defaultUri: string, integrity: string, behavior: AssetBehaviors) => string | Promise<Response> | null | undefined;
 interface LoadingResource {
     name: string;
     url: string;
@@ -364,10 +361,6 @@ type SingleAssetBehaviors =
  */
  | "js-module-threads"
 /**
- * The javascript module for diagnostic server and client.
- */
- | "js-module-diagnostics"
-/**
  * The javascript module for runtime.
  */
  | "js-module-runtime"
@@ -376,13 +369,21 @@ type SingleAssetBehaviors =
  */
  | "js-module-native"
 /**
- * Typically dotnet.boot.js
+ * The javascript module for hybrid globalization.
+ */
+ | "js-module-globalization"
+/**
+ * Typically blazor.boot.json
  */
  | "manifest"
 /**
  * The debugging symbols
  */
- | "symbols";
+ | "symbols"
+/**
+ * Load segmentation rules file for Hybrid Globalization.
+ */
+ | "segmentation-rules";
 type AssetBehaviors = SingleAssetBehaviors | 
 /**
  * Load asset as a managed resource assembly.
@@ -428,7 +429,11 @@ declare const enum GlobalizationMode {
     /**
      * Use user defined icu file.
      */
-    Custom = "custom"
+    Custom = "custom",
+    /**
+     * Operate in hybrid globalization mode with small ICU files, using native platform functions.
+     */
+    Hybrid = "hybrid"
 }
 type DotnetModuleConfig = {
     config?: MonoConfig;

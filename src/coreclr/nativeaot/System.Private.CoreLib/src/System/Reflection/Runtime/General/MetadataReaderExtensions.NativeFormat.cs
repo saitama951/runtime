@@ -526,8 +526,6 @@ namespace System.Reflection.Runtime.General
                     return false;
                 return true;
             }
-            else if (handleType == HandleType.TypeSpecification)
-                return false;
             else
                 throw new NotSupportedException();
         }

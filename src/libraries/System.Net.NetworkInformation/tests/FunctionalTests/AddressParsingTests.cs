@@ -97,27 +97,15 @@ namespace System.Net.NetworkInformation.Tests
             Assert.Equal(IPAddress.Parse("10.105.128.4"), dhcpServerAddresses[0]);
         }
 
-        [Theory]
-        [InlineData("NetworkFiles/smb.conf")]
-        [InlineData("NetworkFiles/smb_with_commented_wins.conf")]
-        public void WinsServerAddressParsing(string source)
+        [Fact]
+        public void WinsServerAddressParsing()
         {
             string fileName = GetTestFilePath();
-            FileUtil.NormalizeLineEndings(source, fileName);
+            FileUtil.NormalizeLineEndings("NetworkFiles/smb.conf", fileName);
 
             List<IPAddress> winsServerAddresses = StringParsingHelpers.ParseWinsServerAddressesFromSmbConfFile(fileName);
             Assert.Equal(1, winsServerAddresses.Count);
             Assert.Equal(IPAddress.Parse("255.1.255.1"), winsServerAddresses[0]);
-        }
-
-        [Fact]
-        public void WinsServerAddressParsingWhenFileHasNotAny()
-        {
-            string fileName = GetTestFilePath();
-            FileUtil.NormalizeLineEndings("NetworkFiles/smb_without_wins.conf", fileName);
-
-            List<IPAddress> winsServerAddresses = StringParsingHelpers.ParseWinsServerAddressesFromSmbConfFile(fileName);
-            Assert.Empty(winsServerAddresses);
         }
     }
 }

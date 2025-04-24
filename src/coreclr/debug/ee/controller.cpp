@@ -948,9 +948,7 @@ DebuggerController::DebuggerController(Thread * pThread, AppDomain * pAppDomain)
     m_unwindFP(LEAF_MOST_FRAME),
     m_eventQueuedCount(0),
     m_deleted(false),
-    m_fEnableMethodEnter(false),
-    m_multicastDelegateHelper(false),
-    m_externalMethodFixup(false)
+    m_fEnableMethodEnter(false)
 {
     CONTRACTL
     {
@@ -1140,10 +1138,6 @@ void DebuggerController::DisableAll()
             DisableTraceCall();
         if (m_fEnableMethodEnter)
             DisableMethodEnter();
-        if (m_multicastDelegateHelper)
-            DisableMultiCastDelegate();
-        if (m_externalMethodFixup)
-            DisableExternalMethodFixup();
     }
 }
 
@@ -2290,7 +2284,6 @@ static bool _AddrIsJITHelper(PCODE addr)
 // method & return true.
 //
 // Return true if we set a patch, else false
-#ifndef DACCESS_COMPILE
 bool DebuggerController::PatchTrace(TraceDestination *trace,
                                     FramePointer fp,
                                     bool fStopInUnmanaged)
@@ -2376,7 +2369,7 @@ bool DebuggerController::PatchTrace(TraceDestination *trace,
 
     case TRACE_FRAME_PUSH:
         LOG((LF_CORDB, LL_INFO10000,
-             "Setting frame patch at %p(%p)\n", trace->GetAddress(), fp.GetSPValue()));
+             "Setting frame patch at 0x%p(%p)\n", trace->GetAddress(), fp.GetSPValue()));
 
         AddAndActivateNativePatchForAddress((CORDB_ADDRESS_TYPE *)trace->GetAddress(),
                  fp,
@@ -2386,12 +2379,13 @@ bool DebuggerController::PatchTrace(TraceDestination *trace,
 
     case TRACE_MGR_PUSH:
         LOG((LF_CORDB, LL_INFO10000,
-            "Setting frame patch (TRACE_MGR_PUSH) at %p(%p)\n",
-            trace->GetAddress(), fp.GetSPValue()));
+             "Setting frame patch (TRACE_MGR_PUSH) at 0x%p(%p)\n",
+             trace->GetAddress(), fp.GetSPValue()));
+
         dcp = AddAndActivateNativePatchForAddress((CORDB_ADDRESS_TYPE *)trace->GetAddress(),
-                    LEAF_MOST_FRAME, // But Mgr_push can't have fp affinity!
-                    TRUE,
-                    DPT_DEFAULT_TRACE_TYPE); // TRACE_OTHER
+                       LEAF_MOST_FRAME, // But Mgr_push can't have fp affinity!
+                       TRUE,
+                       DPT_DEFAULT_TRACE_TYPE); // TRACE_OTHER
         // Now copy over the trace field since TriggerPatch will expect this
         // to be set for this case.
         if (dcp != NULL)
@@ -2399,14 +2393,6 @@ bool DebuggerController::PatchTrace(TraceDestination *trace,
             dcp->trace = *trace;
         }
 
-        return true;
-
-    case TRACE_MULTICAST_DELEGATE_HELPER:
-        EnableMultiCastDelegate();
-        return true;
-
-    case TRACE_EXTERNAL_METHOD_FIXUP:
-        EnableExternalMethodFixup();
         return true;
 
     case TRACE_OTHER:
@@ -2419,7 +2405,6 @@ bool DebuggerController::PatchTrace(TraceDestination *trace,
         return false;
     }
 }
-#endif
 
 //-----------------------------------------------------------------------------
 // Checks if the patch matches the context + thread.
@@ -3920,141 +3905,6 @@ void DebuggerController::DispatchMethodEnter(void * pIP, FramePointer fp)
 
 }
 
-void DebuggerController::EnableMultiCastDelegate()
-{
-    CONTRACTL
-    {
-        NOTHROW;
-        GC_NOTRIGGER;
-    }
-    CONTRACTL_END;
-
-    ControllerLockHolder chController;
-    if (!m_multicastDelegateHelper)
-    {
-        LOG((LF_CORDB, LL_INFO1000000, "DC::EnableMultiCastDel, this=%p, previously disabled\n", this));
-        m_multicastDelegateHelper = true;
-        g_multicastDelegateTraceActiveCount += 1;
-    }
-    else
-    {
-        LOG((LF_CORDB, LL_INFO1000000, "DC::EnableMultiCastDel, this=%p, already set\n", this));
-    }
-}
-
-void DebuggerController::DisableMultiCastDelegate()
-{
-    CONTRACTL
-    {
-        NOTHROW;
-        GC_NOTRIGGER;
-    }
-    CONTRACTL_END;
-
-    ControllerLockHolder chController;
-    if (m_multicastDelegateHelper)
-    {
-        LOG((LF_CORDB, LL_INFO10000, "DC::DisableMultiCastDelegate, this=%p, previously set\n", this));
-        m_multicastDelegateHelper = false;
-        g_multicastDelegateTraceActiveCount -= 1;
-    }
-    else
-    {
-        LOG((LF_CORDB, LL_INFO10000, "DC::DisableMultiCastDelegate, this=%p, already disabled\n", this));
-    }
-}
-
-// Loop through controllers and dispatch TriggerMulticastDelegate
-void DebuggerController::DispatchMulticastDelegate(DELEGATEREF pbDel, INT32 countDel)
-{
-    LOG((LF_CORDB, LL_INFO10000, "DC::DispatchMulticastDelegate\n"));
-
-    Thread * pThread = g_pEEInterface->GetThread();
-    _ASSERTE(pThread  != NULL);
-
-    ControllerLockHolder lockController;
-
-    DebuggerController *p = g_controllers;
-    while (p != NULL)
-    {
-        if (p->m_multicastDelegateHelper)
-        {
-            if ((p->GetThread() == NULL) || (p->GetThread() == pThread))
-            {
-                p->TriggerMulticastDelegate(pbDel, countDel);
-            }
-        }
-        p = p->m_next;
-    }
-}
-
-void DebuggerController::EnableExternalMethodFixup()
-{
-    CONTRACTL
-    {
-        NOTHROW;
-        GC_NOTRIGGER;
-    }
-    CONTRACTL_END;
-
-    ControllerLockHolder chController;
-    if (!m_externalMethodFixup)
-    {
-        LOG((LF_CORDB, LL_INFO1000000, "DC::EnableExternalMethodFixup, this=%p, previously disabled\n", this));
-        m_externalMethodFixup = true;
-        g_externalMethodFixupTraceActiveCount += 1;
-    }
-    else
-    {
-        LOG((LF_CORDB, LL_INFO1000000, "DC::EnableExternalMethodFixup, this=%p, already set\n", this));
-    }
-}
-
-void DebuggerController::DisableExternalMethodFixup()
-{
-    CONTRACTL
-    {
-        NOTHROW;
-        GC_NOTRIGGER;
-    }
-    CONTRACTL_END;
-
-    ControllerLockHolder chController;
-    if (m_externalMethodFixup)
-    {
-        LOG((LF_CORDB, LL_INFO10000, "DC::DisableExternalMethodFixup, this=%p, previously set\n", this));
-        m_externalMethodFixup = false;
-        g_externalMethodFixupTraceActiveCount -= 1;
-    }
-    else
-    {
-        LOG((LF_CORDB, LL_INFO10000, "DC::DisableExternalMethodFixup, this=%p, already disabled\n", this));
-    }
-}
-
-// Loop through controllers and dispatch TriggerExternalMethodFixup
-void DebuggerController::DispatchExternalMethodFixup(PCODE addr)
-{
-    LOG((LF_CORDB, LL_INFO10000, "DC::DispatchExternalMethodFixup\n"));
-
-    Thread * pThread = g_pEEInterface->GetThread();
-    _ASSERTE(pThread  != NULL);
-
-    ControllerLockHolder lockController;
-
-    DebuggerController *p = g_controllers;
-    while (p != NULL)
-    {
-        if (p->m_externalMethodFixup)
-        {
-            if ((p->GetThread() == NULL) || (p->GetThread() == pThread))
-            {
-                p->TriggerExternalMethodFixup(addr);
-            }
-        }
-        p = p->m_next;
-    }
-}
 //
 // AddProtection adds page protection to (at least) the given range of
 // addresses
@@ -4198,14 +4048,6 @@ void DebuggerController::DispatchFuncEvalExit(Thread * thread)
     }
 
 
-}
-void DebuggerController::TriggerMulticastDelegate(DELEGATEREF pDel, INT32 delegateCount)
-{
-    _ASSERTE(!"This code should be unreachable. If your controller enables MulticastDelegateHelper events, it should also override this callback to do something useful when the event arrives.");
-}
-void DebuggerController::TriggerExternalMethodFixup(PCODE target)
-{
-    _ASSERTE(!"This code should be unreachable. If your controller enables ExternalMethodFixup events, it should also override this callback to do something useful when the event arrives.");
 }
 
 
@@ -6514,7 +6356,7 @@ void DebuggerStepper::TrapStepOut(ControllerStackInfo *info, bool fForceTraditio
                 && g_pEEInterface->FollowTrace(&trace)
                 && PatchTrace(&trace, info->m_activeFrame.fp,
                               true))
-                continue;
+                break;
         }
         else if (info->m_activeFrame.md != nullptr && info->m_activeFrame.md->IsILStub() &&
                  info->m_activeFrame.md->AsDynamicMethodDesc()->GetILStubType() == DynamicMethodDesc::StubTailCallCallTarget)
@@ -7792,33 +7634,6 @@ void DebuggerStepper::TriggerUnwind(Thread *thread,
     m_reason = unwindReason;
 }
 
-void DebuggerStepper::TriggerMulticastDelegate(DELEGATEREF pDel, INT32 delegateCount)
-{
-    TraceDestination trace;
-    FramePointer fp = LEAF_MOST_FRAME;
-
-    PTRARRAYREF pDelInvocationList = (PTRARRAYREF) pDel->GetInvocationList();
-    DELEGATEREF pCurrentInvokeDel = (DELEGATEREF) pDelInvocationList->GetAt(delegateCount);
-
-    StubLinkStubManager::TraceDelegateObject((BYTE*)OBJECTREFToObject(pCurrentInvokeDel), &trace);
-
-    g_pEEInterface->FollowTrace(&trace);
-    //fStopInUnmanaged only matters for TRACE_UNMANAGED
-    PatchTrace(&trace, fp, /*fStopInUnmanaged*/false);
-    this->DisableMultiCastDelegate();
-}
-
-void DebuggerStepper::TriggerExternalMethodFixup(PCODE target)
-{
-    TraceDestination trace;
-    FramePointer fp = LEAF_MOST_FRAME;
-
-    trace.InitForStub(target);
-    g_pEEInterface->FollowTrace(&trace);
-    //fStopInUnmanaged only matters for TRACE_UNMANAGED
-    PatchTrace(&trace, fp, /*fStopInUnmanaged*/false);
-    this->DisableExternalMethodFixup();
-}
 
 // Prepare for sending an event.
 // This is called 1:1 w/ SendEvent, but this method can be called in a GC_TRIGGERABLE context

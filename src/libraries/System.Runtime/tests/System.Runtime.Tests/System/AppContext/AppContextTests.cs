@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.IO;
 using Xunit;
 
 namespace System.Tests
@@ -28,12 +27,6 @@ namespace System.Tests
         public void AppContext_ThrowTest()
         {
             AssertExtensions.Throws<ArgumentNullException>("name", () => AppContext.SetData(null, 123));
-        }
-
-        [Fact]
-        public void BaseDirectory_PathRooted()
-        {
-            Assert.True(Path.IsPathRooted(AppContext.BaseDirectory), "BaseDirectory should be a rooted path");
         }
     }
 }

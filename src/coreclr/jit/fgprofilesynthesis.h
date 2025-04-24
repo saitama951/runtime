@@ -75,7 +75,7 @@ private:
     void ComputeCyclicProbabilities();
     void ComputeCyclicProbabilities(FlowGraphNaturalLoop* loop);
 
-    void AssignInputWeights(weight_t entryBlockWeight);
+    void AssignInputWeights(ProfileSynthesisOption option);
 
     void ComputeBlockWeights();
     void ComputeBlockWeight(BasicBlock* block);
@@ -86,7 +86,6 @@ private:
     Compiler* const        m_comp;
     FlowGraphDfsTree*      m_dfsTree                   = nullptr;
     FlowGraphNaturalLoops* m_loops                     = nullptr;
-    BasicBlock*            m_entryBlock                = nullptr;
     weight_t*              m_cyclicProbabilities       = nullptr;
     weight_t               m_blendFactor               = initialBlendFactor;
     weight_t               m_loopExitLikelihood        = loopExitLikelihood;

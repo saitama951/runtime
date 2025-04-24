@@ -18,8 +18,7 @@ namespace System.Reflection
         private Func<Assembly?, string, bool, Type?>? _typeResolver;
         private bool _throwOnError;
         private bool _ignoreCase;
-        private bool _extensibleParser;
-        private ref StackCrawlMark _stackMark;
+        private void* _stackMark;
 
         [RequiresUnreferencedCode("The type might be removed")]
         internal static Type? GetType(
@@ -28,7 +27,6 @@ namespace System.Reflection
             Func<Assembly?, string, bool, Type?>? typeResolver,
             bool throwOnError,
             bool ignoreCase,
-            bool extensibleParser,
             ref StackCrawlMark stackMark)
         {
             ArgumentNullException.ThrowIfNull(typeName);
@@ -54,8 +52,7 @@ namespace System.Reflection
                 _typeResolver = typeResolver,
                 _throwOnError = throwOnError,
                 _ignoreCase = ignoreCase,
-                _extensibleParser = extensibleParser,
-                _stackMark = ref stackMark
+                _stackMark = Unsafe.AsPointer(ref stackMark)
             }.Resolve(parsed);
         }
 
@@ -72,9 +69,11 @@ namespace System.Reflection
             }
             else
             {
+                ref StackCrawlMark stackMark = ref Unsafe.AsRef<StackCrawlMark>(_stackMark);
+
                 if (_throwOnError)
                 {
-                    assembly = Assembly.Load(name, ref _stackMark, null);
+                    assembly = Assembly.Load(name, ref stackMark, null);
                 }
                 else
                 {
@@ -82,7 +81,7 @@ namespace System.Reflection
                     // Other exceptions like BadImangeFormatException should still fly.
                     try
                     {
-                        assembly = Assembly.Load(name, ref _stackMark, null);
+                        assembly = Assembly.Load(name, ref stackMark, null);
                     }
                     catch (FileNotFoundException)
                     {
@@ -115,8 +114,7 @@ namespace System.Reflection
                     {
                         throw new TypeLoadException(assembly is null ?
                             SR.Format(SR.TypeLoad_ResolveType, escapedTypeName) :
-                            SR.Format(SR.TypeLoad_ResolveTypeFromAssembly, escapedTypeName, assembly.FullName),
-                            typeName: escapedTypeName);
+                            SR.Format(SR.TypeLoad_ResolveTypeFromAssembly, escapedTypeName, assembly.FullName));
                     }
                     return null;
                 }
@@ -125,7 +123,9 @@ namespace System.Reflection
             {
                 if (assembly is null)
                 {
-                    type = RuntimeType.GetType(escapedTypeName, _throwOnError, _ignoreCase, ref _stackMark);
+                    ref StackCrawlMark stackMark = ref Unsafe.AsRef<StackCrawlMark>(_stackMark);
+
+                    type = RuntimeType.GetType(escapedTypeName, _throwOnError, _ignoreCase, ref stackMark);
                 }
                 else
                 {
@@ -144,24 +144,14 @@ namespace System.Reflection
                 if (_ignoreCase)
                     bindingFlags |= BindingFlags.IgnoreCase;
 
-                if (type is RuntimeType rt)
-                {
-                    // Compat: Non-extensible parser allows ambiguous matches with ignore case lookup
-                    bool ignoreAmbiguousMatch = !_extensibleParser && _ignoreCase;
-                    type = rt.GetNestedType(nestedTypeNames[i], bindingFlags, ignoreAmbiguousMatch);
-                }
-                else
-                {
-                    type = type.GetNestedType(nestedTypeNames[i], bindingFlags);
-                }
+                type = type.GetNestedType(nestedTypeNames[i], bindingFlags);
 
                 if (type is null)
                 {
                     if (_throwOnError)
                     {
                         throw new TypeLoadException(SR.Format(SR.TypeLoad_ResolveNestedType,
-                            nestedTypeNames[i], (i > 0) ? nestedTypeNames[i - 1] : TypeName.Unescape(escapedTypeName)),
-                            typeName: escapedTypeName);
+                            nestedTypeNames[i], (i > 0) ? nestedTypeNames[i - 1] : TypeNameHelpers.Unescape(escapedTypeName)));
                     }
                     return null;
                 }

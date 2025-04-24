@@ -437,7 +437,7 @@ namespace System.Text
             }
         }
 
-        public override int ReadByte()
+        public override unsafe int ReadByte()
         {
             byte b = 0;
             return Read(new Span<byte>(ref b)) != 0 ? b : -1;

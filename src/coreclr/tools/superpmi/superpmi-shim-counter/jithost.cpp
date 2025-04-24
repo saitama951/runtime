@@ -28,19 +28,19 @@ void JitHost::freeMemory(void* block)
     return wrappedHost->freeMemory(block);
 }
 
-int JitHost::getIntConfigValue(const char* key, int defaultValue)
+int JitHost::getIntConfigValue(const WCHAR* key, int defaultValue)
 {
     mcs->AddCall("getIntConfigValue");
     return wrappedHost->getIntConfigValue(key, defaultValue);
 }
 
-const char* JitHost::getStringConfigValue(const char* key)
+const WCHAR* JitHost::getStringConfigValue(const WCHAR* key)
 {
     mcs->AddCall("getStringConfigValue");
     return wrappedHost->getStringConfigValue(key);
 }
 
-void JitHost::freeStringConfigValue(const char* value)
+void JitHost::freeStringConfigValue(const WCHAR* value)
 {
     mcs->AddCall("freeStringConfigValue");
     wrappedHost->freeStringConfigValue(value);

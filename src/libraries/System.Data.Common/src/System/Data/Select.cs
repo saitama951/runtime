@@ -8,7 +8,6 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace System.Data
 {
-    [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
     internal sealed class Select
     {
         internal const string RequiresUnreferencedCodeMessage = "Members of types used in the filter expression might be trimmed.";
@@ -37,6 +36,7 @@ namespace System.Data
         private int _nCandidates;
         private int _matchedCandidates;
 
+        [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
         public Select(DataTable table, string? filterExpression, string? sort, DataViewRowState recordStates)
         {
             _table = table;
@@ -599,6 +599,8 @@ namespace System.Data
             return newRows;
         }
 
+        [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
+            Justification = "All constructors are marked as unsafe.")]
         private bool AcceptRecord(int record)
         {
             DataRow? row = _table._recordManager[record];
@@ -633,6 +635,8 @@ namespace System.Data
             return result;
         }
 
+        [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
+            Justification = "All constructors are marked as unsafe.")]
         private int Eval(BinaryNode expr, DataRow row, DataRowVersion version)
         {
             if (expr._op == Operators.And)

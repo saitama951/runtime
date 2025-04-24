@@ -1,22 +1,22 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-
 //*****************************************************************************
 // Debug.cpp
 //
 // Helper code for debugging.
 //*****************************************************************************
+//
+
 
 #include "stdafx.h"
 #include "utilcode.h"
 #include "ex.h"
 #include "corexcep.h"
 
-#include <minipal/debugger.h>
-
 #ifdef _DEBUG
 #define LOGGING
 #endif
+
 
 #include "log.h"
 
@@ -202,7 +202,7 @@ HRESULT _OutOfMemory(LPCSTR szFile, int iLine)
     STATIC_CONTRACT_GC_NOTRIGGER;
     STATIC_CONTRACT_DEBUG_ONLY;
 
-    minipal_log_print(minipal_log_flags_warning, "WARNING: Out of memory condition being issued from: %s, line %d\n", szFile, iLine);
+    printf("WARNING: Out of memory condition being issued from: %s, line %d\n", szFile, iLine);
     return (E_OUTOFMEMORY);
 }
 
@@ -257,7 +257,7 @@ bool _DbgBreakCheck(
     if (formattedMessages)
     {
         OutputDebugStringUtf8(formatBuffer);
-        minipal_log_print_error(formatBuffer);
+        fprintf(stderr, "%s", formatBuffer);
     }
     else
     {
@@ -268,7 +268,12 @@ bool _DbgBreakCheck(
         OutputDebugStringUtf8("\n");
         OutputDebugStringUtf8(szExpr);
         OutputDebugStringUtf8("\n");
-        minipal_log_print_error("%s\n%s\n%s\n", szLowMemoryAssertMessage, szFile, szExpr);
+        printf("%s", szLowMemoryAssertMessage);
+        printf("\n");
+        printf("%s", szFile);
+        printf("\n");
+        printf("%s", szExpr);
+        printf("\n");
     }
 
     LogAssert(szFile, iLine, szExpr);
@@ -278,7 +283,7 @@ bool _DbgBreakCheck(
         return false;       // don't stop debugger. No gui.
     }
 
-    if (minipal_is_native_debugger_present())
+    if (IsDebuggerPresent())
     {
         return true;       // like a retry
     }
@@ -489,7 +494,7 @@ void DECLSPEC_NORETURN __FreeBuildAssertFail(const char *szFile, int iLine, cons
     OutputDebugStringUtf8(buffer.GetUTF8());
 
     // Write out the error to the console
-    minipal_log_print_error(buffer.GetUTF8());
+    printf("%s", buffer.GetUTF8());
 
     // Log to the stress log. Note that we can't include the szExpr b/c that
     // may not be a string literal (particularly for formatt-able asserts).

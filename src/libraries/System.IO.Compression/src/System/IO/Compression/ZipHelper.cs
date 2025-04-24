@@ -3,6 +3,7 @@
 
 using System.Buffers;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace System.IO.Compression
@@ -12,7 +13,7 @@ namespace System.IO.Compression
         internal const uint Mask32Bit = 0xFFFFFFFF;
         internal const ushort Mask16Bit = 0xFFFF;
 
-        private const int BackwardsSeekingBufferSize = 4096;
+        private const int BackwardsSeekingBufferSize = 32;
 
         internal const int ValidZipDate_YearMin = 1980;
         internal const int ValidZipDate_YearMax = 2107;
@@ -35,14 +36,13 @@ namespace System.IO.Compression
         /// <summary>
         /// Reads exactly bytesToRead out of stream, unless it is out of bytes
         /// </summary>
-        internal static int ReadBytes(Stream stream, Span<byte> buffer, int bytesToRead)
+        internal static void ReadBytes(Stream stream, byte[] buffer, int bytesToRead)
         {
-            int bytesRead = stream.ReadAtLeast(buffer, bytesToRead, throwOnEndOfStream: false);
+            int bytesRead = stream.ReadAtLeast(buffer.AsSpan(0, bytesToRead), bytesToRead, throwOnEndOfStream: false);
             if (bytesRead < bytesToRead)
             {
                 throw new IOException(SR.UnexpectedEndOfStream);
             }
-            return bytesRead;
         }
 
         // will silently return InvalidDateIndicator if the uint is not a valid Dos DateTime
@@ -103,93 +103,91 @@ namespace System.IO.Compression
         // assumes maxBytesToRead is positive, ensures to not read beyond the provided max number of bytes,
         // if the signature is found then returns true and positions stream at first byte of signature
         // if the signature is not found, returns false
-        internal static bool SeekBackwardsToSignature(Stream stream, ReadOnlySpan<byte> signatureToFind, int maxBytesToRead)
+        internal static bool SeekBackwardsToSignature(Stream stream, uint signatureToFind, int maxBytesToRead)
         {
-            Debug.Assert(signatureToFind.Length != 0);
+            Debug.Assert(signatureToFind != 0);
             Debug.Assert(maxBytesToRead > 0);
 
-            // This method reads blocks of BackwardsSeekingBufferSize bytes, searching each block for signatureToFind.
-            // A simple LastIndexOf(signatureToFind) doesn't account for cases where signatureToFind is split, starting in
-            // one block and ending in another.
-            // To account for this, we read blocks of BackwardsSeekingBufferSize bytes, but seek backwards by
-            // [BackwardsSeekingBufferSize - signatureToFind.Length] bytes. This guarantees that signatureToFind will not be
-            // split between two consecutive blocks, at the cost of reading [signatureToFind.Length] duplicate bytes in each iteration.
             int bufferPointer = 0;
-            byte[] buffer = ArrayPool<byte>.Shared.Rent(BackwardsSeekingBufferSize);
-            Span<byte> bufferSpan = buffer.AsSpan(0, BackwardsSeekingBufferSize);
+            uint currentSignature = 0;
+            byte[] buffer = new byte[BackwardsSeekingBufferSize];
 
-            try
+            bool outOfBytes = false;
+            bool signatureFound = false;
+
+            int bytesRead = 0;
+            while (!signatureFound && !outOfBytes && bytesRead <= maxBytesToRead)
             {
-                bool outOfBytes = false;
-                bool signatureFound = false;
+                outOfBytes = SeekBackwardsAndRead(stream, buffer, out bufferPointer);
 
-                int totalBytesRead = 0;
-                int duplicateBytesRead = 0;
+                Debug.Assert(bufferPointer < buffer.Length);
 
-                while (!signatureFound && !outOfBytes && totalBytesRead <= maxBytesToRead)
+                while (bufferPointer >= 0 && !signatureFound)
                 {
-                    int bytesRead = SeekBackwardsAndRead(stream, bufferSpan, signatureToFind.Length);
-
-                    outOfBytes = bytesRead < bufferSpan.Length;
-                    if (bytesRead < bufferSpan.Length)
-                    {
-                        bufferSpan = bufferSpan.Slice(0, bytesRead);
-                    }
-
-                    bufferPointer = bufferSpan.LastIndexOf(signatureToFind);
-                    Debug.Assert(bufferPointer < bufferSpan.Length);
-
-                    totalBytesRead += (bufferSpan.Length - duplicateBytesRead);
-
-                    if (bufferPointer != -1)
+                    currentSignature = (currentSignature << 8) | ((uint)buffer[bufferPointer]);
+                    if (currentSignature == signatureToFind)
                     {
                         signatureFound = true;
-                        break;
                     }
-
-                    duplicateBytesRead = signatureToFind.Length;
+                    else
+                    {
+                        bufferPointer--;
+                    }
                 }
 
-                if (!signatureFound)
-                {
-                    return false;
-                }
-                else
-                {
-                    stream.Seek(bufferPointer, SeekOrigin.Current);
-                    return true;
-                }
+                bytesRead += buffer.Length;
             }
-            finally
+
+            if (!signatureFound)
             {
-                ArrayPool<byte>.Shared.Return(buffer);
+                return false;
+            }
+            else
+            {
+                stream.Seek(bufferPointer, SeekOrigin.Current);
+                return true;
             }
         }
 
-        // Returns the number of bytes actually read.
-        // Allows successive buffers to overlap by a number of bytes. This handles cases where
-        // the value being searched for straddles buffers (i.e. where the first buffer ends with the
-        // first X bytes being searched for, and the second buffer begins with the remaining bytes.)
-        private static int SeekBackwardsAndRead(Stream stream, Span<byte> buffer, int overlap)
+        // Skip to a further position downstream (without relying on the stream being seekable)
+        internal static void AdvanceToPosition(this Stream stream, long position)
         {
-            int bytesRead;
+            long numBytesLeft = position - stream.Position;
+            Debug.Assert(numBytesLeft >= 0);
+            if (numBytesLeft > 0)
+            {
+                byte[] buffer = new byte[64];
+                do
+                {
+                    int numBytesToSkip = (int)Math.Min(numBytesLeft, buffer.Length);
+                    int numBytesActuallySkipped = stream.Read(buffer, 0, numBytesToSkip);
+                    if (numBytesActuallySkipped == 0)
+                        throw new IOException(SR.UnexpectedEndOfStream);
+                    numBytesLeft -= numBytesActuallySkipped;
+                } while (numBytesLeft > 0);
+            }
+        }
 
+        // Returns true if we are out of bytes
+        private static bool SeekBackwardsAndRead(Stream stream, byte[] buffer, out int bufferPointer)
+        {
             if (stream.Position >= buffer.Length)
             {
-                Debug.Assert(overlap <= buffer.Length);
-                stream.Seek(-(buffer.Length - overlap), SeekOrigin.Current);
-                bytesRead = ReadBytes(stream, buffer, buffer.Length);
                 stream.Seek(-buffer.Length, SeekOrigin.Current);
+                ReadBytes(stream, buffer, buffer.Length);
+                stream.Seek(-buffer.Length, SeekOrigin.Current);
+                bufferPointer = buffer.Length - 1;
+                return false;
             }
             else
             {
                 int bytesToRead = (int)stream.Position;
                 stream.Seek(0, SeekOrigin.Begin);
-                bytesRead = ReadBytes(stream, buffer, bytesToRead);
+                ReadBytes(stream, buffer, bytesToRead);
                 stream.Seek(0, SeekOrigin.Begin);
+                bufferPointer = bytesToRead - 1;
+                return true;
             }
-
-            return bytesRead;
         }
 
         // Converts the specified string into bytes using the optional specified encoding.

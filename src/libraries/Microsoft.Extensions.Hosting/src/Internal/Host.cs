@@ -85,27 +85,28 @@ namespace Microsoft.Extensions.Hosting.Internal
                 cancellationToken.ThrowIfCancellationRequested();
 
                 List<Exception> exceptions = new();
+                _hostedServices ??= Services.GetRequiredService<IEnumerable<IHostedService>>();
+                _hostedLifecycleServices = GetHostLifecycles(_hostedServices);
                 _hostStarting = true;
                 bool concurrent = _options.ServicesStartConcurrently;
                 bool abortOnFirstException = !concurrent;
 
-                try
+                // Call startup validators.
+                IStartupValidator? validator = Services.GetService<IStartupValidator>();
+                if (validator is not null)
                 {
-                    _hostedServices ??= Services.GetRequiredService<IEnumerable<IHostedService>>();
-                    _hostedLifecycleServices = GetHostLifecycles(_hostedServices);
+                    try
+                    {
+                        validator.Validate();
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptions.Add(ex);
 
-                    // Call startup validators.
-                    IStartupValidator? validator = Services.GetService<IStartupValidator>();
-                    validator?.Validate();
+                        // Validation errors cause startup to be aborted.
+                        LogAndRethrow();
+                    }
                 }
-                catch (Exception ex)
-                {
-                    // service factory or validation failed, abort startup.
-                    exceptions.Add(ex);
-                    LogAndRethrow();
-                    return; // unreachable
-                }
-
 
                 // Call StartingAsync().
                 if (_hostedLifecycleServices is not null)
@@ -337,10 +338,6 @@ namespace Microsoft.Extensions.Hosting.Internal
                         if (task.Exception is not null)
                         {
                             exceptions.AddRange(task.Exception.InnerExceptions); // Log exception from async method.
-                        }
-                        else if (task.IsCanceled)
-                        {
-                            exceptions.Add(new TaskCanceledException(task));
                         }
                     }
                     else

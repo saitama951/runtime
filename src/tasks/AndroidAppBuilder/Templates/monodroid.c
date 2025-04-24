@@ -34,13 +34,7 @@ void
 Java_net_dot_MonoRunner_setEnv (JNIEnv* env, jobject thiz, jstring j_key, jstring j_value);
 
 int
-Java_net_dot_MonoRunner_initRuntime (JNIEnv* env, jobject thiz, jstring j_files_dir, jstring j_entryPointLibName, long current_local_time);
-
-int
-Java_net_dot_MonoRunner_execEntryPoint (JNIEnv* env, jobject thiz, jstring j_entryPointLibName, jobjectArray j_args);
-
-void
-Java_net_dot_MonoRunner_freeNativeResources (JNIEnv* env, jobject thiz);
+Java_net_dot_MonoRunner_initRuntime (JNIEnv* env, jobject thiz, jstring j_files_dir, jstring j_cache_dir, jstring j_testresults_dir, jstring j_entryPointLibName, jobjectArray j_args, long current_local_time);
 
 // called from C#
 void
@@ -48,9 +42,8 @@ invoke_external_native_api (void (*callback)(void));
 
 /********* implementation *********/
 
-static const char* g_bundle_path = NULL;
-static MonoDomain* g_domain = NULL;
-static MonoAssembly* g_assembly = NULL;
+static char *bundle_path;
+static char *executable;
 
 #define LOG_INFO(fmt, ...) __android_log_print(ANDROID_LOG_DEBUG, "DOTNET", fmt, ##__VA_ARGS__)
 #define LOG_ERROR(fmt, ...) __android_log_print(ANDROID_LOG_ERROR, "DOTNET", fmt, ##__VA_ARGS__)
@@ -72,12 +65,11 @@ static MonoAssembly* g_assembly = NULL;
 static MonoAssembly*
 mono_droid_load_assembly (const char *name, const char *culture)
 {
-    assert (g_bundle_path);
     char filename [1024];
     char path [1024];
     int res;
 
-    LOG_INFO ("assembly_preload_hook: %s %s %s\n", name, culture, g_bundle_path);
+    LOG_INFO ("assembly_preload_hook: %s %s %s\n", name, culture, bundle_path);
 
     int len = strlen (name);
     int has_extension = len > 3 && name [len - 4] == '.' && (!strcmp ("exe", name + (len - 3)) || !strcmp ("dll", name + (len - 3)));
@@ -89,9 +81,9 @@ mono_droid_load_assembly (const char *name, const char *culture)
     }
 
     if (culture && strcmp (culture, ""))
-        res = snprintf (path, sizeof (path) - 1, "%s/%s/%s", g_bundle_path, culture, filename);
+        res = snprintf (path, sizeof (path) - 1, "%s/%s/%s", bundle_path, culture, filename);
     else
-        res = snprintf (path, sizeof (path) - 1, "%s/%s", g_bundle_path, filename);
+        res = snprintf (path, sizeof (path) - 1, "%s/%s", bundle_path, filename);
     assert (res > 0);
 
     struct stat buffer;
@@ -114,7 +106,6 @@ mono_droid_assembly_preload_hook (MonoAssemblyName *aname, char **assemblies_pat
 static unsigned char *
 load_aot_data (MonoAssembly *assembly, int size, void *user_data, void **out_handle)
 {
-    assert (g_bundle_path);
     *out_handle = NULL;
 
     char path [1024];
@@ -124,7 +115,7 @@ load_aot_data (MonoAssembly *assembly, int size, void *user_data, void **out_han
     const char *aname = mono_assembly_name_get_name (assembly_name);
 
     LOG_INFO ("Looking for aot data for assembly '%s'.", aname);
-    res = snprintf (path, sizeof (path) - 1, "%s/%s.aotdata", g_bundle_path, aname);
+    res = snprintf (path, sizeof (path) - 1, "%s/%s.aotdata", bundle_path, aname);
     assert (res > 0);
 
     int fd = open (path, O_RDONLY);
@@ -231,9 +222,8 @@ cleanup_runtime_config (MonovmRuntimeConfigArguments *args, void *user_data)
 }
 
 static int
-mono_droid_runtime_init (const char* executable, int local_date_time_offset)
+mono_droid_runtime_init (const char* executable, int managed_argc, char* managed_argv[], int local_date_time_offset)
 {
-    LOG_INFO ("mono_droid_runtime_init (Mono) called with executable: %s", executable);
     // NOTE: these options can be set via command line args for adb or xharness, see AndroidSampleApp.csproj
 
     // uncomment for debug output:
@@ -250,7 +240,7 @@ mono_droid_runtime_init (const char* executable, int local_date_time_offset)
 #endif
 
     bool wait_for_debugger = false;
-    chdir (g_bundle_path);
+    chdir (bundle_path);
 
     // TODO: set TRUSTED_PLATFORM_ASSEMBLIES, APP_PATHS and NATIVE_DLL_SEARCH_DIRECTORIES
 
@@ -261,15 +251,15 @@ mono_droid_runtime_init (const char* executable, int local_date_time_offset)
 
     const char* appctx_values[3];
     appctx_values[0] = ANDROID_RUNTIME_IDENTIFIER;
-    appctx_values[1] = g_bundle_path;
+    appctx_values[1] = bundle_path;
     char local_date_time_offset_buffer[32];
     snprintf (local_date_time_offset_buffer, sizeof(local_date_time_offset_buffer), "%d", local_date_time_offset);
     appctx_values[2] = strdup (local_date_time_offset_buffer);
 
     char *file_name = RUNTIMECONFIG_BIN_FILE;
-    int str_len = strlen (g_bundle_path) + strlen (file_name) + 1; // +1 is for the "/"
+    int str_len = strlen (bundle_path) + strlen (file_name) + 1; // +1 is for the "/"
     char *file_path = (char *)malloc (sizeof (char) * (str_len +1)); // +1 is for the terminating null character
-    int num_char = snprintf (file_path, (str_len + 1), "%s/%s", g_bundle_path, file_name);
+    int num_char = snprintf (file_path, (str_len + 1), "%s/%s", bundle_path, file_name);
     struct stat buffer;
 
     LOG_INFO ("file_path: %s\n", file_path);
@@ -284,9 +274,7 @@ mono_droid_runtime_init (const char* executable, int local_date_time_offset)
         free (file_path);
     }
 
-    LOG_INFO ("Calling monovm_initialize");
-    int rv = monovm_initialize(3, appctx_keys, appctx_values);
-    LOG_INFO ("monovm_initialize returned %d", rv);
+    monovm_initialize(3, appctx_keys, appctx_values);
 
     mono_debug_init (MONO_DEBUG_FORMAT_MONO);
     mono_install_assembly_preload_hook (mono_droid_assembly_preload_hook, NULL);
@@ -316,54 +304,20 @@ mono_droid_runtime_init (const char* executable, int local_date_time_offset)
     mono_jit_set_aot_mode(MONO_AOT_MODE_NORMAL);
 #endif // FULL_AOT
 #endif // FORCE_INTERPRETER
-    
-    g_domain = mono_jit_init_version ("dotnet.android", "mobile");
-    if (g_domain == NULL) {
-        LOG_ERROR ("mono_jit_init_version failed");
-        return -1;
-    }
 
-    g_assembly = mono_droid_load_assembly (executable, NULL);
-    if (g_assembly == NULL) {
-        LOG_ERROR ("mono_droid_load_assembly failed");
-        return -1;
-    }
+    MonoDomain *domain = mono_jit_init_version ("dotnet.android", "mobile");
+    assert (domain);
 
-    return rv;
-}
+    MonoAssembly *assembly = mono_droid_load_assembly (executable, NULL);
+    assert (assembly);
 
-static void
-free_resources ()
-{
-    if (g_bundle_path)
-    {
-        free (g_bundle_path);
-        g_bundle_path = NULL;
-    }
-    if (g_assembly)
-    {
-        mono_assembly_close (g_assembly);
-        g_assembly = NULL;
-    }
-    // Free g_domain
-    if (g_domain)
-    {
-        mono_domain_set (g_domain, false);
-        mono_domain_finalize (g_domain, 0);
-        g_domain = NULL;
-    }
-}
-
-static int 
-mono_droid_execute_assembly (MonoDomain* domain, MonoAssembly* assembly, int managed_argc, char* managed_argv[])
-{
-    LOG_INFO ("Calling mono_jit_exec");
-    int rv = mono_jit_exec (domain, assembly, managed_argc, managed_argv);
-    LOG_INFO ("Exit code: %d.", rv);
+    LOG_INFO ("Executable: %s", executable);
+    int res = mono_jit_exec (domain, assembly, managed_argc, managed_argv);
+    LOG_INFO ("Exit code: %d.", res);
 
     mono_jit_cleanup (domain);
 
-    return rv;
+    return res;
 }
 
 static void
@@ -372,7 +326,6 @@ strncpy_str (JNIEnv *env, char *buff, jstring str, int nbuff)
     jboolean isCopy = 0;
     const char *copy_buff = (*env)->GetStringUTFChars (env, str, &isCopy);
     strncpy (buff, copy_buff, nbuff);
-    buff[nbuff - 1] = '\0'; // ensure '\0' terminated
     if (isCopy)
         (*env)->ReleaseStringUTFChars (env, str, copy_buff);
 }
@@ -380,68 +333,44 @@ strncpy_str (JNIEnv *env, char *buff, jstring str, int nbuff)
 void
 Java_net_dot_MonoRunner_setEnv (JNIEnv* env, jobject thiz, jstring j_key, jstring j_value)
 {
-    LOG_INFO ("Java_net_dot_MonoRunner_setEnv:");
-    assert (g_domain == NULL); // setenv should be only called before the runtime is initialized
-    
     const char *key = (*env)->GetStringUTFChars(env, j_key, 0);
     const char *val = (*env)->GetStringUTFChars(env, j_value, 0);
-
-    LOG_INFO ("Setting env var: %s=%s", key, val);
     setenv (key, val, true);
     (*env)->ReleaseStringUTFChars(env, j_key, key);
     (*env)->ReleaseStringUTFChars(env, j_value, val);
 }
 
 int
-Java_net_dot_MonoRunner_initRuntime (JNIEnv* env, jobject thiz, jstring j_files_dir, jstring j_entryPointLibName, long current_local_time)
+Java_net_dot_MonoRunner_initRuntime (JNIEnv* env, jobject thiz, jstring j_files_dir, jstring j_cache_dir, jstring j_testresults_dir, jstring j_entryPointLibName, jobjectArray j_args, long current_local_time)
 {
-    LOG_INFO ("Java_net_dot_MonoRunner_initRuntime (Mono):");
     char file_dir[2048];
+    char cache_dir[2048];
+    char testresults_dir[2048];
     char entryPointLibName[2048];
     strncpy_str (env, file_dir, j_files_dir, sizeof(file_dir));
+    strncpy_str (env, cache_dir, j_cache_dir, sizeof(cache_dir));
+    strncpy_str (env, testresults_dir, j_testresults_dir, sizeof(testresults_dir));
     strncpy_str (env, entryPointLibName, j_entryPointLibName, sizeof(entryPointLibName));
 
-    size_t file_dir_len = strlen(file_dir);
-    char* bundle_path_tmp = (char*)malloc(sizeof(char) * (file_dir_len + 1)); // +1 for '\0'
-    if (bundle_path_tmp == NULL)
-    {
-        LOG_ERROR("Failed to allocate memory for bundle_path");
-        return -1;
-    }
-    strncpy(bundle_path_tmp, file_dir, file_dir_len + 1);
-    g_bundle_path = bundle_path_tmp;
+    bundle_path = file_dir;
+    executable = entryPointLibName;
 
-    return mono_droid_runtime_init (entryPointLibName, current_local_time);
-}
-
-int
-Java_net_dot_MonoRunner_execEntryPoint (JNIEnv* env, jobject thiz, jstring j_entryPointLibName, jobjectArray j_args)
-{
-    LOG_INFO("Java_net_dot_MonoRunner_execEntryPoint (Mono):");
-
-    if (g_bundle_path == NULL)
-    {
-        LOG_ERROR("Bundle path or executable name not set");
-        return -1;
-    }
-
-    if (g_domain == NULL || g_assembly == NULL)
-    {
-        LOG_ERROR("Mono domain or assembly not initialized");
-        return -1;
-    }
+    setenv ("HOME", bundle_path, true);
+    setenv ("TMPDIR", cache_dir, true);
+    setenv ("TEST_RESULTS_DIR", testresults_dir, true);
 
     int args_len = (*env)->GetArrayLength(env, j_args);
     int managed_argc = args_len + 1;
     char** managed_argv = (char**)malloc(managed_argc * sizeof(char*));
-    managed_argv[0] = g_bundle_path;
+
+    managed_argv[0] = bundle_path;
     for (int i = 0; i < args_len; ++i)
     {
         jstring j_arg = (*env)->GetObjectArrayElement(env, j_args, i);
         managed_argv[i + 1] = (char*)((*env)->GetStringUTFChars(env, j_arg, NULL));
     }
 
-    int rv = mono_droid_execute_assembly (g_domain, g_assembly, managed_argc, managed_argv);
+    int res = mono_droid_runtime_init (executable, managed_argc, managed_argv, current_local_time);
 
     for (int i = 0; i < args_len; ++i)
     {
@@ -450,14 +379,7 @@ Java_net_dot_MonoRunner_execEntryPoint (JNIEnv* env, jobject thiz, jstring j_ent
     }
 
     free(managed_argv);
-    return rv;
-}
-
-void
-Java_net_dot_MonoRunner_freeNativeResources (JNIEnv* env, jobject thiz)
-{
-    LOG_INFO ("Java_net_dot_MonoRunner_freeNativeResources (Mono):");
-    free_resources ();
+    return res;
 }
 
 // called from C#

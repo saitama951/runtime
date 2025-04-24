@@ -1,7 +1,4 @@
 <Project Sdk="Microsoft.Build.Traversal">
-  <PropertyGroup>
-    <IsILToolPackage>true</IsILToolPackage>
-  </PropertyGroup>
   <ItemGroup>
     <!-- identity project, runtime specific projects are included by props above -->
     <Project Include="$(MSBuildProjectName).pkgproj" />

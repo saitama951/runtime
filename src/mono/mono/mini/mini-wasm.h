@@ -99,7 +99,6 @@ typedef struct {
 
 // sdks/wasm/driver.c is C and uses this
 G_EXTERN_C void mono_wasm_enable_debugging (int log_level);
-G_EXTERN_C int mono_wasm_get_debug_level (void);
 
 #ifdef HOST_BROWSER
 

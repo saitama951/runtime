@@ -11,7 +11,6 @@ using System.Reflection;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using WasmAppBuilder;
-using JoinedString;
 
 internal sealed class IcallTableGenerator
 {
@@ -49,7 +48,7 @@ internal sealed class IcallTableGenerator
         if (outputPath != null)
         {
             using TempFileName tmpFileName = new();
-            using (var w = new JoinedStringStreamWriter(tmpFileName.Path, false))
+            using (var w = File.CreateText(tmpFileName.Path))
                 EmitTable(w);
 
             if (Utils.CopyIfDifferent(tmpFileName.Path, outputPath, useHash: false))
@@ -72,28 +71,30 @@ internal sealed class IcallTableGenerator
             var sorted = _icalls.Where(i => i.Assembly == assembly).ToArray();
             Array.Sort(sorted);
 
-            string aname = assembly == "System.Private.CoreLib" ? "corlib" : _fixupSymbolName(assembly);
+            string aname;
+            if (assembly == "System.Private.CoreLib")
+                aname = "corlib";
+            else
+                aname = _fixupSymbolName(assembly);
+            w.WriteLine($"#define ICALL_TABLE_{aname} 1\n");
 
-            w.Write(
-                $$"""
-
-                #define ICALL_TABLE_{{aname}} 1
-
-                static int {{aname}}_icall_indexes [] = {
-                    {{sorted.Join($",{w.NewLine}    ", (icall, i) => $"/* {i} */ {icall.TokenIndex}")}}
-                };
-
-                {{sorted.Join($" {w.NewLine}", GenIcallDecl)}}
-
-                static void *{{aname}}_icall_funcs [] = {
-                    {{sorted.Join($",{w.NewLine}    ", (icall, i) => $"/* {i}:{icall.TokenIndex} */ {icall.Func}" )}}
-                };
-
-                static uint8_t {{aname}}_icall_flags [] = {
-                    {{sorted.Join($",{w.NewLine}    ", (icall, i) => $"/* {i}:{icall.TokenIndex} */ {icall.Flags}")}}
-                };
-
-                """);
+            w.WriteLine($"static int {aname}_icall_indexes [] = {{");
+            foreach (var icall in sorted)
+                w.WriteLine(string.Format("{0},", icall.TokenIndex));
+            w.WriteLine("};");
+            foreach (var icall in sorted)
+                w.WriteLine(GenIcallDecl(icall));
+            w.WriteLine($"static void *{aname}_icall_funcs [] = {{");
+            foreach (var icall in sorted)
+            {
+                w.WriteLine(string.Format("// token {0},", icall.TokenIndex));
+                w.WriteLine(string.Format("{0},", icall.Func));
+            }
+            w.WriteLine("};");
+            w.WriteLine($"static uint8_t {aname}_icall_flags [] = {{");
+            foreach (var icall in sorted)
+                w.WriteLine(string.Format("{0},", icall.Flags));
+            w.WriteLine("};");
         }
     }
 
@@ -274,18 +275,33 @@ internal sealed class IcallTableGenerator
         _ => "int",
     };
 
-
     private static string GenIcallDecl(Icall icall)
     {
-        List<string> args = new();
+        var sb = new StringBuilder();
         var method = icall.Method!;
+        sb.Append(MapType(method.ReturnType));
+        sb.Append($" {icall.Func} (");
+        int aindex = 0;
         if (!method.IsStatic)
-            args.Add("int");
-        args.AddRange(method.GetParameters().Select(p => MapType(p.ParameterType)));
+        {
+            sb.Append("int");
+            aindex++;
+        }
+        foreach (var p in method.GetParameters())
+        {
+            if (aindex > 0)
+                sb.Append(',');
+            sb.Append(MapType(p.ParameterType));
+            aindex++;
+        }
         if (icall.Handles)
-            args.Add("int");
-
-        return $"{MapType(method.ReturnType)} {icall.Func} ({args.Join(", ")});";
+        {
+            if (aindex > 0)
+                sb.Append(',');
+            sb.Append("int");
+        }
+        sb.Append(");");
+        return sb.ToString();
     }
 
     private sealed class Icall : IComparable<Icall>

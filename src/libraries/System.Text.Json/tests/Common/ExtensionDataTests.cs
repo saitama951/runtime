@@ -1222,7 +1222,7 @@ namespace System.Text.Json.Serialization.Tests
         public class ClassWithExtensionPropertyThreeGenericParameters
         {
             [JsonExtensionData]
-            public GenericIDictionaryWrapperThreeGenericParameters<string, object, string> MyOverflow { get; set; }
+            public GenericIDictonaryWrapperThreeGenericParameters<string, object, string> MyOverflow { get; set; }
         }
 
         [Fact]

@@ -5,9 +5,7 @@ add_compile_options(-Wno-incompatible-pointer-types-discards-qualifiers)
 include(${CMAKE_CURRENT_LIST_DIR}/extra_libs.cmake)
 
 set(NATIVE_LIBS_EXTRA)
-if (NOT CLR_CMAKE_TARGET_BROWSER)
-    append_extra_security_libs(NATIVE_LIBS_EXTRA)
-endif()
+append_extra_security_libs(NATIVE_LIBS_EXTRA)
 
 set(NATIVEGSS_SOURCES
     pal_gssapi.c

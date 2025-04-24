@@ -70,7 +70,9 @@ namespace System.Linq
             }
 
             return
-                !IsSizeOptimized && source is Iterator<TSource> iterator ? iterator.TryGetFirst(out found) :
+#if !OPTIMIZE_FOR_SIZE
+                source is Iterator<TSource> iterator ? iterator.TryGetFirst(out found) :
+#endif
                 TryGetFirstNonIterator(source, out found);
         }
 
@@ -86,11 +88,13 @@ namespace System.Linq
             }
             else
             {
-                using IEnumerator<TSource> e = source.GetEnumerator();
-                if (e.MoveNext())
+                using (IEnumerator<TSource> e = source.GetEnumerator())
                 {
-                    found = true;
-                    return e.Current;
+                    if (e.MoveNext())
+                    {
+                        found = true;
+                        return e.Current;
+                    }
                 }
             }
 

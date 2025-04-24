@@ -99,18 +99,10 @@ CORINFO_METHOD_HANDLE getUnboxedEntry(
           CORINFO_METHOD_HANDLE ftn,
           bool* requiresInstMethodTableArg) override;
 
-CORINFO_METHOD_HANDLE getInstantiatedEntry(
-          CORINFO_METHOD_HANDLE ftn,
-          CORINFO_METHOD_HANDLE* methodArg,
-          CORINFO_CLASS_HANDLE* classArg) override;
-
 CORINFO_CLASS_HANDLE getDefaultComparerClass(
           CORINFO_CLASS_HANDLE elemType) override;
 
 CORINFO_CLASS_HANDLE getDefaultEqualityComparerClass(
-          CORINFO_CLASS_HANDLE elemType) override;
-
-CORINFO_CLASS_HANDLE getSZArrayHelperEnumeratorClass(
           CORINFO_CLASS_HANDLE elemType) override;
 
 void expandRawHandleIntrinsic(
@@ -187,10 +179,6 @@ const char* getClassNameFromMetadata(
 
 CORINFO_CLASS_HANDLE getTypeInstantiationArgument(
           CORINFO_CLASS_HANDLE cls,
-          unsigned index) override;
-
-CORINFO_CLASS_HANDLE getMethodInstantiationArgument(
-          CORINFO_METHOD_HANDLE ftn,
           unsigned index) override;
 
 size_t printClassName(
@@ -401,7 +389,7 @@ CORINFO_CLASS_HANDLE getFieldClass(
 CorInfoType getFieldType(
           CORINFO_FIELD_HANDLE field,
           CORINFO_CLASS_HANDLE* structType,
-          CORINFO_CLASS_HANDLE fieldOwnerHint) override;
+          CORINFO_CLASS_HANDLE memberParent) override;
 
 unsigned getFieldOffset(
           CORINFO_FIELD_HANDLE field) override;
@@ -497,6 +485,8 @@ bool runWithSPMIErrorTrap(
 
 void getEEInfo(
           CORINFO_EE_INFO* pEEInfoOut) override;
+
+const char16_t* getJitTimeLogFilename() override;
 
 mdMethodDef getMethodDefFromMethod(
           CORINFO_METHOD_HANDLE hMethod) override;
@@ -745,9 +735,6 @@ uint32_t getExpectedTargetArchitecture() override;
 uint32_t getJitFlags(
           CORJIT_FLAGS* flags,
           uint32_t sizeInBytes) override;
-
-CORINFO_METHOD_HANDLE getSpecialCopyHelper(
-          CORINFO_CLASS_HANDLE type) override;
 
 /**********************************************************************************/
 // clang-format on

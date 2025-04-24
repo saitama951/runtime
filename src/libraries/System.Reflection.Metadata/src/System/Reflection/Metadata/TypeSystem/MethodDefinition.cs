@@ -109,9 +109,6 @@ namespace System.Reflection.Metadata
             }
         }
 
-        /// <summary>
-        /// Returns a handle to the type that declares this method.
-        /// </summary>
         public TypeDefinitionHandle GetDeclaringType()
         {
             return _reader.GetDeclaringType(Handle);

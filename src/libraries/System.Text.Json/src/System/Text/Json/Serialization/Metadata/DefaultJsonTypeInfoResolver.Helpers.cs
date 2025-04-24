@@ -180,8 +180,8 @@ namespace System.Text.Json.Serialization.Metadata
 
             foreach (FieldInfo fieldInfo in currentType.GetFields(AllInstanceMembers))
             {
-                bool hasJsonIncludeAttribute = fieldInfo.GetCustomAttribute<JsonIncludeAttribute>(inherit: false) != null;
-                if (hasJsonIncludeAttribute || (fieldInfo.IsPublic && typeInfo.Options.IncludeFields))
+                bool hasJsonIncludeAtribute = fieldInfo.GetCustomAttribute<JsonIncludeAttribute>(inherit: false) != null;
+                if (hasJsonIncludeAtribute || (fieldInfo.IsPublic && typeInfo.Options.IncludeFields))
                 {
                     AddMember(
                         typeInfo,
@@ -189,7 +189,7 @@ namespace System.Text.Json.Serialization.Metadata
                         memberInfo: fieldInfo,
                         nullabilityCtx,
                         shouldCheckMembersForRequiredMemberAttribute,
-                        hasJsonIncludeAttribute,
+                        hasJsonIncludeAtribute,
                         ref state);
                 }
             }
@@ -526,21 +526,12 @@ namespace System.Text.Json.Serialization.Metadata
 
                 static byte[]? GetNullableFlags(MemberInfo member)
                 {
-                    foreach (CustomAttributeData attr in member.GetCustomAttributesData())
+                    foreach (Attribute attr in member.GetCustomAttributes())
                     {
-                        Type attrType = attr.AttributeType;
-                        if (attrType.Name == "NullableAttribute" && attrType.Namespace == "System.Runtime.CompilerServices")
+                        Type attrType = attr.GetType();
+                        if (attrType.Namespace == "System.Runtime.CompilerServices" && attrType.Name == "NullableAttribute")
                         {
-                            foreach (CustomAttributeTypedArgument ctorArg in attr.ConstructorArguments)
-                            {
-                                switch (ctorArg.Value)
-                                {
-                                    case byte flag:
-                                        return [flag];
-                                    case byte[] flags:
-                                        return flags;
-                                }
-                            }
+                            return (byte[])attr.GetType().GetField("NullableFlags")?.GetValue(attr)!;
                         }
                     }
 
@@ -549,18 +540,12 @@ namespace System.Text.Json.Serialization.Metadata
 
                 static byte? GetNullableContextFlag(MemberInfo member)
                 {
-                    foreach (CustomAttributeData attr in member.GetCustomAttributesData())
+                    foreach (Attribute attr in member.GetCustomAttributes())
                     {
-                        Type attrType = attr.AttributeType;
-                        if (attrType.Name == "NullableContextAttribute" && attrType.Namespace == "System.Runtime.CompilerServices")
+                        Type attrType = attr.GetType();
+                        if (attrType.Namespace == "System.Runtime.CompilerServices" && attrType.Name == "NullableContextAttribute")
                         {
-                            foreach (CustomAttributeTypedArgument ctorArg in attr.ConstructorArguments)
-                            {
-                                if (ctorArg.Value is byte flag)
-                                {
-                                    return flag;
-                                }
-                            }
+                            return (byte?)attr?.GetType().GetField("Flag")?.GetValue(attr)!;
                         }
                     }
 

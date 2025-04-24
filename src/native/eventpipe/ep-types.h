@@ -19,7 +19,6 @@
 #include <containers/dn-list.h>
 #include <containers/dn-queue.h>
 #include <containers/dn-umap-t.h>
-#include <minipal/guid.h>
 
 /*
  * EventFilterDescriptor.

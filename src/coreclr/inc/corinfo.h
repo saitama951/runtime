@@ -424,15 +424,19 @@ enum CorInfoHelpFunc
 
     CORINFO_HELP_MON_ENTER,
     CORINFO_HELP_MON_EXIT,
+    CORINFO_HELP_MON_ENTER_STATIC,
+    CORINFO_HELP_MON_EXIT_STATIC,
 
     CORINFO_HELP_GETCLASSFROMMETHODPARAM, // Given a generics method handle, returns a class handle
-    CORINFO_HELP_GETSYNCFROMCLASSHANDLE,  // Given a generics class handle return the ManagedClassObject that is used to lock a static method
+    CORINFO_HELP_GETSYNCFROMCLASSHANDLE,  // Given a generics class handle, returns the sync monitor
+                                          // in its ManagedClassObject
 
     /* GC support */
 
     CORINFO_HELP_STOP_FOR_GC,       // Call GC (force a GC)
     CORINFO_HELP_POLL_GC,           // Ask GC if it wants to collect
 
+    CORINFO_HELP_STRESS_GC,         // Force a GC, but then update the JITTED code to be a noop call
     CORINFO_HELP_CHECK_OBJ,         // confirm that ECX is a valid object pointer (debugging only)
 
     /* GC Write barrier support */
@@ -479,7 +483,6 @@ enum CorInfoHelpFunc
     CORINFO_HELP_GETDYNAMIC_GCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED,
     CORINFO_HELP_GETDYNAMIC_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED,
     CORINFO_HELP_GETDYNAMIC_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED2,
-    CORINFO_HELP_GETDYNAMIC_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED2_NOJITOPT,
 
     /* Debugger */
 
@@ -491,6 +494,8 @@ enum CorInfoHelpFunc
     CORINFO_HELP_PROF_FCN_TAILCALL,     // record the completion of current method through tailcall (caller)
 
     /* Miscellaneous */
+
+    CORINFO_HELP_BBT_FCN_ENTER,         // record the entry to a method for collecting Tuning data
 
     CORINFO_HELP_PINVOKE_CALLI,         // Indirect pinvoke call
     CORINFO_HELP_TAILCALL,              // Perform a tail call
@@ -506,7 +511,9 @@ enum CorInfoHelpFunc
                                         // not safe for unbounded size, does not trigger GC)
 
     CORINFO_HELP_RUNTIMEHANDLE_METHOD,          // determine a type/field/method handle at run-time
+    CORINFO_HELP_RUNTIMEHANDLE_METHOD_LOG,      // determine a type/field/method handle at run-time, with IBC logging
     CORINFO_HELP_RUNTIMEHANDLE_CLASS,           // determine a type/field/method handle at run-time
+    CORINFO_HELP_RUNTIMEHANDLE_CLASS_LOG,       // determine a type/field/method handle at run-time, with IBC logging
 
     CORINFO_HELP_TYPEHANDLE_TO_RUNTIMETYPE, // Convert from a TypeHandle (native structure pointer) to RuntimeType at run-time
     CORINFO_HELP_TYPEHANDLE_TO_RUNTIMETYPE_MAYBENULL, // Convert from a TypeHandle (native structure pointer) to RuntimeType at run-time, the type may be null
@@ -637,7 +644,6 @@ enum CorInfoTypeWithMod
 {
     CORINFO_TYPE_MASK            = 0x3F,        // lower 6 bits are type mask
     CORINFO_TYPE_MOD_PINNED      = 0x40,        // can be applied to CLASS, or BYREF to indicate pinned
-    CORINFO_TYPE_MOD_COPY_WITH_HELPER = 0x80    // can be applied to VALUECLASS to indicate 'needs helper to copy'
 };
 
 inline CorInfoType strip(CorInfoTypeWithMod val) {
@@ -786,7 +792,7 @@ enum CorInfoFlag
 enum CorInfoMethodRuntimeFlags
 {
     CORINFO_FLG_BAD_INLINEE         = 0x00000001, // The method is not suitable for inlining
-    CORINFO_FLG_INTERPRETER         = 0x00000002, // The method was compiled by the interpreter
+    // unused                       = 0x00000002,
     // unused                       = 0x00000004,
     CORINFO_FLG_SWITCHED_TO_MIN_OPT = 0x00000008, // The JIT decided to switch to MinOpt for this method, when it was not requested
     CORINFO_FLG_SWITCHED_TO_OPTIMIZED = 0x00000010, // The JIT decided to switch to tier 1 for this method, when a different tier was requested
@@ -821,6 +827,22 @@ enum CORINFO_EH_CLAUSE_FLAGS
     CORINFO_EH_CLAUSE_FAULT     = 0x0004, // This clause is a fault clause
     CORINFO_EH_CLAUSE_DUPLICATE = 0x0008, // Duplicated clause. This clause was duplicated to a funclet which was pulled out of line
     CORINFO_EH_CLAUSE_SAMETRY   = 0x0010, // This clause covers same try block as the previous one
+};
+
+// This enumeration is passed to InternalThrow
+enum CorInfoException
+{
+    CORINFO_NullReferenceException,
+    CORINFO_DivideByZeroException,
+    CORINFO_InvalidCastException,
+    CORINFO_IndexOutOfRangeException,
+    CORINFO_OverflowException,
+    CORINFO_SynchronizationLockException,
+    CORINFO_ArrayTypeMismatchException,
+    CORINFO_RankException,
+    CORINFO_ArgumentNullException,
+    CORINFO_ArgumentException,
+    CORINFO_Exception_Count,
 };
 
 // These are used to detect array methods as NamedIntrinsic in JIT importer,
@@ -1507,21 +1529,18 @@ struct CORINFO_DEVIRTUALIZATION_INFO
     // [Out] results of resolveVirtualMethod.
     // - devirtualizedMethod is set to MethodDesc of devirt'ed method iff we were able to devirtualize.
     //      invariant is `resolveVirtualMethod(...) == (devirtualizedMethod != nullptr)`.
+    // - requiresInstMethodTableArg is set to TRUE if the devirtualized method requires a type handle arg.
     // - exactContext is set to wrapped CORINFO_CLASS_HANDLE of devirt'ed method table.
     // - details on the computation done by the jit host
     // - If pResolvedTokenDevirtualizedMethod is not set to NULL and targeting an R2R image
     //   use it as the parameter to getCallInfo
-    // - isInstantiatingStub is set to TRUE if the devirtualized method is a generic method instantiating stub
-    // - wasArrayInterfaceDevirt is set TRUE for array interface method devirtualization
-    //     (in which case the method handle and context will be a generic method)
     //
     CORINFO_METHOD_HANDLE           devirtualizedMethod;
+    bool                            requiresInstMethodTableArg;
     CORINFO_CONTEXT_HANDLE          exactContext;
     CORINFO_DEVIRTUALIZATION_DETAIL detail;
     CORINFO_RESOLVED_TOKEN          resolvedTokenDevirtualizedMethod;
     CORINFO_RESOLVED_TOKEN          resolvedTokenDevirtualizedUnboxedMethod;
-    bool                            isInstantiatingStub;
-    bool                            wasArrayInterfaceDevirt;
 };
 
 //----------------------------------------------------------------------------
@@ -1650,6 +1669,8 @@ struct CORINFO_EE_INFO
         // Size of the Frame structure when it also contains the secret stub arg
         unsigned    sizeWithSecretStubArg;
 
+        unsigned    offsetOfGSCookie;
+        unsigned    offsetOfFrameVptr;
         unsigned    offsetOfFrameLink;
         unsigned    offsetOfCallSiteSP;
         unsigned    offsetOfCalleeSavedFP;
@@ -2109,14 +2130,6 @@ public:
         bool*                 requiresInstMethodTableArg
         ) = 0;
 
-    // Get the wrapped entry point for an instantiating stub, if possible.
-    // Sets methodArg for method instantiations, classArg for class instantiations.
-    virtual CORINFO_METHOD_HANDLE getInstantiatedEntry(
-        CORINFO_METHOD_HANDLE ftn,
-        CORINFO_METHOD_HANDLE* methodArg,
-        CORINFO_CLASS_HANDLE* classArg
-        ) = 0;
-
     // Given T, return the type of the default Comparer<T>.
     // Returns null if the type can't be determined exactly.
     virtual CORINFO_CLASS_HANDLE getDefaultComparerClass(
@@ -2126,12 +2139,6 @@ public:
     // Given T, return the type of the default EqualityComparer<T>.
     // Returns null if the type can't be determined exactly.
     virtual CORINFO_CLASS_HANDLE getDefaultEqualityComparerClass(
-            CORINFO_CLASS_HANDLE elemType
-            ) = 0;
-
-    // Given T, return the type of the SZArrayHelper enumerator
-    // Returns null if the type can't be determined exactly.
-    virtual CORINFO_CLASS_HANDLE getSZArrayHelperEnumeratorClass(
             CORINFO_CLASS_HANDLE elemType
             ) = 0;
 
@@ -2298,13 +2305,6 @@ public:
             unsigned             index
             ) = 0;
 
-    // Return the type argument of the instantiated generic method,
-    // which is specified by the index
-    virtual CORINFO_CLASS_HANDLE getMethodInstantiationArgument(
-            CORINFO_METHOD_HANDLE ftn,
-            unsigned              index
-            ) = 0;
-
     // Prints the name for a specified class including namespaces and enclosing
     // classes.
     // See printObjectDescription for documentation for the parameters.
@@ -2323,7 +2323,7 @@ public:
             CORINFO_CLASS_HANDLE    cls
             ) = 0;
 
-    // Returns the assembly name of the class "cls", or nullptr if there is none.
+    // Returns the assembly name of the class "cls", or nullptr if there is none.    
     virtual const char* getClassAssemblyName (
             CORINFO_CLASS_HANDLE cls
             ) = 0;
@@ -2743,12 +2743,12 @@ public:
     // the field's value class (if 'structType' == 0, then don't bother
     // the structure info).
     //
-    // 'fieldOwnerHint' is, potentially, a more exact owner of the field.
-    // it's fine for it to be non-precise, it's just a hint.
+    // 'memberParent' is typically only set when verifying.  It should be the
+    // result of calling getMemberParent.
     virtual CorInfoType getFieldType(
             CORINFO_FIELD_HANDLE        field,
             CORINFO_CLASS_HANDLE *      structType = NULL,
-            CORINFO_CLASS_HANDLE        fieldOwnerHint = NULL /* IN */
+            CORINFO_CLASS_HANDLE        memberParent = NULL /* IN */
             ) = 0;
 
     // return the data member's instance offset
@@ -2958,6 +2958,9 @@ public:
     virtual void getEEInfo(
             CORINFO_EE_INFO            *pEEInfoOut
             ) = 0;
+
+    // Returns name of the JIT timer log
+    virtual const char16_t *getJitTimeLogFilename() = 0;
 
     /*********************************************************************************/
     //
@@ -3312,8 +3315,6 @@ public:
     // but for tailcalls, the contract is that JIT leaves the indirection cell in
     // a register during tailcall.
     virtual void updateEntryPointForTailCall(CORINFO_CONST_LOOKUP* entryPoint) = 0;
-
-    virtual CORINFO_METHOD_HANDLE getSpecialCopyHelper(CORINFO_CLASS_HANDLE type) = 0;
 };
 
 /**********************************************************************************/
@@ -3348,17 +3349,6 @@ public:
 // So, the value of offset correction is 12
 //
 #define IMAGE_REL_BASED_REL_THUMB_MOV32_PCREL   0x14
-
-//
-// LOONGARCH64 relocation types
-//
-#define IMAGE_REL_LOONGARCH64_PC        0x0003
-#define IMAGE_REL_LOONGARCH64_JIR       0x0004
-
-//
-// RISCV64 relocation types
-//
-#define IMAGE_REL_RISCV64_PC            0x0003
 
 /**********************************************************************************/
 #ifdef TARGET_64BIT

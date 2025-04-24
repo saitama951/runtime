@@ -456,7 +456,7 @@ bool get_install_location_from_file(const pal::string_t& file_path, bool& file_f
 {
     file_found = true;
     bool install_location_found = false;
-    FILE* install_location_file = pal::file_open(file_path, _X("r"));
+    FILE* install_location_file = pal::file_open(file_path, "r");
     if (install_location_file != nullptr)
     {
         if (!get_line_from_file(install_location_file, install_location))
@@ -819,10 +819,12 @@ pal::string_t pal::get_current_os_rid_platform()
     {
         // Read the file to get ID and VERSION_ID data that will be used
         // to construct the RID.
-        FILE* fsVersionFile = pal::file_open(versionFile, _X("r"));
+        std::fstream fsVersionFile;
+
+        fsVersionFile.open(versionFile, std::fstream::in);
 
         // Proceed only if we were able to open the file
-        if (fsVersionFile != nullptr)
+        if (fsVersionFile.good())
         {
             pal::string_t line;
             pal::string_t strID(_X("ID="));
@@ -832,8 +834,11 @@ pal::string_t pal::get_current_os_rid_platform()
 
             bool fFoundID = false, fFoundVersion = false;
 
+            // Read the first line
+            std::getline(fsVersionFile, line);
+
             // Loop until we are at the end of file
-            while (get_line_from_file(fsVersionFile, line))
+            while (!fsVersionFile.eof())
             {
                 // Look for ID if we have not found it already
                 if (!fFoundID)
@@ -867,10 +872,13 @@ pal::string_t pal::get_current_os_rid_platform()
                     // We have everything we need to form the RID - break out of the loop.
                     break;
                 }
+
+                // Read the next line
+                std::getline(fsVersionFile, line);
             }
 
             // Close the file now that we are done with it.
-            fclose(fsVersionFile);
+            fsVersionFile.close();
 
             if (fFoundID)
             {

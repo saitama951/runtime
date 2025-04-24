@@ -20,23 +20,14 @@ namespace System.DirectoryServices.Protocols.Tests
             Assert.Equal(512, control.PageSize);
             Assert.Equal("1.2.840.113556.1.4.319", control.Type);
 
-#if NETFRAMEWORK
-            var expected = new byte[] { 48, 132, 0, 0, 0, 6, 2, 2, 2, 0, 4, 0 };
-#else
-            var expected = new byte[] { 48, 6, 2, 2, 2, 0, 4, 0 };
-#endif
+            var expected = (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) ? new byte[] { 48, 132, 0, 0, 0, 6, 2, 2, 2, 0, 4, 0 } : new byte[] { 48, 6, 2, 2, 2, 0, 4, 0 };
             Assert.Equal(expected, control.GetValue());
         }
 
         public static IEnumerable<object[]> Ctor_PageSize_Data()
         {
-#if NETFRAMEWORK
-            yield return new object[] { 0, new byte[] { 48, 132, 0, 0, 0, 5, 2, 1, 0, 4, 0 } };
-            yield return new object[] { 10, new byte[] { 48, 132, 0, 0, 0, 5, 2, 1, 10, 4, 0 } };
-#else
-            yield return new object[] { 0, new byte[] { 48, 5, 2, 1, 0, 4, 0 } };
-            yield return new object[] { 10, new byte[] { 48, 5, 2, 1, 10, 4, 0 } };
-#endif
+            yield return new object[] { 0, (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) ? new byte[] { 48, 132, 0, 0, 0, 5, 2, 1, 0, 4, 0 } : new byte[] { 48, 5, 2, 1, 0, 4, 0 } };
+            yield return new object[] { 10, (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) ? new byte[] { 48, 132, 0, 0, 0, 5, 2, 1, 10, 4, 0 } : new byte[] { 48, 5, 2, 1, 10, 4, 0 } };
         }
 
         [Theory]
@@ -61,15 +52,9 @@ namespace System.DirectoryServices.Protocols.Tests
 
         public static IEnumerable<object[]> Ctor_Cookie_Data()
         {
-#if NETFRAMEWORK
-            yield return new object[] { null, new byte[] { 48, 132, 0, 0, 0, 6, 2, 2, 2, 0, 4, 0 } };
-            yield return new object[] { new byte[0], new byte[] { 48, 132, 0, 0, 0, 6, 2, 2, 2, 0, 4, 0 } };
-            yield return new object[] { new byte[] { 1, 2, 3, }, new byte[] { 48, 132, 0, 0, 0, 9, 2, 2, 2, 0, 4, 3, 1, 2, 3 } };
-#else
-            yield return new object[] { null, new byte[] { 48, 6, 2, 2, 2, 0, 4, 0 } };
-            yield return new object[] { new byte[0], new byte[] { 48, 6, 2, 2, 2, 0, 4, 0 } };
-            yield return new object[] { new byte[] { 1, 2, 3, }, new byte[] { 48, 9, 2, 2, 2, 0, 4, 3, 1, 2, 3 } };
-#endif
+            yield return new object[] { null, (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) ? new byte[] { 48, 132, 0, 0, 0, 6, 2, 2, 2, 0, 4, 0 } : new byte[] { 48, 6, 2, 2, 2, 0, 4, 0 } };
+            yield return new object[] { new byte[0], (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) ? new byte[] { 48, 132, 0, 0, 0, 6, 2, 2, 2, 0, 4, 0 } : new byte[] { 48, 6, 2, 2, 2, 0, 4, 0 } };
+            yield return new object[] { new byte[] { 1, 2, 3, }, (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) ? new byte[] { 48, 132, 0, 0, 0, 9, 2, 2, 2, 0, 4, 3, 1, 2, 3 } : new byte[] { 48, 9, 2, 2, 2, 0, 4, 3, 1, 2, 3 } };
         }
 
         [Theory]

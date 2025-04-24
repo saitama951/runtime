@@ -35,7 +35,7 @@ public:
     TypeDesc(CorElementType type) {
         LIMITED_METHOD_CONTRACT;
 
-        _typeAndFlags = type;
+        m_typeAndFlags = type;
     }
 #endif
 
@@ -44,7 +44,7 @@ public:
     inline CorElementType GetInternalCorElementType() {
         LIMITED_METHOD_DAC_CONTRACT;
 
-        return (CorElementType) (_typeAndFlags & 0xff);
+        return (CorElementType) (m_typeAndFlags & 0xff);
     }
 
     // Get the exact parent (superclass) of this type
@@ -116,20 +116,20 @@ public:
     BOOL HasTypeEquivalence() const
     {
         LIMITED_METHOD_CONTRACT;
-        return (_typeAndFlags & TypeDesc::enum_flag_HasTypeEquivalence) != 0;
+        return (m_typeAndFlags & TypeDesc::enum_flag_HasTypeEquivalence) != 0;
     }
 
     BOOL IsFullyLoaded() const
     {
         LIMITED_METHOD_CONTRACT;
 
-        return (_typeAndFlags & TypeDesc::enum_flag_IsNotFullyLoaded) == 0;
+        return (m_typeAndFlags & TypeDesc::enum_flag_IsNotFullyLoaded) == 0;
     }
 
     VOID SetIsFullyLoaded()
     {
         LIMITED_METHOD_CONTRACT;
-        InterlockedAnd((LONG*)&_typeAndFlags, ~TypeDesc::enum_flag_IsNotFullyLoaded);
+        InterlockedAnd((LONG*)&m_typeAndFlags, ~TypeDesc::enum_flag_IsNotFullyLoaded);
     }
 
     ClassLoadLevel GetLoadLevel();
@@ -176,7 +176,7 @@ public:
         }
         CONTRACTL_END;
 
-        const RUNTIMETYPEHANDLE handle = _exposedClassObject;
+        const RUNTIMETYPEHANDLE handle = m_hExposedClassObject;
         OBJECTREF retVal = ObjectToOBJECTREF(handle);
         return retVal;
     }
@@ -200,17 +200,17 @@ public:
     //
     // The remaining bits are available for flags
     //
-    DWORD _typeAndFlags;
+    DWORD m_typeAndFlags;
 
     // internal RuntimeType object handle
-    RUNTIMETYPEHANDLE _exposedClassObject;
-    friend struct ::cdac_data<TypeDesc>;
+    RUNTIMETYPEHANDLE m_hExposedClassObject;
+    template<typename T> friend struct ::cdac_data;
 };
 
 template<>
 struct cdac_data<TypeDesc>
 {
-    static constexpr size_t TypeAndFlags = offsetof(TypeDesc, _typeAndFlags);
+    static constexpr size_t TypeAndFlags = offsetof(TypeDesc, m_typeAndFlags);
 };
 
 /*************************************************************************/
@@ -233,12 +233,12 @@ public:
         LIMITED_METHOD_CONTRACT;
 
         // ParamTypeDescs start out life not fully loaded
-        _typeAndFlags |= TypeDesc::enum_flag_IsNotFullyLoaded;
+        m_typeAndFlags |= TypeDesc::enum_flag_IsNotFullyLoaded;
 
         // Param type descs can only be equivalent if their constituent bits are equivalent.
         if (arg.HasTypeEquivalence())
         {
-            _typeAndFlags |= TypeDesc::enum_flag_HasTypeEquivalence;
+            m_typeAndFlags |= TypeDesc::enum_flag_HasTypeEquivalence;
         }
 
         INDEBUGIMPL(Verify());
@@ -265,11 +265,11 @@ public:
     friend class ArrayOpLinker;
 protected:
 
-    // the _typeAndFlags field in TypeDesc tell what kind of parameterized type we have
+    // the m_typeAndFlags field in TypeDesc tell what kind of parameterized type we have
 
     // The type that is being modified
     TypeHandle        m_Arg;
-    friend struct ::cdac_data<ParamTypeDesc>;
+    template<typename T> friend struct ::cdac_data;
 };
 
 template<>
@@ -395,7 +395,7 @@ protected:
     // index within declaring type or method, numbered from zero
     unsigned int m_index;
 
-    friend struct ::cdac_data<TypeVarTypeDesc>;
+    template<typename T> friend struct ::cdac_data;
 };
 
 template<>
@@ -495,7 +495,7 @@ protected:
     // Return type first, then argument types
     TypeHandle m_RetAndArgTypes[1];
 
-    friend struct ::cdac_data<FnPtrTypeDesc>;
+    template<typename T> friend struct ::cdac_data;
 }; // class FnPtrTypeDesc
 
 template<>

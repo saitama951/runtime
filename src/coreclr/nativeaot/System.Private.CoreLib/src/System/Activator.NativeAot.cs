@@ -49,7 +49,7 @@ namespace System
             try
             {
                 // Call the default constructor on the allocated instance.
-                if (!typeof(T).IsValueType)
+                if (RuntimeHelpers.IsReference<T>())
                 {
                     // Grab a pointer to the optimized allocator for the type and call it.
                     IntPtr allocator = AllocatorOf<T>();
@@ -109,12 +109,12 @@ namespace System
         [DebuggerHidden]
         [DebuggerStepThrough]
         public static object? CreateInstance([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors)] Type type, bool nonPublic)
-            => ReflectionAugments.ActivatorCreateInstance(type, nonPublic);
+            => ReflectionAugments.ReflectionCoreCallbacks.ActivatorCreateInstance(type, nonPublic);
 
         [DebuggerHidden]
         [DebuggerStepThrough]
         public static object? CreateInstance([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicConstructors)] Type type, BindingFlags bindingAttr, Binder? binder, object?[]? args, CultureInfo? culture, object?[]? activationAttributes)
-            => ReflectionAugments.ActivatorCreateInstance(type, bindingAttr, binder, args, culture, activationAttributes);
+            => ReflectionAugments.ReflectionCoreCallbacks.ActivatorCreateInstance(type, bindingAttr, binder, args, culture, activationAttributes);
 
         [RequiresUnreferencedCode("Type and its constructor could be removed")]
         public static ObjectHandle CreateInstance(string assemblyName, string typeName)

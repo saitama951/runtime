@@ -15,6 +15,7 @@ set(SOURCES
 
 set_source_files_properties(autorelease.m PROPERTIES COMPILE_FLAGS -fno-objc-arc)
 
+include(CMakeFindFrameworks)
 find_library(FOUNDATION Foundation REQUIRED)
 
 add_library(ObjectiveC SHARED ${SOURCES})

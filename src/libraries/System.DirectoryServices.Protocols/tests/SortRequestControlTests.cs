@@ -11,6 +11,7 @@ namespace System.DirectoryServices.Protocols.Tests
     public class SortRequestControlTests
     {
         [Theory]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/34679", TestPlatforms.Windows, TargetFrameworkMonikers.Netcoreapp, TestRuntimes.Mono)]
         [InlineData(true)]
         [InlineData(false)]
         public void Ctor_SortKeys(bool critical)
@@ -30,16 +31,16 @@ namespace System.DirectoryServices.Protocols.Tests
             }
 
             control.IsCritical = critical;
-#if NETFRAMEWORK
-            var expected = new byte[] { 48, 132, 0, 0, 0, 43, 48, 132, 0, 0, 0, 17, 4, 5,110,
+            var expected = (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) ?
+                // WLDAP formatted ASN.1
+                new byte[] { 48, 132, 0, 0, 0, 43, 48, 132, 0, 0, 0, 17, 4, 5,110,
                 97, 109, 101, 49, 128, 5, 114, 117, 108, 101, 49, 129,
                 1, 255, 48, 132, 0, 0, 0, 14, 4, 5, 110, 97, 109, 101,
-                50, 128, 5, 114, 117, 108, 101, 50 };
-#else
-            var expected = new byte[] { 48, 35, 48, 17, 4, 5, 110, 97, 109, 101, 49, 128, 5, 
+                50, 128, 5, 114, 117, 108, 101, 50 } :
+                // OpenLdap formatted ASN.1
+                new byte[] { 48, 35, 48, 17, 4, 5, 110, 97, 109, 101, 49, 128, 5, 
                 114, 117, 108, 101, 49, 129, 1, 255, 48, 14, 4, 5, 110, 97, 109, 
                 101, 50, 128, 5, 114, 117, 108, 101, 50 };
-#endif
             Assert.Equal(expected, control.GetValue());
         }
 

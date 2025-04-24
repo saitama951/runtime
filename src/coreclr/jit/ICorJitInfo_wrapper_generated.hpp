@@ -191,17 +191,6 @@ CORINFO_METHOD_HANDLE WrapICorJitInfo::getUnboxedEntry(
     return temp;
 }
 
-CORINFO_METHOD_HANDLE WrapICorJitInfo::getInstantiatedEntry(
-          CORINFO_METHOD_HANDLE ftn,
-          CORINFO_METHOD_HANDLE* methodArg,
-          CORINFO_CLASS_HANDLE* classArg)
-{
-    API_ENTER(getInstantiatedEntry);
-    CORINFO_METHOD_HANDLE temp = wrapHnd->getInstantiatedEntry(ftn, methodArg, classArg);
-    API_LEAVE(getInstantiatedEntry);
-    return temp;
-}
-
 CORINFO_CLASS_HANDLE WrapICorJitInfo::getDefaultComparerClass(
           CORINFO_CLASS_HANDLE elemType)
 {
@@ -217,15 +206,6 @@ CORINFO_CLASS_HANDLE WrapICorJitInfo::getDefaultEqualityComparerClass(
     API_ENTER(getDefaultEqualityComparerClass);
     CORINFO_CLASS_HANDLE temp = wrapHnd->getDefaultEqualityComparerClass(elemType);
     API_LEAVE(getDefaultEqualityComparerClass);
-    return temp;
-}
-
-CORINFO_CLASS_HANDLE WrapICorJitInfo::getSZArrayHelperEnumeratorClass(
-          CORINFO_CLASS_HANDLE elemType)
-{
-    API_ENTER(getSZArrayHelperEnumeratorClass);
-    CORINFO_CLASS_HANDLE temp = wrapHnd->getSZArrayHelperEnumeratorClass(elemType);
-    API_LEAVE(getSZArrayHelperEnumeratorClass);
     return temp;
 }
 
@@ -403,16 +383,6 @@ CORINFO_CLASS_HANDLE WrapICorJitInfo::getTypeInstantiationArgument(
     API_ENTER(getTypeInstantiationArgument);
     CORINFO_CLASS_HANDLE temp = wrapHnd->getTypeInstantiationArgument(cls, index);
     API_LEAVE(getTypeInstantiationArgument);
-    return temp;
-}
-
-CORINFO_CLASS_HANDLE WrapICorJitInfo::getMethodInstantiationArgument(
-          CORINFO_METHOD_HANDLE ftn,
-          unsigned index)
-{
-    API_ENTER(getMethodInstantiationArgument);
-    CORINFO_CLASS_HANDLE temp = wrapHnd->getMethodInstantiationArgument(ftn, index);
-    API_LEAVE(getMethodInstantiationArgument);
     return temp;
 }
 
@@ -951,10 +921,10 @@ CORINFO_CLASS_HANDLE WrapICorJitInfo::getFieldClass(
 CorInfoType WrapICorJitInfo::getFieldType(
           CORINFO_FIELD_HANDLE field,
           CORINFO_CLASS_HANDLE* structType,
-          CORINFO_CLASS_HANDLE fieldOwnerHint)
+          CORINFO_CLASS_HANDLE memberParent)
 {
     API_ENTER(getFieldType);
-    CorInfoType temp = wrapHnd->getFieldType(field, structType, fieldOwnerHint);
+    CorInfoType temp = wrapHnd->getFieldType(field, structType, memberParent);
     API_LEAVE(getFieldType);
     return temp;
 }
@@ -1179,6 +1149,14 @@ void WrapICorJitInfo::getEEInfo(
     API_ENTER(getEEInfo);
     wrapHnd->getEEInfo(pEEInfoOut);
     API_LEAVE(getEEInfo);
+}
+
+const char16_t* WrapICorJitInfo::getJitTimeLogFilename()
+{
+    API_ENTER(getJitTimeLogFilename);
+    const char16_t* temp = wrapHnd->getJitTimeLogFilename();
+    API_LEAVE(getJitTimeLogFilename);
+    return temp;
 }
 
 mdMethodDef WrapICorJitInfo::getMethodDefFromMethod(
@@ -1743,15 +1721,6 @@ uint32_t WrapICorJitInfo::getJitFlags(
     API_ENTER(getJitFlags);
     uint32_t temp = wrapHnd->getJitFlags(flags, sizeInBytes);
     API_LEAVE(getJitFlags);
-    return temp;
-}
-
-CORINFO_METHOD_HANDLE WrapICorJitInfo::getSpecialCopyHelper(
-          CORINFO_CLASS_HANDLE type)
-{
-    API_ENTER(getSpecialCopyHelper);
-    CORINFO_METHOD_HANDLE temp = wrapHnd->getSpecialCopyHelper(type);
-    API_LEAVE(getSpecialCopyHelper);
     return temp;
 }
 

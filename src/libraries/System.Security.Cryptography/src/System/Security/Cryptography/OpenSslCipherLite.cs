@@ -139,11 +139,11 @@ namespace System.Security.Cryptography
 
         private int CipherUpdate(ReadOnlySpan<byte> input, Span<byte> output)
         {
-            CheckBoolReturn(Interop.Crypto.EvpCipherUpdate(
+            Interop.Crypto.EvpCipherUpdate(
                 _ctx,
                 output,
                 out int bytesWritten,
-                input));
+                input);
 
             return bytesWritten;
         }

@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.IO;
-using System.Net.Security;
 using System.Net.Sockets;
 using System.Runtime.ExceptionServices;
 
@@ -16,8 +15,7 @@ namespace System.Net
     internal sealed class FtpDataStream : Stream, ICloseEx
     {
         private readonly FtpWebRequest _request;
-        private readonly Stream _stream;
-        private readonly NetworkStream _originalStream;
+        private readonly NetworkStream _networkStream;
         private bool _writeable;
         private bool _readable;
         private bool _isFullyRead;
@@ -25,7 +23,7 @@ namespace System.Net
 
         private const int DefaultCloseTimeout = -1;
 
-        internal FtpDataStream(Stream stream, NetworkStream originalStream, FtpWebRequest request, TriState writeOnly)
+        internal FtpDataStream(NetworkStream networkStream, FtpWebRequest request, TriState writeOnly)
         {
             if (NetEventSource.Log.IsEnabled()) NetEventSource.Info(this);
 
@@ -39,8 +37,7 @@ namespace System.Net
             {
                 _writeable = false;
             }
-            _stream = stream;
-            _originalStream = originalStream;
+            _networkStream = networkStream;
             _request = request;
         }
 
@@ -78,9 +75,9 @@ namespace System.Net
                 try
                 {
                     if ((closeState & CloseExState.Abort) == 0)
-                        _originalStream.Close(DefaultCloseTimeout);
+                        _networkStream.Close(DefaultCloseTimeout);
                     else
-                        _originalStream.Close(0);
+                        _networkStream.Close(0);
                 }
                 finally
                 {
@@ -128,7 +125,7 @@ namespace System.Net
         {
             get
             {
-                return _stream.CanSeek;
+                return _networkStream.CanSeek;
             }
         }
 
@@ -144,7 +141,7 @@ namespace System.Net
         {
             get
             {
-                return _stream.Length;
+                return _networkStream.Length;
             }
         }
 
@@ -152,12 +149,12 @@ namespace System.Net
         {
             get
             {
-                return _stream.Position;
+                return _networkStream.Position;
             }
 
             set
             {
-                _stream.Position = value;
+                _networkStream.Position = value;
             }
         }
 
@@ -166,7 +163,7 @@ namespace System.Net
             CheckError();
             try
             {
-                return _stream.Seek(offset, origin);
+                return _networkStream.Seek(offset, origin);
             }
             catch
             {
@@ -181,7 +178,7 @@ namespace System.Net
             int readBytes;
             try
             {
-                readBytes = _stream.Read(buffer, offset, size);
+                readBytes = _networkStream.Read(buffer, offset, size);
             }
             catch
             {
@@ -202,7 +199,7 @@ namespace System.Net
             int readBytes;
             try
             {
-                readBytes = _stream.Read(buffer);
+                readBytes = _networkStream.Read(buffer);
             }
             catch
             {
@@ -222,7 +219,7 @@ namespace System.Net
             CheckError();
             try
             {
-                _stream.Write(buffer, offset, size);
+                _networkStream.Write(buffer, offset, size);
             }
             catch
             {
@@ -236,7 +233,7 @@ namespace System.Net
             CheckError();
             try
             {
-                _stream.Write(buffer);
+                _networkStream.Write(buffer);
             }
             catch
             {
@@ -252,7 +249,7 @@ namespace System.Net
             {
                 try
                 {
-                    int readBytes = _stream.EndRead(ar);
+                    int readBytes = _networkStream.EndRead(ar);
                     if (readBytes == 0)
                     {
                         _isFullyRead = true;
@@ -276,7 +273,7 @@ namespace System.Net
             LazyAsyncResult userResult = new LazyAsyncResult(this, state, callback);
             try
             {
-                _stream.BeginRead(buffer, offset, size, new AsyncCallback(AsyncReadCallback), userResult);
+                _networkStream.BeginRead(buffer, offset, size, new AsyncCallback(AsyncReadCallback), userResult);
             }
             catch
             {
@@ -310,7 +307,7 @@ namespace System.Net
             CheckError();
             try
             {
-                return _stream.BeginWrite(buffer, offset, size, callback, state);
+                return _networkStream.BeginWrite(buffer, offset, size, callback, state);
             }
             catch
             {
@@ -323,7 +320,7 @@ namespace System.Net
         {
             try
             {
-                _stream.EndWrite(asyncResult);
+                _networkStream.EndWrite(asyncResult);
             }
             finally
             {
@@ -333,19 +330,19 @@ namespace System.Net
 
         public override void Flush()
         {
-            _stream.Flush();
+            _networkStream.Flush();
         }
 
         public override void SetLength(long value)
         {
-            _stream.SetLength(value);
+            _networkStream.SetLength(value);
         }
 
         public override bool CanTimeout
         {
             get
             {
-                return _stream.CanTimeout;
+                return _networkStream.CanTimeout;
             }
         }
 
@@ -353,11 +350,11 @@ namespace System.Net
         {
             get
             {
-                return _stream.ReadTimeout;
+                return _networkStream.ReadTimeout;
             }
             set
             {
-                _stream.ReadTimeout = value;
+                _networkStream.ReadTimeout = value;
             }
         }
 
@@ -365,18 +362,18 @@ namespace System.Net
         {
             get
             {
-                return _stream.WriteTimeout;
+                return _networkStream.WriteTimeout;
             }
             set
             {
-                _stream.WriteTimeout = value;
+                _networkStream.WriteTimeout = value;
             }
         }
 
         internal void SetSocketTimeoutOption(int timeout)
         {
-            _stream.ReadTimeout = timeout;
-            _stream.WriteTimeout = timeout;
+            _networkStream.ReadTimeout = timeout;
+            _networkStream.WriteTimeout = timeout;
         }
     }
 }

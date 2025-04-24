@@ -1,8 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-#ifndef HAVE_NETHOST_H
-#define HAVE_NETHOST_H
+#ifndef __NETHOST_H__
+#define __NETHOST_H__
 
 #include <stddef.h>
 
@@ -37,8 +37,7 @@
 #endif
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 // Parameters for get_hostfxr_path
@@ -94,7 +93,7 @@ NETHOST_API int NETHOST_CALLTYPE get_hostfxr_path(
     const struct get_hostfxr_parameters *parameters);
 
 #ifdef __cplusplus
-}
-#endif // __cplusplus
+} // extern "C"
+#endif
 
-#endif // HAVE_NETHOST_H
+#endif // __NETHOST_H__

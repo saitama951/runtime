@@ -5296,7 +5296,12 @@ namespace System.Xml.XmlWriterApiTests
                 [XmlWriterInlineData(4096)]
                 public void Base64_1(XmlWriterUtils utils, int strBase64Len)
                 {
-                    string strBase64 = new string('A', strBase64Len);
+                    string strBase64 = string.Empty;
+                    for (int i = 0; i < strBase64Len; i++)
+                    {
+                        strBase64 += "A";
+                    }
+
                     byte[] Wbase64 = new byte[strBase64Len * 2];
                     int Wbase64len = 0;
 
@@ -5320,14 +5325,11 @@ namespace System.Xml.XmlWriterApiTests
 
                     CError.Compare(nRead, strBase64Len * 2, "Read count");
 
-                    StringBuilder strResBuilder = new StringBuilder(strBase64Len);
-
+                    string strRes = string.Empty;
                     for (int i = 0; i < nRead; i += 2)
                     {
-                        strResBuilder.Append(BitConverter.ToChar(buffer, i));
+                        strRes += BitConverter.ToChar(buffer, i);
                     }
-
-                    string strRes = strResBuilder.ToString();
                     CError.Compare(strRes, strBase64, "Base64 value");
 
                     return;
@@ -6304,24 +6306,15 @@ namespace System.Xml.XmlWriterApiTests
                 [XmlWriterInlineData]
                 public void var_1(XmlWriterUtils utils)
                 {
-                    char startChar = '\ue000';
-                    char endChar = '\ufffe';
-                    int charCount = endChar - startChar;
-                    StringBuilder uniStrBuilder = new StringBuilder(charCount);
-
-                    for (char ch = startChar; ch < endChar; ch++)
-                    {
-                        uniStrBuilder.Append(ch);
-                    }
-
-                    string uniStr = uniStrBuilder.ToString();
-
+                    string UniStr = "";
                     using (XmlWriter w = utils.CreateWriter())
                     {
-                        w.WriteElementString("root", uniStr);
+                        for (char ch = '\ue000'; ch < '\ufffe'; ch++)
+                            UniStr += ch;
+                        w.WriteElementString("root", UniStr);
                     }
 
-                    Assert.True(utils.CompareReader("<root>" + uniStr + "</root>"));
+                    Assert.True(utils.CompareReader("<root>" + UniStr + "</root>"));
                 }
 
                 [Fact]

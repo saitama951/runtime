@@ -29,7 +29,7 @@ namespace Microsoft.Interop
                 gen = ResolvedGenerator.ResolvedWithDiagnostics(
                     gen.Generator,
                     gen.Diagnostics.Add(
-                        new GeneratorDiagnostic.NotRecommended(info)
+                        new GeneratorDiagnostic.NotRecommended(info, context)
                         {
                             Details = SR.InVariantShouldBeRef
                         }));

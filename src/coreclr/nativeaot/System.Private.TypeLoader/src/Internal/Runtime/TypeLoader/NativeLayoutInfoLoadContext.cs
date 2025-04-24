@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
-using System.Reflection.Runtime.General;
 
 using Internal.NativeFormat;
 using Internal.Runtime;
@@ -176,7 +175,7 @@ namespace Internal.Runtime.TypeLoader
             }
         }
 
-        internal MethodDesc GetMethod(ref NativeParser parser)
+        internal MethodDesc GetMethod(ref NativeParser parser, out RuntimeSignature methodNameSig, out RuntimeSignature methodSig)
         {
             MethodFlags flags = (MethodFlags)parser.GetUnsigned();
 
@@ -185,8 +184,7 @@ namespace Internal.Runtime.TypeLoader
                 functionPointer = GetExternalReferencePointer(parser.GetUnsigned());
 
             DefType containingType = (DefType)GetType(ref parser);
-            int token = (int)parser.GetUnsigned();
-            MethodNameAndSignature nameAndSignature = new MethodNameAndSignature(_module.MetadataReader, token.AsHandle().ToMethodHandle(_module.MetadataReader));
+            MethodNameAndSignature nameAndSignature = TypeLoaderEnvironment.GetMethodNameAndSignature(ref parser, _module.Handle, out methodNameSig, out methodSig);
 
             bool unboxingStub = (flags & MethodFlags.IsUnboxingStub) != 0;
 
@@ -208,6 +206,11 @@ namespace Internal.Runtime.TypeLoader
             }
 
             return retVal;
+        }
+
+        internal MethodDesc GetMethod(ref NativeParser parser)
+        {
+            return GetMethod(ref parser, out _, out _);
         }
 
         internal TypeDesc[] GetTypeSequence(ref NativeParser parser)

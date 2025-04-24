@@ -22,11 +22,6 @@ namespace System.Runtime.InteropServices
         /// IUnknown is {00000000-0000-0000-C000-000000000046}
         /// </summary>
         internal static readonly Guid IID_IUnknown = new Guid(0, 0, 0, 0xC0, 0, 0, 0, 0, 0, 0, 0x46);
-
-        /// <summary>
-        /// IDispatch is {00020400-0000-0000-C000-000000000046}
-        /// </summary>
-        internal static readonly Guid IID_IDispatch = new Guid(0x00020400, 0, 0, 0xC0, 0, 0, 0, 0, 0, 0, 0x46);
 #endif //FEATURE_COMINTEROP
 
         internal static int SizeOfHelper(RuntimeType t, [MarshalAs(UnmanagedType.Bool)] bool throwIfNotMarshalable)
@@ -50,7 +45,7 @@ namespace System.Runtime.InteropServices
                 throw new ArgumentException(SR.Argument_MustBeRuntimeFieldInfo, nameof(fieldName));
             }
 
-            nint offset = OffsetOf(rtField.GetFieldDesc());
+            nint offset = OffsetOf(rtField.GetFieldHandle());
             GC.KeepAlive(rtField);
             return offset;
         }
@@ -335,7 +330,6 @@ namespace System.Runtime.InteropServices
             => (obj == null) || !RuntimeHelpers.GetMethodTable(obj)->ContainsGCPointers;
 
 #if TARGET_WINDOWS
-        [FeatureSwitchDefinition("System.Runtime.InteropServices.BuiltInComInterop.IsSupported")]
         internal static bool IsBuiltInComSupported { get; } = IsBuiltInComSupportedInternal();
 
         [LibraryImport(RuntimeHelpers.QCall, EntryPoint = "MarshalNative_IsBuiltInComSupported")]

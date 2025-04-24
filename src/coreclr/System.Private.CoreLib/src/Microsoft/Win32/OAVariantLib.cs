@@ -20,7 +20,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
-using System.StubHelpers;
 
 namespace Microsoft.Win32
 {
@@ -74,7 +73,8 @@ namespace Microsoft.Win32
                 if (source is int || source is uint)
                 {
                     uint sourceData = source is int ? (uint)(int)source : (uint)source;
-                    result = ColorMarshaler.ConvertToManaged((int)sourceData);
+                    // Int32/UInt32 can be converted to System.Drawing.Color
+                    Variant.ConvertOleColorToSystemColor(ObjectHandleOnStack.Create(ref result), sourceData, targetClass.TypeHandle.Value);
                     Debug.Assert(result != null);
                     return result;
                 }
@@ -151,9 +151,18 @@ namespace Microsoft.Win32
                 null => default,
                 Missing => throw new NotSupportedException(SR.NotSupported_ChangeType),
                 DBNull => ComVariant.Null,
-                _ => Variant.GetIUnknownOrIDispatchFromObject(input) // Convert the object to an IDispatch/IUnknown pointer.
+                _ => GetComIPFromObjectRef(input) // Convert the object to an IDispatch/IUnknown pointer.
             };
         }
+
+        private static ComVariant GetComIPFromObjectRef(object? obj)
+        {
+            IntPtr pUnk = GetIUnknownOrIDispatchForObject(ObjectHandleOnStack.Create(ref obj), out bool isIDispatch);
+            return ComVariant.CreateRaw(isIDispatch ? VarEnum.VT_DISPATCH : VarEnum.VT_UNKNOWN, pUnk);
+        }
+
+        [LibraryImport(RuntimeHelpers.QCall, EntryPoint = "MarshalNative_GetIUnknownOrIDispatchForObject")]
+        private static partial IntPtr GetIUnknownOrIDispatchForObject(ObjectHandleOnStack o, [MarshalAs(UnmanagedType.Bool)] out bool isIDispatch);
 
         private static object? FromOAVariant(ComVariant input) =>
             input.VarType switch

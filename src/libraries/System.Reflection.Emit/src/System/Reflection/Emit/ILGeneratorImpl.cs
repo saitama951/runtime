@@ -57,7 +57,7 @@ namespace System.Reflection.Emit
 
         internal void AddExceptionBlocks()
         {
-            foreach (ExceptionHandlerInfo eb in _exceptionBlocks)
+            foreach(ExceptionHandlerInfo eb in _exceptionBlocks)
             {
                 switch (eb.Kind)
                 {
@@ -699,10 +699,8 @@ namespace System.Reflection.Emit
             {
                 stackChange -= optionalParameterTypes.Length;
             }
-
             // Pop the this parameter if the method has a this parameter.
-            if ((callingConvention & CallingConventions.HasThis) == CallingConventions.HasThis &&
-                (callingConvention & CallingConventions.ExplicitThis) == 0)
+            if ((callingConvention & CallingConventions.HasThis) == CallingConventions.HasThis)
             {
                 stackChange--;
             }

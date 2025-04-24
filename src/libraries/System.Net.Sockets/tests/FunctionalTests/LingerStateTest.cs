@@ -6,7 +6,6 @@ using Xunit;
 
 namespace System.Net.Sockets.Tests
 {
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support Linger")]
     public class LingerStateTest
     {
         private void TestLingerState_Success(Socket sock, bool enabled, int lingerTime)

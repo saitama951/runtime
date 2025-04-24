@@ -429,7 +429,6 @@ namespace System.Xml.Serialization
             _ilGen!.Emit(OpCodes.Newarr, elementType);
         }
 
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         internal void StackallocSpan(Type elementType, int len)
         {
             Ldc(len);
@@ -1247,7 +1246,6 @@ namespace System.Xml.Serialization
             return ifState;
         }
 
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         internal static AssemblyBuilder CreateAssemblyBuilder(string name)
         {
             AssemblyName assemblyName = new AssemblyName();

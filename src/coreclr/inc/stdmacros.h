@@ -4,7 +4,7 @@
 //
 
 //
-// common.h - precompiled headers include for the CLR Execution Engine
+// common.h - precompiled headers include for the COM+ Execution Engine
 //
 
 //

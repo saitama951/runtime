@@ -15,7 +15,9 @@ namespace System.Diagnostics.Tracing
     /// its own metric periodically.
     /// </summary>
 #if !ES_BUILD_STANDALONE
+#if !FEATURE_WASM_PERFTRACING
     [UnsupportedOSPlatform("browser")]
+#endif
 #endif
     public partial class IncrementingPollingCounter : DiagnosticCounter
     {

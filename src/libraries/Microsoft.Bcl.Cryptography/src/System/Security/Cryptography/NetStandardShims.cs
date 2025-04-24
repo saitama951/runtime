@@ -114,7 +114,6 @@ namespace System.Security.Cryptography
         }
     }
 
-#if !NETSTANDARD2_1_OR_GREATER
     internal static class CryptographicOperations
     {
         [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
@@ -147,7 +146,6 @@ namespace System.Security.Cryptography
             return accum == 0;
         }
     }
-#endif
 }
 
 namespace System.Runtime.CompilerServices

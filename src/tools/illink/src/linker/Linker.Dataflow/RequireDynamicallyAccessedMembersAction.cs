@@ -11,23 +11,20 @@ namespace ILLink.Shared.TrimAnalysis
 {
 	internal partial struct RequireDynamicallyAccessedMembersAction
 	{
-		readonly ITryResolveMetadata _resolver;
 		readonly ReflectionMarker _reflectionMarker;
 
 		public RequireDynamicallyAccessedMembersAction (
-			ITryResolveMetadata resolver,
 			ReflectionMarker reflectionMarker,
 			in DiagnosticContext diagnosticContext)
 		{
-			_resolver = resolver;
 			_reflectionMarker = reflectionMarker;
 			_diagnosticContext = diagnosticContext;
 		}
 
 		public partial bool TryResolveTypeNameAndMark (string typeName, bool needsAssemblyName, out TypeProxy type)
 		{
-			if (_reflectionMarker.TryResolveTypeNameAndMark (typeName, _diagnosticContext, needsAssemblyName, out TypeReference? foundType)) {
-				type = new (foundType, _resolver);
+			if (_reflectionMarker.TryResolveTypeNameAndMark (typeName, _diagnosticContext, needsAssemblyName, out TypeDefinition? foundType)) {
+				type = new (foundType);
 				return true;
 			} else {
 				type = default;

@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,7 +11,7 @@ using Xunit.Abstractions;
 
 namespace Wasm.Build.Tests;
 
-public class NonWasmTemplateBuildTests : WasmTemplateTestsBase
+public class NonWasmTemplateBuildTests : TestMainJsTestBase
 {
     public NonWasmTemplateBuildTests(ITestOutputHelper output, SharedBuildPerTestClassFixture buildContext)
         : base(output, buildContext)
@@ -24,10 +23,10 @@ public class NonWasmTemplateBuildTests : WasmTemplateTestsBase
     // So, copy the reference for latest TFM, and add that back with the
     // TFM=DefaultTargetFramework
     //
-    // This is useful for the case when we are on latest TFM, but sdk, and packages
-    // are really the previous version .
-    private static readonly string s_latestTargetFramework = $"net{Environment.Version.Major}.0";
-    private static readonly string s_previousTargetFramework = $"net{Environment.Version.Major - 1}.0";
+    // This is useful for the case when we are on tfm=net7.0, but sdk, and packages
+    // are really 8.0 .
+    private const string s_latestTargetFramework = "net9.0";
+    private const string s_previousTargetFramework = "net8.0";
     private static string s_directoryBuildTargetsForPreviousTFM =
         $$"""
             <Project>
@@ -56,8 +55,8 @@ public class NonWasmTemplateBuildTests : WasmTemplateTestsBase
     public static IEnumerable<object?[]> GetTestData() =>
         new IEnumerable<object?>[]
         {
-            new object?[] { Configuration.Debug },
-            new object?[] { Configuration.Release }
+            new object?[] { "Debug" },
+            new object?[] { "Release" }
         }
         .AsEnumerable()
         .MultiplyWithSingleArgs
@@ -70,6 +69,7 @@ public class NonWasmTemplateBuildTests : WasmTemplateTestsBase
         (
             EnvironmentVariables.WorkloadsTestPreviousVersions
                 ? [
+                    "net6.0",
                     s_previousTargetFramework,
                     s_latestTargetFramework
                 ]
@@ -79,21 +79,23 @@ public class NonWasmTemplateBuildTests : WasmTemplateTestsBase
 
     [Theory, TestCategory("no-workload")]
     [MemberData(nameof(GetTestData))]
-    public void NonWasmConsoleBuild_WithoutWorkload(Configuration config, string extraBuildArgs, string targetFramework)
+    public void NonWasmConsoleBuild_WithoutWorkload(string config, string extraBuildArgs, string targetFramework)
         => NonWasmConsoleBuild(config,
                                extraBuildArgs,
                                targetFramework,
+                               // net6 is sdk would be needed to run the app
                                shouldRun: targetFramework == s_latestTargetFramework);
 
     [Theory]
     [MemberData(nameof(GetTestData))]
-    public void NonWasmConsoleBuild_WithWorkload(Configuration config, string extraBuildArgs, string targetFramework)
+    public void NonWasmConsoleBuild_WithWorkload(string config, string extraBuildArgs, string targetFramework)
         => NonWasmConsoleBuild(config,
                                extraBuildArgs,
                                targetFramework,
+                               // net6 is sdk would be needed to run the app
                                shouldRun: targetFramework == s_latestTargetFramework);
 
-    private void NonWasmConsoleBuild(Configuration config,
+    private void NonWasmConsoleBuild(string config,
                                      string extraBuildArgs,
                                      string targetFramework,
                                      string? directoryBuildTargets = null,
@@ -110,18 +112,22 @@ public class NonWasmTemplateBuildTests : WasmTemplateTestsBase
         File.WriteAllText(Path.Combine(_projectDir, "Directory.Build.props"), "<Project />");
         File.WriteAllText(Path.Combine(_projectDir, "Directory.Build.targets"), directoryBuildTargets);
 
-        using ToolCommand cmd = new DotNetCommand(s_buildEnv, _testOutput, useDefaultArgs: false)
-            .WithWorkingDirectory(_projectDir);
-        cmd.ExecuteWithCapturedOutput("new console --no-restore")
-            .EnsureSuccessful();
+        new DotNetCommand(s_buildEnv, _testOutput, useDefaultArgs: false)
+                .WithWorkingDirectory(_projectDir!)
+                .ExecuteWithCapturedOutput("new console --no-restore")
+                .EnsureSuccessful();
 
-        cmd.ExecuteWithCapturedOutput($"build -restore -c {config} -bl:{Path.Combine(s_buildEnv.LogRootPath, $"{id}.binlog")} {extraBuildArgs} -f {targetFramework}")
-            .EnsureSuccessful();
+        new DotNetCommand(s_buildEnv, _testOutput, useDefaultArgs: false)
+                .WithWorkingDirectory(_projectDir!)
+                .ExecuteWithCapturedOutput($"build -restore -c {config} -bl:{Path.Combine(s_buildEnv.LogRootPath, $"{id}.binlog")} {extraBuildArgs} -f {targetFramework}")
+                .EnsureSuccessful();
 
         if (shouldRun)
         {
-            CommandResult result = cmd.ExecuteWithCapturedOutput($"run -c {config} -f {targetFramework} --no-build")
-                .EnsureSuccessful();
+            var result = new DotNetCommand(s_buildEnv, _testOutput, useDefaultArgs: false)
+                                .WithWorkingDirectory(_projectDir!)
+                                .ExecuteWithCapturedOutput($"run -c {config} -f {targetFramework} --no-build")
+                                .EnsureSuccessful();
 
             Assert.Contains("Hello, World!", result.Output);
         }

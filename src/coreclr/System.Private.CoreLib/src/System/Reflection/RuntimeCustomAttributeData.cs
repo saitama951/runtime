@@ -82,7 +82,7 @@ namespace System.Reflection
 
             // No pseudo attributes for RuntimeAssembly
 
-            return GetCustomAttributes((RuntimeModule)target.ManifestModule, RuntimeAssembly.GetToken(target));
+            return GetCustomAttributes((RuntimeModule)target.ManifestModule, RuntimeAssembly.GetToken(target.GetNativeHandle()));
         }
 
         internal static IList<CustomAttributeData> GetCustomAttributesInternal(RuntimeParameterInfo target)
@@ -1085,7 +1085,7 @@ namespace System.Reflection
 
             if (encodedType == CustomAttributeEncoding.Array)
             {
-                parameterType = (RuntimeType)parameterType.GetElementType()!;
+                parameterType = (RuntimeType)parameterType.GetElementType();
                 encodedArrayType = RuntimeCustomAttributeData.TypeToCustomAttributeEncoding(parameterType);
             }
 
@@ -1227,7 +1227,7 @@ namespace System.Reflection
             Debug.Assert(caType is not null);
 
             // No pseudo attributes for RuntimeAssembly
-            return IsCustomAttributeDefined((assembly.ManifestModule as RuntimeModule)!, RuntimeAssembly.GetToken(assembly), caType);
+            return IsCustomAttributeDefined((assembly.ManifestModule as RuntimeModule)!, RuntimeAssembly.GetToken(assembly.GetNativeHandle()), caType);
         }
 
         internal static bool IsDefined(RuntimeModule module, RuntimeType caType)
@@ -1388,7 +1388,7 @@ namespace System.Reflection
 
             // No pseudo attributes for RuntimeAssembly
 
-            int assemblyToken = RuntimeAssembly.GetToken(assembly);
+            int assemblyToken = RuntimeAssembly.GetToken(assembly.GetNativeHandle());
             return GetCustomAttributes((assembly.ManifestModule as RuntimeModule)!, assemblyToken, 0, caType);
         }
 

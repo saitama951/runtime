@@ -62,8 +62,6 @@ namespace System.Net.Mail.Tests
             yield return new object[] { "forbar" };
             yield return new object[] { "" };
             yield return new object[] { null };
-            yield return new object[] { "fo..o@example.com" };
-            yield return new object[] { "foo@exa..mple.com" };
         }
 
         [Theory]

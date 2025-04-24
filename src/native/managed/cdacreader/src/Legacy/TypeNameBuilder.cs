@@ -65,11 +65,11 @@ internal struct TypeNameBuilder
     {
         IRuntimeTypeSystem runtimeTypeSystem = target.Contracts.RuntimeTypeSystem;
         ILoader loader = target.Contracts.Loader;
-        string methodName;
+        ReadOnlySpan<byte> methodNameSpan;
         TypeHandle th = default;
         Contracts.ModuleHandle module = default;
 
-        bool isNoMetadataMethod = runtimeTypeSystem.IsNoMetadataMethod(method, out methodName);
+        bool isNoMetadataMethod = runtimeTypeSystem.IsNoMetadataMethod(method, out methodNameSpan);
         if (isNoMetadataMethod)
         {
             if (runtimeTypeSystem.IsDynamicMethod(method))
@@ -91,7 +91,7 @@ internal struct TypeNameBuilder
 
         if (isNoMetadataMethod)
         {
-            stringBuilder.Append(methodName);
+            stringBuilder.Append(Encoding.UTF8.GetString(methodNameSpan));
         }
         else if (runtimeTypeSystem.IsArrayMethod(method, out ArrayFunctionType functionType))
         {
@@ -149,12 +149,6 @@ internal struct TypeNameBuilder
             if (!th.IsNull)
             {
                 typeInstantiationSigFormat = runtimeTypeSystem.GetInstantiation(th);
-                if (typeInstantiationSigFormat.IsEmpty && runtimeTypeSystem.IsArray(th, out _))
-                {
-                    // For arrays, fill in the instantiation with the element type handle
-                    // See MethodTable::GetArrayInstantiation for coreclr equivalent
-                    typeInstantiationSigFormat = new[] { runtimeTypeSystem.GetTypeParam(th) };
-                }
             }
 
             SigFormat.AppendSigFormat(target, stringBuilder, signature, reader, null, null, null, typeInstantiationSigFormat, runtimeTypeSystem.GetGenericMethodInstantiation(method), true);
@@ -327,7 +321,7 @@ internal struct TypeNameBuilder
     // The following flags in the FormatFlags argument are significant: FormatNamespace FormatFullInst FormatAssembly FormatNoVersion
     private static void AppendInst(Target target, StringBuilder stringBuilder, ReadOnlySpan<TypeHandle> inst, TypeNameFormat format)
     {
-        TypeNameBuilder tnb = new(stringBuilder, target, format, initialStateIsName: true);
+        TypeNameBuilder tnb = new (stringBuilder, target, format, initialStateIsName: true);
         AppendInst(ref tnb, inst, format);
     }
 
@@ -594,6 +588,7 @@ internal struct TypeNameBuilder
             }
             TypeString.Append(']');
         }
+        TypeString.Append("[]");
     }
 
     private static ReadOnlySpan<char> TypeNameReservedChars()

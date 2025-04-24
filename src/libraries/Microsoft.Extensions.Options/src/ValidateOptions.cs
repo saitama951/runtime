@@ -12,7 +12,7 @@ namespace Microsoft.Extensions.Options
     public class ValidateOptions<TOptions> : IValidateOptions<TOptions> where TOptions : class
     {
         /// <summary>
-        /// Initializes a new instance of <see cref="ValidateOptions{TOptions}"/>.
+        /// Constructor.
         /// </summary>
         /// <param name="name">Options name.</param>
         /// <param name="validation">Validation function.</param>
@@ -27,17 +27,17 @@ namespace Microsoft.Extensions.Options
         }
 
         /// <summary>
-        /// Gets the options name.
+        /// The options name.
         /// </summary>
         public string? Name { get; }
 
         /// <summary>
-        /// Gets the validation function.
+        /// The validation function.
         /// </summary>
         public Func<TOptions, bool> Validation { get; }
 
         /// <summary>
-        /// Gets the error to return when validation fails.
+        /// The error to return when validation fails.
         /// </summary>
         public string FailureMessage { get; }
 
@@ -72,10 +72,10 @@ namespace Microsoft.Extensions.Options
     public class ValidateOptions<TOptions, TDep> : IValidateOptions<TOptions> where TOptions : class
     {
         /// <summary>
-        /// Initializes a new instance of <see cref="ValidateOptions{TOptions, TDep}"/>.
+        /// Constructor.
         /// </summary>
         /// <param name="name">Options name.</param>
-        /// <param name="dependency">Gets the dependency.</param>
+        /// <param name="dependency">The dependency.</param>
         /// <param name="validation">Validation function.</param>
         /// <param name="failureMessage">Validation failure message.</param>
         public ValidateOptions(string? name, TDep dependency, Func<TOptions, TDep, bool> validation, string failureMessage)
@@ -89,22 +89,22 @@ namespace Microsoft.Extensions.Options
         }
 
         /// <summary>
-        /// Gets the options name.
+        /// The options name.
         /// </summary>
         public string? Name { get; }
 
         /// <summary>
-        /// Gets the validation function.
+        /// The validation function.
         /// </summary>
         public Func<TOptions, TDep, bool> Validation { get; }
 
         /// <summary>
-        /// Gets the error to return when validation fails.
+        /// The error to return when validation fails.
         /// </summary>
         public string FailureMessage { get; }
 
         /// <summary>
-        /// Gets the dependency.
+        /// The dependency.
         /// </summary>
         public TDep Dependency { get; }
 
@@ -132,7 +132,7 @@ namespace Microsoft.Extensions.Options
     }
 
     /// <summary>
-    /// Implementation of <see cref="IValidateOptions{TOptions}"/>.
+    /// Implementation of <see cref="IValidateOptions{TOptions}"/>
     /// </summary>
     /// <typeparam name="TOptions">The options type to validate.</typeparam>
     /// <typeparam name="TDep1">First dependency type.</typeparam>
@@ -140,7 +140,7 @@ namespace Microsoft.Extensions.Options
     public class ValidateOptions<TOptions, TDep1, TDep2> : IValidateOptions<TOptions> where TOptions : class
     {
         /// <summary>
-        /// Initializes a new instance of <see cref="ValidateOptions{TOptions, TDep1, TDep2}"/>.
+        /// Constructor.
         /// </summary>
         /// <param name="name">Options name.</param>
         /// <param name="dependency1">The first dependency.</param>
@@ -159,27 +159,27 @@ namespace Microsoft.Extensions.Options
         }
 
         /// <summary>
-        /// Gets the options name.
+        /// The options name.
         /// </summary>
         public string? Name { get; }
 
         /// <summary>
-        /// Gets the validation function.
+        /// The validation function.
         /// </summary>
         public Func<TOptions, TDep1, TDep2, bool> Validation { get; }
 
         /// <summary>
-        /// Gets the error to return when validation fails.
+        /// The error to return when validation fails.
         /// </summary>
         public string FailureMessage { get; }
 
         /// <summary>
-        /// Gets the first dependency.
+        /// The first dependency.
         /// </summary>
         public TDep1 Dependency1 { get; }
 
         /// <summary>
-        /// Gets the second dependency.
+        /// The second dependency.
         /// </summary>
         public TDep2 Dependency2 { get; }
 
@@ -216,7 +216,7 @@ namespace Microsoft.Extensions.Options
     public class ValidateOptions<TOptions, TDep1, TDep2, TDep3> : IValidateOptions<TOptions> where TOptions : class
     {
         /// <summary>
-        /// Initializes a new instance of <see cref="ValidateOptions{TOptions, TDep1, TDep2, TDep3}"/>.
+        /// Constructor.
         /// </summary>
         /// <param name="name">Options name.</param>
         /// <param name="dependency1">The first dependency.</param>
@@ -237,32 +237,32 @@ namespace Microsoft.Extensions.Options
         }
 
         /// <summary>
-        /// Gets the options name.
+        /// The options name.
         /// </summary>
         public string? Name { get; }
 
         /// <summary>
-        /// Gets the validation function.
+        /// The validation function.
         /// </summary>
         public Func<TOptions, TDep1, TDep2, TDep3, bool> Validation { get; }
 
         /// <summary>
-        /// Gets the error to return when validation fails.
+        /// The error to return when validation fails.
         /// </summary>
         public string FailureMessage { get; }
 
         /// <summary>
-        /// Gets the first dependency.
+        /// The first dependency.
         /// </summary>
         public TDep1 Dependency1 { get; }
 
         /// <summary>
-        /// Gets the second dependency.
+        /// The second dependency.
         /// </summary>
         public TDep2 Dependency2 { get; }
 
         /// <summary>
-        /// Gets the third dependency.
+        /// The third dependency.
         /// </summary>
         public TDep3 Dependency3 { get; }
 
@@ -300,7 +300,7 @@ namespace Microsoft.Extensions.Options
     public class ValidateOptions<TOptions, TDep1, TDep2, TDep3, TDep4> : IValidateOptions<TOptions> where TOptions : class
     {
         /// <summary>
-        /// Initializes a new instance of <see cref="ValidateOptions{TOptions, TDep1, TDep2, TDep3, TDep4}"/>.
+        /// Constructor.
         /// </summary>
         /// <param name="name">Options name.</param>
         /// <param name="dependency1">The first dependency.</param>
@@ -323,37 +323,37 @@ namespace Microsoft.Extensions.Options
         }
 
         /// <summary>
-        /// Gets the options name.
+        /// The options name.
         /// </summary>
         public string? Name { get; }
 
         /// <summary>
-        /// Gets the validation function.
+        /// The validation function.
         /// </summary>
         public Func<TOptions, TDep1, TDep2, TDep3, TDep4, bool> Validation { get; }
 
         /// <summary>
-        /// Gets the error to return when validation fails.
+        /// The error to return when validation fails.
         /// </summary>
         public string FailureMessage { get; }
 
         /// <summary>
-        /// Gets the first dependency.
+        /// The first dependency.
         /// </summary>
         public TDep1 Dependency1 { get; }
 
         /// <summary>
-        /// Gets the second dependency.
+        /// The second dependency.
         /// </summary>
         public TDep2 Dependency2 { get; }
 
         /// <summary>
-        /// Gets the third dependency.
+        /// The third dependency.
         /// </summary>
         public TDep3 Dependency3 { get; }
 
         /// <summary>
-        /// Gets the fourth dependency.
+        /// The fourth dependency.
         /// </summary>
         public TDep4 Dependency4 { get; }
 
@@ -392,7 +392,7 @@ namespace Microsoft.Extensions.Options
     public class ValidateOptions<TOptions, TDep1, TDep2, TDep3, TDep4, TDep5> : IValidateOptions<TOptions> where TOptions : class
     {
         /// <summary>
-        /// Initializes a new instance of <see cref="ValidateOptions{TOptions, TDep1, TDep2, TDep3, TDep4, TDep5}"/>.
+        /// Constructor.
         /// </summary>
         /// <param name="name">Options name.</param>
         /// <param name="dependency1">The first dependency.</param>
@@ -417,42 +417,42 @@ namespace Microsoft.Extensions.Options
         }
 
         /// <summary>
-        /// Gets the options name.
+        /// The options name.
         /// </summary>
         public string? Name { get; }
 
         /// <summary>
-        /// Gets the validation function.
+        /// The validation function.
         /// </summary>
         public Func<TOptions, TDep1, TDep2, TDep3, TDep4, TDep5, bool> Validation { get; }
 
         /// <summary>
-        /// Gets the error to return when validation fails.
+        /// The error to return when validation fails.
         /// </summary>
         public string FailureMessage { get; }
 
         /// <summary>
-        /// Gets the first dependency.
+        /// The first dependency.
         /// </summary>
         public TDep1 Dependency1 { get; }
 
         /// <summary>
-        /// Gets the second dependency.
+        /// The second dependency.
         /// </summary>
         public TDep2 Dependency2 { get; }
 
         /// <summary>
-        /// Gets the third dependency.
+        /// The third dependency.
         /// </summary>
         public TDep3 Dependency3 { get; }
 
         /// <summary>
-        /// Gets the fourth dependency.
+        /// The fourth dependency.
         /// </summary>
         public TDep4 Dependency4 { get; }
 
         /// <summary>
-        /// Gets the fifth dependency.
+        /// The fifth dependency.
         /// </summary>
         public TDep5 Dependency5 { get; }
 

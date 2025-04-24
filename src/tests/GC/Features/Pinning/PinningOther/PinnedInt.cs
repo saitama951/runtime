@@ -5,12 +5,10 @@
 
 using System;
 using System.Runtime.InteropServices;
-using Xunit;
 
 public class Test_PinnedInt
 {
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         int i = 10;
         Object temp1, temp2;

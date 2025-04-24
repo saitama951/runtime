@@ -55,7 +55,7 @@ namespace System.Diagnostics.Tracing
         [StructLayout(LayoutKind.Sequential)]
         public struct EventData
         {
-            internal ulong Ptr;
+            internal unsafe ulong Ptr;
             internal uint Size;
             internal uint Reserved;
         }
@@ -105,7 +105,7 @@ namespace System.Diagnostics.Tracing
         /// <summary>
         /// This method registers the provider with the backing tracing mechanism, either ETW or EventPipe.
         /// </summary>
-        internal void Register(Guid id, string name)
+        internal unsafe void Register(Guid id, string name)
         {
             _providerName = name;
             _providerId = id;
@@ -748,7 +748,7 @@ namespace System.Diagnostics.Tracing
 
         private readonly WeakReference<EventProvider> _eventProvider;
         private long _registrationHandle;
-        private GCHandle<EtwEventProvider> _gcHandle;
+        private GCHandle _gcHandle;
         private List<SessionInfo>? _liveSessions;       // current live sessions (KeyValuePair<sessionIdBit, etwSessionId>)
         private Guid _providerId;
 
@@ -817,7 +817,7 @@ namespace System.Diagnostics.Tracing
         private static unsafe void Callback(Guid* sourceId, int isEnabled, byte level,
             long matchAnyKeywords, long matchAllKeywords, Interop.Advapi32.EVENT_FILTER_DESCRIPTOR* filterData, void* callbackContext)
         {
-            EtwEventProvider _this = GCHandle<EtwEventProvider>.FromIntPtr((IntPtr)callbackContext).Target;
+            EtwEventProvider _this = (EtwEventProvider)GCHandle.FromIntPtr((IntPtr)callbackContext).Target!;
 
             if (_this._eventProvider.TryGetTarget(out EventProvider? target))
             {
@@ -830,7 +830,7 @@ namespace System.Diagnostics.Tracing
         internal override unsafe void Register(Guid id, string name)
         {
             Debug.Assert(!_gcHandle.IsAllocated);
-            _gcHandle = new GCHandle<EtwEventProvider>(this);
+            _gcHandle = GCHandle.Alloc(this);
 
             long registrationHandle = 0;
             _providerId = id;
@@ -838,11 +838,11 @@ namespace System.Diagnostics.Tracing
             uint status = Interop.Advapi32.EventRegister(
                 &providerId,
                 &Callback,
-                (void*)GCHandle<EtwEventProvider>.ToIntPtr(_gcHandle),
+                (void*)GCHandle.ToIntPtr(_gcHandle),
                 &registrationHandle);
             if (status != 0)
             {
-                _gcHandle.Dispose();
+                _gcHandle.Free();
                 throw new ArgumentException(Interop.Kernel32.GetMessage((int)status));
             }
 
@@ -859,7 +859,10 @@ namespace System.Diagnostics.Tracing
                 _registrationHandle = 0;
             }
 
-            _gcHandle.Dispose();
+            if (_gcHandle.IsAllocated)
+            {
+                _gcHandle.Free();
+            }
         }
 
         // Write an event.
@@ -937,7 +940,7 @@ namespace System.Diagnostics.Tracing
         /// to get the data. The function returns an array of bytes representing the data, the index into that byte array
         /// where the data starts, and the command being issued associated with that data.
         /// </summary>
-        private bool TryReadRegistryFilterData(int etwSessionId, out ControllerCommand command, out byte[]? data)
+        private unsafe bool TryReadRegistryFilterData(int etwSessionId, out ControllerCommand command, out byte[]? data)
         {
             command = ControllerCommand.Update;
             data = null;
@@ -1317,7 +1320,7 @@ namespace System.Diagnostics.Tracing
             return idx;
         }
 
-        protected static IDictionary<string, string?>? ParseFilterData(byte[]? data)
+        protected static unsafe IDictionary<string, string?>? ParseFilterData(byte[]? data)
         {
             Dictionary<string, string?>? args = null;
 

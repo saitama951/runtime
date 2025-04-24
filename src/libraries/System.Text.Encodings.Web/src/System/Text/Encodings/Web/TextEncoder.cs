@@ -73,7 +73,7 @@ namespace System.Text.Encodings.Web
                 uint utf8lsb = (uint)UnicodeHelpers.GetUtf8RepresentationForScalarValue((uint)nextScalarValue.Value);
                 do
                 {
-                    if ((uint)utf8Destination.Length > (uint)dstIdx)
+                    if (SpanUtility.IsValidIndex(utf8Destination, dstIdx))
                     {
                         utf8Destination[dstIdx++] = (byte)utf8lsb;
                     }

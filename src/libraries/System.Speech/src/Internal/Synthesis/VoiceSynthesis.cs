@@ -1480,25 +1480,20 @@ namespace System.Speech.Internal.Synthesis
         {
             List<InstalledVoice> voices = new();
 
-            ReadOnlySpan<string> categoryIds = [SAPICategories.Voices, SAPICategories.Voices_OneCore];
-            foreach (string categoryId in categoryIds)
+            using (ObjectTokenCategory category = ObjectTokenCategory.Create(SAPICategories.Voices))
             {
-                using (ObjectTokenCategory category = ObjectTokenCategory.Create(categoryId))
+                if (category != null)
                 {
-                    if (category != null)
+                    // Build a list with all the voicesInfo
+                    foreach (ObjectToken voiceToken in category.FindMatchingTokens(null, null))
                     {
-                        // Build a list with all the voicesInfo
-                        foreach (ObjectToken voiceToken in category.FindMatchingTokens(null, null))
+                        if (voiceToken != null && voiceToken.Attributes != null)
                         {
-                            if (voiceToken != null && voiceToken.Attributes != null)
-                            {
-                                voices.Add(new InstalledVoice(voiceSynthesizer, new VoiceInfo(voiceToken)));
-                            }
+                            voices.Add(new InstalledVoice(voiceSynthesizer, new VoiceInfo(voiceToken)));
                         }
                     }
                 }
             }
-
             return voices;
         }
 

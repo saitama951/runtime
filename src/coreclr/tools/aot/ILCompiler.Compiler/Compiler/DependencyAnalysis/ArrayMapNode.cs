@@ -49,14 +49,15 @@ namespace ILCompiler.DependencyAnalysis
             Section hashTableSection = writer.NewSection();
             hashTableSection.Place(typeMapHashTable);
 
-            foreach (var type in factory.MetadataManager.GetTypesWithEETypes())
+            foreach (var type in factory.MetadataManager.GetTypesWithConstructedEETypes())
             {
                 if (!type.IsArray)
                     continue;
 
                 var arrayType = (ArrayType)type;
 
-                IEETypeNode arrayTypeSymbol = factory.NecessaryTypeSymbol(arrayType);
+                // Look at the constructed type symbol. If a constructed type wasn't emitted, then the array map entry isn't valid for use
+                IEETypeNode arrayTypeSymbol = factory.ConstructedTypeSymbol(arrayType);
 
                 Vertex vertex = writer.GetUnsignedConstant(_externalReferences.GetIndex(arrayTypeSymbol));
 

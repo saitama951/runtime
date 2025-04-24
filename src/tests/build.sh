@@ -176,9 +176,7 @@ __RepoRootDir="$(cd "$__ProjectRoot"/../..; pwd -P)"
 __TargetArch=
 
 handle_arguments_local() {
-    opt="$(echo "${1/#--/-}" | tr "[:upper:]" "[:lower:]")"
-
-    case "$opt" in
+    case "$1" in
         skipmanaged|-skipmanaged)
             __SkipManaged=1
             __BuildTestWrappers=0
@@ -230,7 +228,7 @@ handle_arguments_local() {
             __Priority=1
             ;;
 
-        alltargets|-alltargets)
+        allTargets|-allTargets)
             __UnprocessedBuildArgs+=("/p:CLRTestBuildAllTargets=allTargets")
             ;;
 

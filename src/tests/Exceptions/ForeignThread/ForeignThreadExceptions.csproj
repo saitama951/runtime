@@ -6,7 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ForeignThreadExceptions.cs" />
-    <ProjectReference Include="$(TestLibraryProjectPath)" />
   </ItemGroup>
   <ItemGroup>
     <CMakeProjectReference Include="CMakeLists.txt" />

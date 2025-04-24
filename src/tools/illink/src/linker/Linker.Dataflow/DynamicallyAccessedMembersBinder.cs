@@ -31,14 +31,12 @@ namespace Mono.Linker
 			var declaredOnlyFlags = declaredOnly ? BindingFlags.DeclaredOnly : BindingFlags.Default;
 
 			if (memberTypes.HasFlag (DynamicallyAccessedMemberTypes.NonPublicConstructors)) {
-				bool withInherited = !declaredOnly && memberTypes.HasFlag (DynamicallyAccessedMemberTypesEx.NonPublicConstructorsWithInherited);
-				foreach (var c in typeDefinition.ApplyIncludeInherited (context, t => t.GetConstructorsOnType (filter: null, bindingFlags: BindingFlags.NonPublic), withInherited))
+				foreach (var c in typeDefinition.GetConstructorsOnType (filter: null, bindingFlags: BindingFlags.NonPublic))
 					yield return c;
 			}
 
 			if (memberTypes.HasFlag (DynamicallyAccessedMemberTypes.PublicConstructors)) {
-				bool withInherited = !declaredOnly && memberTypes.HasFlag (DynamicallyAccessedMemberTypesEx.PublicConstructorsWithInherited);
-				foreach (var c in typeDefinition.ApplyIncludeInherited (context, t => t.GetConstructorsOnType (filter: null, bindingFlags: BindingFlags.Public), withInherited))
+				foreach (var c in typeDefinition.GetConstructorsOnType (filter: null, bindingFlags: BindingFlags.Public))
 					yield return c;
 			}
 
@@ -48,8 +46,7 @@ namespace Mono.Linker
 			}
 
 			if (memberTypes.HasFlag (DynamicallyAccessedMemberTypes.NonPublicMethods)) {
-				bool withInherited = !declaredOnly && memberTypes.HasFlag (DynamicallyAccessedMemberTypesEx.NonPublicMethodsWithInherited);
-				foreach (var m in typeDefinition.ApplyIncludeInherited (context, t => t.GetMethodsOnTypeHierarchy (context, filter: null, bindingFlags: BindingFlags.NonPublic | declaredOnlyFlags), withInherited))
+				foreach (var m in typeDefinition.GetMethodsOnTypeHierarchy (context, filter: null, bindingFlags: BindingFlags.NonPublic | declaredOnlyFlags))
 					yield return m;
 			}
 
@@ -59,8 +56,7 @@ namespace Mono.Linker
 			}
 
 			if (memberTypes.HasFlag (DynamicallyAccessedMemberTypes.NonPublicFields)) {
-				bool withInherited = !declaredOnly && memberTypes.HasFlag (DynamicallyAccessedMemberTypesEx.NonPublicFieldsWithInherited);
-				foreach (var f in typeDefinition.ApplyIncludeInherited (context, t => t.GetFieldsOnTypeHierarchy (context, filter: null, bindingFlags: BindingFlags.NonPublic | declaredOnlyFlags), withInherited))
+				foreach (var f in typeDefinition.GetFieldsOnTypeHierarchy (context, filter: null, bindingFlags: BindingFlags.NonPublic | declaredOnlyFlags))
 					yield return f;
 			}
 
@@ -70,8 +66,7 @@ namespace Mono.Linker
 			}
 
 			if (memberTypes.HasFlag (DynamicallyAccessedMemberTypes.NonPublicNestedTypes)) {
-				bool withInherited = !declaredOnly && memberTypes.HasFlag (DynamicallyAccessedMemberTypesEx.NonPublicNestedTypesWithInherited);
-				foreach (var nested in typeDefinition.ApplyIncludeInherited (context, t => t.GetNestedTypesOnType (context, filter: null, bindingFlags: BindingFlags.NonPublic), withInherited)) {
+				foreach (var nested in typeDefinition.GetNestedTypesOnType (context, filter: null, bindingFlags: BindingFlags.NonPublic)) {
 					yield return nested;
 					var members = new List<IMetadataTokenProvider> ();
 					nested.GetAllOnType (context, declaredOnly: false, members);
@@ -81,8 +76,7 @@ namespace Mono.Linker
 			}
 
 			if (memberTypes.HasFlag (DynamicallyAccessedMemberTypes.PublicNestedTypes)) {
-				bool withInherited = !declaredOnly && memberTypes.HasFlag (DynamicallyAccessedMemberTypesEx.PublicNestedTypesWithInherited);
-				foreach (var nested in typeDefinition.ApplyIncludeInherited (context, t => t.GetNestedTypesOnType (context, filter: null, bindingFlags: BindingFlags.Public), withInherited)) {
+				foreach (var nested in typeDefinition.GetNestedTypesOnType (context, filter: null, bindingFlags: BindingFlags.Public)) {
 					yield return nested;
 					var members = new List<IMetadataTokenProvider> ();
 					nested.GetAllOnType (context, declaredOnly: false, members);
@@ -92,8 +86,7 @@ namespace Mono.Linker
 			}
 
 			if (memberTypes.HasFlag (DynamicallyAccessedMemberTypes.NonPublicProperties)) {
-				bool withInherited = !declaredOnly && memberTypes.HasFlag (DynamicallyAccessedMemberTypesEx.NonPublicPropertiesWithInherited);
-				foreach (var p in typeDefinition.ApplyIncludeInherited (context, t => t.GetPropertiesOnTypeHierarchy (context, filter: null, bindingFlags: BindingFlags.NonPublic | declaredOnlyFlags), withInherited))
+				foreach (var p in typeDefinition.GetPropertiesOnTypeHierarchy (context, filter: null, bindingFlags: BindingFlags.NonPublic | declaredOnlyFlags))
 					yield return p;
 			}
 
@@ -103,8 +96,7 @@ namespace Mono.Linker
 			}
 
 			if (memberTypes.HasFlag (DynamicallyAccessedMemberTypes.NonPublicEvents)) {
-				bool withInherited = !declaredOnly && memberTypes.HasFlag (DynamicallyAccessedMemberTypesEx.NonPublicEventsWithInherited);
-				foreach (var e in typeDefinition.ApplyIncludeInherited (context, t => t.GetEventsOnTypeHierarchy (context, filter: null, bindingFlags: BindingFlags.NonPublic | declaredOnlyFlags), withInherited))
+				foreach (var e in typeDefinition.GetEventsOnTypeHierarchy (context, filter: null, bindingFlags: BindingFlags.NonPublic | declaredOnlyFlags))
 					yield return e;
 			}
 
@@ -430,20 +422,6 @@ namespace Mono.Linker
 				foreach (var e in type.Events)
 					members.Add (e);
 			}
-		}
-
-		private static IEnumerable<T> ApplyIncludeInherited<T> (this TypeDefinition thisType, LinkContext context, Func<TypeDefinition, IEnumerable<T>> selector, bool includeBases)
-		{
-			TypeDefinition? type = thisType;
-			do {
-				foreach (var m in selector (type))
-					yield return m;
-
-				if (!includeBases)
-					yield break;
-
-				type = context.TryResolve (type.BaseType);
-			} while (type != null);
 		}
 	}
 }

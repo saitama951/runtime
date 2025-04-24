@@ -73,8 +73,7 @@
   <!-- Flow the ILLinkSuppressionsXmls item list down to consuming projects, in order for sfx.proj and oob.proj to
        receive the suppression files. -->
   <Target Name="AnnotateTargetPathWithILLinkSuppressionsXmlsProp"
-          DependsOnTargets="GetTargetPathWithTargetPlatformMoniker"
-          BeforeTargets="GetTargetPath">
+          AfterTargets="GetTargetPathWithTargetPlatformMoniker">
     <ItemGroup>
       <TargetPathWithTargetPlatformMoniker ILLinkSuppressionsXmls="@(ILLinkSuppressionsXmls->Metadata('FullPath'))" />
     </ItemGroup>

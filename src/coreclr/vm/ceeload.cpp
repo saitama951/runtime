@@ -42,9 +42,6 @@
 #include "threads.h"
 #include "nativeimage.h"
 
-#include "CachedInterfaceDispatchPal.h"
-#include "CachedInterfaceDispatch.h"
-
 #ifdef FEATURE_COMINTEROP
 #include "runtimecallablewrapper.h"
 #include "comcallablewrapper.h"
@@ -335,7 +332,6 @@ Module::Module(Assembly *pAssembly, PEAssembly *pPEAssembly)
     : m_pPEAssembly{pPEAssembly}
     , m_dwTransientFlags{CLASSES_FREED}
     , m_pAssembly{pAssembly}
-    , m_pDynamicMethodTable{NULL}
     , m_hExposedObject{}
 {
     CONTRACTL
@@ -419,7 +415,6 @@ void Module::Initialize(AllocMemTracker *pamTracker, LPCWSTR szName)
     m_loaderAllocator = GetAssembly()->GetLoaderAllocator();
     m_pSimpleName = m_pPEAssembly->GetSimpleName();
     m_path = m_pPEAssembly->GetPath().GetUnicode();
-    m_fileName = m_pPEAssembly->GetModuleFileNameHint();
     _ASSERTE(m_path != NULL);
     m_baseAddress = m_pPEAssembly->HasLoadedPEImage() ? m_pPEAssembly->GetLoadedLayout()->GetBase() : NULL;
     if (m_pPEAssembly->IsReflectionEmit())
@@ -748,8 +743,6 @@ void Module::Destruct()
     }
 
     m_pPEAssembly->Release();
-    if (m_pDynamicMethodTable)
-        m_pDynamicMethodTable->Destroy();
 
 #if defined(PROFILING_SUPPORTED)
     delete m_pJitInlinerTrackingMap;
@@ -1858,7 +1851,7 @@ void Module::SetSymbolBytes(LPCBYTE pbSyms, DWORD cbSyms)
         AppDomain *pDomain = AppDomain::GetCurrentDomain();
         if (pDomain->IsDebuggerAttached() && pDomain->ContainsAssembly(m_pAssembly))
         {
-            g_pDebugInterface->SendUpdateModuleSymsEventAndBlock(this);
+            g_pDebugInterface->SendUpdateModuleSymsEventAndBlock(this, pDomain);
         }
     }
 }
@@ -2191,18 +2184,21 @@ void ModuleBase::InitializeStringData(DWORD token, EEStringData *pstrData, CQuic
 }
 
 
-STRINGREF* ModuleBase::ResolveStringRef(DWORD token, void** ppPinnedString)
+OBJECTHANDLE ModuleBase::ResolveStringRef(DWORD token, void** ppPinnedString)
 {
     CONTRACTL
     {
         INSTANCE_CHECK;
-        STANDARD_VM_CHECK;
+        THROWS;
+        GC_TRIGGERS;
+        MODE_ANY;
         INJECT_FAULT(COMPlusThrowOM());
         PRECONDITION(TypeFromToken(token) == mdtString);
     }
     CONTRACTL_END;
 
     EEStringData strData;
+    OBJECTHANDLE string = NULL;
 
 #if !BIGENDIAN
     InitializeStringData(token, &strData, NULL);
@@ -2212,8 +2208,14 @@ STRINGREF* ModuleBase::ResolveStringRef(DWORD token, void** ppPinnedString)
 #endif // !!BIGENDIAN
 
     GCX_COOP();
-    LoaderAllocator* pLoaderAllocator = this->GetLoaderAllocator();
-    return pLoaderAllocator->GetStringObjRefPtrFromUnicodeString(&strData, ppPinnedString);
+
+    LoaderAllocator *pLoaderAllocator;
+
+    pLoaderAllocator = this->GetLoaderAllocator();
+
+    string = (OBJECTHANDLE)pLoaderAllocator->GetStringObjRefPtrFromUnicodeString(&strData, ppPinnedString);
+
+    return string;
 }
 
 mdToken Module::GetEntryPointToken()
@@ -2253,6 +2255,7 @@ Assembly *
 Module::GetAssemblyIfLoaded(
     mdAssemblyRef       kAssemblyRef,
     IMDInternalImport * pMDImportOverride,  // = NULL
+    BOOL                fDoNotUtilizeExtraChecks, // = FALSE
     AssemblyBinder      *pBinderForLoadedAssembly // = NULL
 )
 {
@@ -2295,7 +2298,8 @@ Module::GetAssemblyIfLoaded(
     if ((pAssembly != NULL) && !IsGCThread() && !IsStackWalkerThread())
     {
         _ASSERTE(::GetAppDomain() != NULL);
-        if (!pAssembly->IsLoaded())
+        DomainAssembly * pDomainAssembly = pAssembly->GetDomainAssembly();
+        if ((pDomainAssembly == NULL) || !pDomainAssembly->IsLoaded())
             pAssembly = NULL;
     }
 
@@ -2322,10 +2326,10 @@ Module::GetAssemblyIfLoaded(
             spec.SetBinder(pBinderForLoadedAssembly);
         }
 
-        Assembly * pCachedAssembly = AppDomain::GetCurrentDomain()->FindCachedAssembly(&spec, FALSE /*fThrow*/);
+        DomainAssembly * pDomainAssembly = AppDomain::GetCurrentDomain()->FindCachedAssembly(&spec, FALSE /*fThrow*/);
 
-        if (pCachedAssembly && pCachedAssembly->IsLoaded())
-            pAssembly = pCachedAssembly;
+        if (pDomainAssembly && pDomainAssembly->IsLoaded())
+            pAssembly = pDomainAssembly->GetAssembly();
 
         // Only store in the rid map if working with the current AppDomain.
         if (fCanUseRidMap && pAssembly)
@@ -2380,9 +2384,9 @@ ModuleBase::GetAssemblyRefFlags(
 } // Module::GetAssemblyRefFlags
 
 #ifndef DACCESS_COMPILE
-Assembly * Module::LoadAssemblyImpl(mdAssemblyRef kAssemblyRef)
+DomainAssembly * Module::LoadAssemblyImpl(mdAssemblyRef kAssemblyRef)
 {
-    CONTRACT(Assembly *)
+    CONTRACT(DomainAssembly *)
     {
         INSTANCE_CHECK;
         if (FORBIDGC_LOADER_USE_ENABLED()) NOTHROW; else THROWS;
@@ -2395,14 +2399,18 @@ Assembly * Module::LoadAssemblyImpl(mdAssemblyRef kAssemblyRef)
 
     ETWOnStartup (LoaderCatchCall_V1, LoaderCatchCallEnd_V1);
 
+    DomainAssembly * pDomainAssembly;
+
     //
     // Early out quickly if the result is cached
     //
     Assembly * pAssembly = LookupAssemblyRef(kAssemblyRef);
     if (pAssembly != NULL)
     {
-        ::GetAppDomain()->LoadAssembly(pAssembly, FILE_LOADED);
-        RETURN pAssembly;
+        pDomainAssembly = pAssembly->GetDomainAssembly();
+        ::GetAppDomain()->LoadDomainAssembly(pDomainAssembly, FILE_LOADED);
+
+        RETURN pDomainAssembly;
     }
 
     {
@@ -2417,20 +2425,26 @@ Assembly * Module::LoadAssemblyImpl(mdAssemblyRef kAssemblyRef)
         {
             spec.SetBinder(pBinder);
         }
-        pAssembly = GetAppDomain()->LoadAssembly(&spec, pPEAssembly, FILE_LOADED);
+        pDomainAssembly = GetAppDomain()->LoadDomainAssembly(&spec, pPEAssembly, FILE_LOADED);
     }
 
-    _ASSERTE(pAssembly != NULL && pAssembly->IsLoaded());
-    _ASSERTE(
-        pAssembly->IsSystem() ||                  // GetAssemblyIfLoaded will not find CoreLib (see AppDomain::FindCachedFile)
-        GetAssemblyIfLoaded(kAssemblyRef, NULL, pAssembly->GetPEAssembly()->GetHostAssembly()->GetBinder()) != NULL);     // GetAssemblyIfLoaded should find all remaining cases
+    if (pDomainAssembly != NULL)
+    {
+        _ASSERTE(
+            pDomainAssembly->IsSystem() ||                  // GetAssemblyIfLoaded will not find CoreLib (see AppDomain::FindCachedFile)
+            !pDomainAssembly->IsLoaded() ||                 // GetAssemblyIfLoaded will not find not-yet-loaded assemblies
+            GetAssemblyIfLoaded(kAssemblyRef, NULL, FALSE, pDomainAssembly->GetPEAssembly()->GetHostAssembly()->GetBinder()) != NULL);     // GetAssemblyIfLoaded should find all remaining cases
 
-    StoreAssemblyRef(kAssemblyRef, pAssembly);
+        if (pDomainAssembly->GetAssembly() != NULL)
+        {
+            StoreAssemblyRef(kAssemblyRef, pDomainAssembly->GetAssembly());
+        }
+    }
 
-    RETURN pAssembly;
+    RETURN pDomainAssembly;
 }
 #else
-Assembly * Module::LoadAssemblyImpl(mdAssemblyRef kAssemblyRef)
+DomainAssembly * Module::LoadAssemblyImpl(mdAssemblyRef kAssemblyRef)
 {
     WRAPPER_NO_CONTRACT;
     ThrowHR(E_FAIL);
@@ -2901,7 +2915,7 @@ void Module::UpdateDynamicMetadataIfNeeded()
 
 #endif // DEBUGGING_SUPPORTED
 
-BOOL Module::NotifyDebuggerLoad(DomainAssembly * pDomainAssembly, int flags, BOOL attaching)
+BOOL Module::NotifyDebuggerLoad(AppDomain *pDomain, DomainAssembly * pDomainAssembly, int flags, BOOL attaching)
 {
     WRAPPER_NO_CONTRACT;
 
@@ -2912,14 +2926,14 @@ BOOL Module::NotifyDebuggerLoad(DomainAssembly * pDomainAssembly, int flags, BOO
     // Always capture metadata, even if no debugger is attached. If a debugger later attaches, it will use
     // this data.
     {
-        Module * pModule = pDomainAssembly->GetAssembly()->GetModule();
+        Module * pModule = pDomainAssembly->GetModule();
         pModule->UpdateDynamicMetadataIfNeeded();
     }
+
 
     //
     // Remaining work is only needed if a debugger is attached
     //
-    AppDomain* pDomain = AppDomain::GetCurrentDomain();
     if (!attaching && !pDomain->IsDebuggerAttached())
         return FALSE;
 
@@ -2932,6 +2946,7 @@ BOOL Module::NotifyDebuggerLoad(DomainAssembly * pDomainAssembly, int flags, BOO
                                       m_pPEAssembly->GetPath(),
                                       m_pPEAssembly->GetPath().GetCount(),
                                       GetAssembly(),
+                                      pDomain,
                                       pDomainAssembly,
                                       attaching);
 
@@ -2946,7 +2961,7 @@ BOOL Module::NotifyDebuggerLoad(DomainAssembly * pDomainAssembly, int flags, BOO
             MethodTable * pMT = typeDefIter.GetElement();
             if (pMT != NULL)
             {
-                result = TypeHandle(pMT).NotifyDebuggerLoad(attaching) || result;
+                result = TypeHandle(pMT).NotifyDebuggerLoad(pDomain, attaching) || result;
             }
         }
     }
@@ -2954,11 +2969,10 @@ BOOL Module::NotifyDebuggerLoad(DomainAssembly * pDomainAssembly, int flags, BOO
     return result;
 }
 
-void Module::NotifyDebuggerUnload()
+void Module::NotifyDebuggerUnload(AppDomain *pDomain)
 {
     LIMITED_METHOD_CONTRACT;
 
-    AppDomain* pDomain = AppDomain::GetCurrentDomain();
     if (!pDomain->IsDebuggerAttached())
         return;
 
@@ -2972,11 +2986,11 @@ void Module::NotifyDebuggerUnload()
         MethodTable * pMT = typeDefIter.GetElement();
         if (pMT != NULL)
         {
-            TypeHandle(pMT).NotifyDebuggerUnload();
+            TypeHandle(pMT).NotifyDebuggerUnload(pDomain);
         }
     }
 
-    g_pDebugInterface->UnloadModule(this);
+    g_pDebugInterface->UnloadModule(this, pDomain);
 }
 
 using GetTokenForVTableEntry_t = mdToken(STDMETHODCALLTYPE*)(HMODULE module, BYTE**ppVTEntry);
@@ -3329,12 +3343,16 @@ void Module::FixupVTables()
                     LOG((LF_INTEROP, LL_INFO10, "[0x%p] <-- VTable  thunk for \"%s\" (pMD = 0x%p)\n",
                         (UINT_PTR)&(pPointers[iMethod]), pMD->m_pszDebugMethodName, pMD));
 
-                    UMEntryThunk *pUMEntryThunk = UMEntryThunk::CreateUMEntryThunk();
+                    UMEntryThunk *pUMEntryThunk = (UMEntryThunk*)(void*)(GetDllThunkHeap()->AllocAlignedMem(sizeof(UMEntryThunk), CODE_SIZE_ALIGN)); // UMEntryThunk contains code
+                    ExecutableWriterHolder<UMEntryThunk> uMEntryThunkWriterHolder(pUMEntryThunk, sizeof(UMEntryThunk));
+                    FillMemory(uMEntryThunkWriterHolder.GetRW(), sizeof(UMEntryThunk), 0);
 
-                    UMThunkMarshInfo *pUMThunkMarshInfo = (UMThunkMarshInfo*)(void*)(SystemDomain::GetGlobalLoaderAllocator()->GetLowFrequencyHeap()->AllocAlignedMem(sizeof(UMThunkMarshInfo), CODE_SIZE_ALIGN));
+                    UMThunkMarshInfo *pUMThunkMarshInfo = (UMThunkMarshInfo*)(void*)(GetThunkHeap()->AllocAlignedMem(sizeof(UMThunkMarshInfo), CODE_SIZE_ALIGN));
+                    ExecutableWriterHolder<UMThunkMarshInfo> uMThunkMarshInfoWriterHolder(pUMThunkMarshInfo, sizeof(UMThunkMarshInfo));
+                    FillMemory(uMThunkMarshInfoWriterHolder.GetRW(), sizeof(UMThunkMarshInfo), 0);
 
-                    pUMThunkMarshInfo->LoadTimeInit(pMD);
-                    pUMEntryThunk->LoadTimeInit((PCODE)0, NULL, pUMThunkMarshInfo, pMD);
+                    uMThunkMarshInfoWriterHolder.GetRW()->LoadTimeInit(pMD);
+                    uMEntryThunkWriterHolder.GetRW()->LoadTimeInit(pUMEntryThunk, (PCODE)0, NULL, pUMThunkMarshInfo, pMD);
 
                     SetTargetForVTableEntry(hInstThis, (BYTE **)&pPointers[iMethod], (BYTE *)pUMEntryThunk->GetCode());
 
@@ -3356,6 +3374,49 @@ void Module::FixupVTables()
         pData->SetIsFixedUp();  // On the data
         SetIsIJWFixedUp();      // On the module
     } // End of Stage 3
+}
+
+// Self-initializing accessor for m_pThunkHeap
+LoaderHeap *Module::GetDllThunkHeap()
+{
+    CONTRACTL
+    {
+        THROWS;
+        GC_TRIGGERS;
+        MODE_ANY;
+    }
+    CONTRACTL_END;
+    return PEImage::GetDllThunkHeap(GetPEAssembly()->GetIJWBase());
+
+}
+
+LoaderHeap *Module::GetThunkHeap()
+{
+    CONTRACT(LoaderHeap *)
+    {
+        INSTANCE_CHECK;
+        THROWS;
+        GC_NOTRIGGER;
+        MODE_ANY;
+        INJECT_FAULT(COMPlusThrowOM());
+        POSTCONDITION(CheckPointer(RETVAL));
+    }
+    CONTRACT_END
+
+    if (!m_pThunkHeap)
+    {
+        LoaderHeap *pNewHeap = new LoaderHeap(VIRTUAL_ALLOC_RESERVE_GRANULARITY, // DWORD dwReserveBlockSize
+            0,                                 // DWORD dwCommitBlockSize
+            ThunkHeapStubManager::g_pManager->GetRangeList(),
+            UnlockedLoaderHeap::HeapKind::Executable);
+
+        if (InterlockedCompareExchangeT(&m_pThunkHeap, pNewHeap, 0) != 0)
+        {
+            delete pNewHeap;
+        }
+    }
+
+    RETURN m_pThunkHeap;
 }
 
 ModuleBase *Module::GetModuleFromIndex(DWORD ix)
@@ -4403,11 +4464,29 @@ VOID Module::EnsureActive()
         MODE_ANY;
     }
     CONTRACTL_END;
-    GetAssembly()->EnsureActive();
+    GetDomainAssembly()->EnsureActive();
 }
 #endif // DACCESS_COMPILE
 
 #include <optdefault.h>
+
+
+#ifndef DACCESS_COMPILE
+
+VOID Module::EnsureAllocated()
+{
+    CONTRACTL
+    {
+        THROWS;
+        GC_TRIGGERS;
+        MODE_ANY;
+    }
+    CONTRACTL_END;
+
+    GetDomainAssembly()->EnsureAllocated();
+}
+
+#endif // !DACCESS_COMPILE
 
 CHECK Module::CheckActivated()
 {
@@ -4420,10 +4499,10 @@ CHECK Module::CheckActivated()
     CONTRACTL_END;
 
 #ifndef DACCESS_COMPILE
-    Assembly *pAssembly = GetAssembly();
-    CHECK(pAssembly != NULL);
-    PREFIX_ASSUME(pAssembly != NULL);
-    CHECK(pAssembly->CheckActivated());
+    DomainAssembly *pDomainAssembly = GetDomainAssembly();
+    CHECK(pDomainAssembly != NULL);
+    PREFIX_ASSUME(pDomainAssembly != NULL);
+    CHECK(pDomainAssembly->CheckActivated());
 #endif
     CHECK_OK;
 }
@@ -4450,6 +4529,10 @@ void Module::EnumMemoryRegions(CLRDataEnumMemoryFlags flags,
         EMEM_OUT(("MEM: %p Module\n", dac_cast<TADDR>(this)));
     }
 
+    if (m_pDomainAssembly.IsValid())
+    {
+        m_pDomainAssembly->EnumMemoryRegions(flags);
+    }
     if (m_pPEAssembly.IsValid())
     {
         m_pPEAssembly->EnumMemoryRegions(flags);

@@ -16,6 +16,7 @@ Abstract:
 /* PAL headers */
 
 #include "pal/thread.hpp"
+#include "pal/malloc.hpp"
 #include "pal/file.hpp"
 
 #include "config.h"
@@ -733,7 +734,7 @@ bool DBG_ShouldCheckStackAlignment()
 }
 #endif // _DEBUG && __APPLE__
 
-#if defined(TARGET_OSX)
+#ifdef __APPLE__
 #include "CoreFoundation/CFUserNotification.h"
 #include "CoreFoundation/CFString.h"
 #include "Security/AuthSession.h"
@@ -853,4 +854,4 @@ void PAL_DisplayDialogFormatted(const char *szTitle, const char *szTextFormat, .
 
     va_end(args);
 }
-#endif // TARGET_OSX
+#endif // __APPLE__

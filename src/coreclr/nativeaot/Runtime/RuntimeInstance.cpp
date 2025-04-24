@@ -21,6 +21,7 @@
 #include "shash.h"
 #include "TypeManager.h"
 #include "MethodTable.h"
+#include "varint.h"
 
 #include "CommonMacros.inl"
 #include "slist.inl"
@@ -51,9 +52,9 @@ FCIMPLEND
 
 #if TARGET_UNIX
 #include "PalCreateDump.h"
-FCIMPL1(void, RhCreateCrashDumpIfEnabled, PEXCEPTION_RECORD pExceptionRecord)
+FCIMPL2(void, RhCreateCrashDumpIfEnabled, PEXCEPTION_RECORD pExceptionRecord, PCONTEXT pExContext)
 {
-    PalCreateCrashDumpIfEnabled(pExceptionRecord);
+    PalCreateCrashDumpIfEnabled(pExceptionRecord, pExContext);
 }
 FCIMPLEND
 #endif

@@ -11,9 +11,9 @@
 #ifndef __COREXCEP_H__
 #define __COREXCEP_H__
 
-// All CLR exceptions are expressed as a RaiseException with this exception
+// All COM+ exceptions are expressed as a RaiseException with this exception
 // code.  If you change this value, you must also change
-// Exception.cs's EXCEPTION_COMPLUS value.
+// Exception.cs's _COMPlusExceptionCode value.
 
 #define EXCEPTION_MSVC    0xe06d7363    // 0xe0000000 | 'msc'
 
@@ -28,4 +28,8 @@
                                         // stress to facilitate failure triaging.
 #endif
 
+// This is the exception code to report SetupThread failure to caller of reverse pinvoke
+// It is misleading to use our COM+ exception code, since this is not a managed exception.
+// In the end, we picked e0455858 (EXX).
+#define EXCEPTION_EXX     0xe0455858    // 0xe0000000 | 'EXX'
 #endif // __COREXCEP_H__

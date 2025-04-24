@@ -149,11 +149,10 @@ namespace Internal.IL
             if (_canonMethod.IsSynchronized)
             {
                 const string reason = "Synchronized method";
-                _dependencies.Add(GetHelperEntrypoint(ReadyToRunHelper.MonitorEnter), reason);
-                _dependencies.Add(GetHelperEntrypoint(ReadyToRunHelper.MonitorExit), reason);
                 if (_canonMethod.Signature.IsStatic)
                 {
-                    _dependencies.Add(_compilation.NodeFactory.MethodEntrypoint(_compilation.NodeFactory.TypeSystemContext.GetHelperEntryPoint("SynchronizedMethodHelpers", "GetSyncFromClassHandle")), reason);
+                    _dependencies.Add(GetHelperEntrypoint(ReadyToRunHelper.MonitorEnterStatic), reason);
+                    _dependencies.Add(GetHelperEntrypoint(ReadyToRunHelper.MonitorExitStatic), reason);
 
                     MethodDesc method = _methodIL.OwningMethod;
                     if (method.OwningType.IsRuntimeDeterminedSubtype)
@@ -167,10 +166,18 @@ namespace Internal.IL
 
                     if (_canonMethod.IsCanonicalMethod(CanonicalFormKind.Any))
                     {
+                        _dependencies.Add(_compilation.NodeFactory.MethodEntrypoint(_compilation.NodeFactory.TypeSystemContext.GetHelperEntryPoint("SynchronizedMethodHelpers", "GetSyncFromClassHandle")), reason);
+
                         if (_canonMethod.RequiresInstMethodDescArg())
                             _dependencies.Add(_compilation.NodeFactory.MethodEntrypoint(_compilation.NodeFactory.TypeSystemContext.GetHelperEntryPoint("SynchronizedMethodHelpers", "GetClassFromMethodParam")), reason);
                     }
                 }
+                else
+                {
+                    _dependencies.Add(GetHelperEntrypoint(ReadyToRunHelper.MonitorEnter), reason);
+                    _dependencies.Add(GetHelperEntrypoint(ReadyToRunHelper.MonitorExit), reason);
+                }
+
             }
 
             FindBasicBlocks();
@@ -897,7 +904,6 @@ namespace Internal.IL
             if (opCode == ILOpcode.unbox)
             {
                 helper = ReadyToRunHelper.Unbox;
-                _dependencies.Add(GetHelperEntrypoint(ReadyToRunHelper.Unbox_TypeTest), "Unbox");
             }
             else
             {
@@ -1238,16 +1244,11 @@ namespace Internal.IL
 
         private void ImportStoreElement(int token)
         {
-            ImportStoreElement((TypeDesc)_methodIL.GetObject(token));
+            _dependencies.Add(GetHelperEntrypoint(ReadyToRunHelper.RngChkFail), "stelem");
         }
 
         private void ImportStoreElement(TypeDesc elementType)
         {
-            if (elementType == null || elementType.IsGCPointer)
-            {
-                _dependencies.Add(GetHelperEntrypoint(ReadyToRunHelper.Stelem_Ref), "stelem");
-            }
-
             _dependencies.Add(GetHelperEntrypoint(ReadyToRunHelper.RngChkFail), "stelem");
         }
 
@@ -1260,8 +1261,6 @@ namespace Internal.IL
                     _dependencies.Add(GetGenericLookupHelper(ReadyToRunHelperId.TypeHandle, elementType), "ldelema");
                 else
                     _dependencies.Add(_factory.NecessaryTypeSymbol(elementType), "ldelema");
-
-                _dependencies.Add(GetHelperEntrypoint(ReadyToRunHelper.Ldelema_Ref), "ldelema");
             }
 
             _dependencies.Add(GetHelperEntrypoint(ReadyToRunHelper.RngChkFail), "ldelema");

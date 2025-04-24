@@ -10,7 +10,6 @@
 #include "staticcontract.h"
 #include "volatile.h"
 #include "palclr.h"
-#include <minipal/com/memory.h>
 
 #include <utility>
 #include <type_traits>
@@ -910,10 +909,8 @@ FORCEINLINE void DoTheRelease(TYPE *value)
 template<typename _TYPE>
 using DoNothingHolder = SpecializedWrapper<_TYPE, DoNothing<_TYPE*>>;
 
-#ifndef SOS_INCLUDE
 template<typename _TYPE>
 using ReleaseHolder = SpecializedWrapper<_TYPE, DoTheRelease<_TYPE>>;
-#endif // SOS_INCLUDE
 
 template<typename _TYPE>
 using NonVMComHolder = SpecializedWrapper<_TYPE, DoTheRelease<_TYPE>>;
@@ -1115,6 +1112,7 @@ using FieldNuller = SpecializedWrapper<_TYPE, detail::ZeroMem<_TYPE>::Invoke>;
 FORCEINLINE void VoidCloseHandle(HANDLE h) { if (h != NULL) CloseHandle(h); }
 // (UINT_PTR) -1 is INVALID_HANDLE_VALUE
 FORCEINLINE void VoidCloseFileHandle(HANDLE h) { if (h != ((HANDLE)((LONG_PTR) -1))) CloseHandle(h); }
+FORCEINLINE void VoidFindClose(HANDLE h) { FindClose(h); }
 FORCEINLINE void VoidUnmapViewOfFile(void *ptr) { UnmapViewOfFile(ptr); }
 
 template <typename TYPE>
@@ -1124,6 +1122,7 @@ FORCEINLINE void TypeUnmapViewOfFile(TYPE *ptr) { UnmapViewOfFile(ptr); }
 //@TODO: Dangerous default value. Some Win32 functions return INVALID_HANDLE_VALUE, some return NULL (such as CreatEvent).
 typedef Wrapper<HANDLE, DoNothing<HANDLE>, VoidCloseHandle, (UINT_PTR) -1> HandleHolder;
 typedef Wrapper<HANDLE, DoNothing<HANDLE>, VoidCloseFileHandle, (UINT_PTR) -1> FileHandleHolder;
+typedef Wrapper<HANDLE, DoNothing<HANDLE>, VoidFindClose, (UINT_PTR) -1> FindHandleHolder;
 
 typedef Wrapper<void *, DoNothing, VoidUnmapViewOfFile> MapViewHolder;
 

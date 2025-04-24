@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.Build.NoTargets">
   <PropertyGroup>
-    <BuildDebPackage>false</BuildDebPackage>
-    <BuildRpmPackage>true</BuildRpmPackage>
+    <GenerateInstallers Condition="'$(BuildRpmPackage)' != 'true'">false</GenerateInstallers>
     <PackageTargetOS>azl.3</PackageTargetOS>
   </PropertyGroup>
 

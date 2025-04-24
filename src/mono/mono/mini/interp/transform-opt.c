@@ -803,10 +803,7 @@ interp_compute_eh_vars (TransformData *td)
 				c->flags == MONO_EXCEPTION_CLAUSE_FILTER) {
 			InterpBasicBlock *bb = td->offset_to_bb [c->try_offset];
 			int try_end = c->try_offset + c->try_len;
-			// If the bblock is detected as dead while traversing the IL code, the mapping for
-			// it is cleared. We can skip it.
-			if (!bb)
-				continue;
+			g_assert (bb);
 			while (bb->il_offset != -1 && bb->il_offset < try_end) {
 				for (InterpInst *ins = bb->first_ins; ins != NULL; ins = ins->next) {
 					if (mono_interp_op_dregs [ins->opcode])

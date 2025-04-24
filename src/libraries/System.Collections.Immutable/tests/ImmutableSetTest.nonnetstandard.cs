@@ -26,9 +26,13 @@ namespace System.Collections.Immutable.Tests
         [Fact]
         public void EnumeratorTest()
         {
+            IComparer<double> comparer = null;
             IImmutableSet<double> set = this.Empty<double>();
-            Assert.True(set is ImmutableSortedSet<double> or ImmutableHashSet<double>);
-            IComparer<double>? comparer = (set as ImmutableSortedSet<double>)?.KeyComparer;
+            var sortedSet = set as ISortKeyCollection<double>;
+            if (sortedSet != null)
+            {
+                comparer = sortedSet.KeyComparer;
+            }
 
             this.EnumeratorTestHelper(set, comparer, 3, 5, 1);
             double[] data = this.GenerateDummyFillData();
@@ -50,7 +54,7 @@ namespace System.Collections.Immutable.Tests
             this.UnionTestHelper(this.Empty<int>().Union(new[] { 2 }), Enumerable.Range(0, 1000).ToArray());
         }
 
-        internal abstract BinaryTreeProxy GetRootNode<T>(IImmutableSet<T> set);
+        internal abstract IBinaryTree GetRootNode<T>(IImmutableSet<T> set);
 
         protected void TryGetValueTestHelper(IImmutableSet<string> set)
         {
@@ -130,7 +134,7 @@ namespace System.Collections.Immutable.Tests
 
         private void VerifyAvlTreeState<T>(IImmutableSet<T> set)
         {
-            BinaryTreeProxy rootNode = this.GetRootNode(set);
+            IBinaryTree rootNode = this.GetRootNode(set);
             rootNode.VerifyBalanced();
             rootNode.VerifyHeightIsWithinTolerance(set.Count);
         }

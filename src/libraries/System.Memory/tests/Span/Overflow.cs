@@ -100,7 +100,7 @@ namespace System.SpanTests
                     }
                     finally
                     {
-                        AllocationHelper.ReleaseNative(ref memory);
+                        Marshal.FreeHGlobal(memory);
                     }
                 }
             }
@@ -147,7 +147,7 @@ namespace System.SpanTests
                     }
                     finally
                     {
-                        AllocationHelper.ReleaseNative(ref memory);
+                        Marshal.FreeHGlobal(memory);
                     }
                 }
             }

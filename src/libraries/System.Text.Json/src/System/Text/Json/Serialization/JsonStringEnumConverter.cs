@@ -57,7 +57,7 @@ namespace System.Text.Json.Serialization
                 ThrowHelper.ThrowArgumentOutOfRangeException_JsonConverterFactory_TypeNotSupported(typeToConvert);
             }
 
-            return EnumConverterFactory.Helpers.Create<TEnum>(_converterOptions, options, _namingPolicy);
+            return EnumConverterFactory.Create<TEnum>(_converterOptions, options, _namingPolicy);
         }
     }
 

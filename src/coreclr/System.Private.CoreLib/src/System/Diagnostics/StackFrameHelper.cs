@@ -13,6 +13,7 @@ namespace System.Diagnostics
     // VM\DebugDebugger.h. The binder will catch some of these layout problems.
     internal sealed class StackFrameHelper
     {
+        private Thread? targetThread;
         private int[]? rgiOffset;
         private int[]? rgiILOffset;
 
@@ -47,8 +48,9 @@ namespace System.Diagnostics
         [ThreadStatic]
         private static int t_reentrancy;
 
-        public StackFrameHelper()
+        public StackFrameHelper(Thread? target)
         {
+            targetThread = target;
             rgMethodHandle = null;
             rgiMethodToken = null;
             rgiOffset = null;
@@ -83,9 +85,9 @@ namespace System.Diagnostics
         // done by GetStackFramesInternal (on Windows for old PDB format).
         //
 
-        internal void InitializeSourceInfo(bool fNeedFileInfo, Exception? exception)
+        internal void InitializeSourceInfo(int iSkip, bool fNeedFileInfo, Exception? exception)
         {
-            StackTrace.GetStackFramesInternal(this, fNeedFileInfo, exception);
+            StackTrace.GetStackFramesInternal(this, iSkip, fNeedFileInfo, exception);
 
             if (!fNeedFileInfo)
                 return;
@@ -164,7 +166,7 @@ namespace System.Diagnostics
             if (mh == IntPtr.Zero)
                 return null;
 
-            IRuntimeMethodInfo? mhReal = RuntimeMethodHandle.GetTypicalMethodDefinition(new RuntimeMethodInfoStub(new RuntimeMethodHandleInternal(mh), this));
+            IRuntimeMethodInfo? mhReal = RuntimeMethodHandle.GetTypicalMethodDefinition(new RuntimeMethodInfoStub(mh, this));
 
             return RuntimeType.GetMethodBase(mhReal);
         }

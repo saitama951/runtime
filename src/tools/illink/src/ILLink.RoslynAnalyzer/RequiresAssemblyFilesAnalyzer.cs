@@ -32,9 +32,7 @@ namespace ILLink.RoslynAnalyzer
 
 		static readonly DiagnosticDescriptor s_requiresAssemblyFilesOnStaticCtor = DiagnosticDescriptors.GetDiagnosticDescriptor (DiagnosticId.RequiresAssemblyFilesOnStaticConstructor);
 
-		static readonly DiagnosticDescriptor s_requiresAssemblyFilesOnEntryPoint = DiagnosticDescriptors.GetDiagnosticDescriptor (DiagnosticId.RequiresAssemblyFilesOnEntryPoint);
-
-		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create (s_locationRule, s_getFilesRule, s_requiresAssemblyFilesRule, s_requiresAssemblyFilesAttributeMismatch, s_requiresAssemblyFilesOnStaticCtor, s_requiresAssemblyFilesOnEntryPoint);
+		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create (s_locationRule, s_getFilesRule, s_requiresAssemblyFilesRule, s_requiresAssemblyFilesAttributeMismatch, s_requiresAssemblyFilesOnStaticCtor);
 
 		private protected override string RequiresAttributeName => RequiresAssemblyFilesAttribute;
 
@@ -49,8 +47,6 @@ namespace ILLink.RoslynAnalyzer
 		private protected override DiagnosticDescriptor RequiresAttributeMismatch => s_requiresAssemblyFilesAttributeMismatch;
 
 		private protected override DiagnosticDescriptor RequiresOnStaticCtor => s_requiresAssemblyFilesOnStaticCtor;
-
-		private protected override DiagnosticDescriptor RequiresOnEntryPoint => s_requiresAssemblyFilesOnEntryPoint;
 
 		internal override bool IsAnalyzerEnabled (AnalyzerOptions options)
 		{

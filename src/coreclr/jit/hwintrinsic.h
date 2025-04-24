@@ -156,24 +156,6 @@ enum HWIntrinsicFlag : unsigned int
     // The intrinsic has no EVEX compatible form
     HW_Flag_NoEvexSemantics = 0x100000,
 
-    // The intrinsic is an RMW intrinsic
-    HW_Flag_RmwIntrinsic = 0x200000,
-
-    // The intrinsic is a PermuteVar2x intrinsic
-    HW_Flag_PermuteVar2x = 0x400000,
-
-    // The intrinsic is an embedded broadcast compatible intrinsic
-    HW_Flag_EmbBroadcastCompatible = 0x800000,
-
-    // The intrinsic is an embedded rounding compatible intrinsic
-    HW_Flag_EmbRoundingCompatible = 0x1000000,
-
-    // The intrinsic is an embedded masking compatible intrinsic
-    HW_Flag_EmbMaskingCompatible = 0x2000000,
-
-    // The base type of this intrinsic needs to be normalized to int/uint unless it is long/ulong.
-    HW_Flag_NormalizeSmallTypeToInt = 0x4000000,
-
 #elif defined(TARGET_ARM64)
     // The intrinsic has an immediate operand
     // - the value can be (and should be) encoded in a corresponding instruction when the operand value is constant
@@ -204,7 +186,7 @@ enum HWIntrinsicFlag : unsigned int
     // The intrinsic uses a mask in arg1 to select elements present in the result
     HW_Flag_ExplicitMaskedOperation = 0x20000,
 
-    // The intrinsic uses a mask in arg1 (either explicitly, embedded or optionally embedded) to select elements present
+    // The intrinsic uses a mask in arg1 (either explicitly, embdedd or optionally embedded) to select elements present
     // in the result, and must use a low register.
     HW_Flag_LowMaskedOperation = 0x40000,
 
@@ -215,39 +197,64 @@ enum HWIntrinsicFlag : unsigned int
     // The intrinsic uses a mask in arg1 to select elements present in the result, which is not present in the API call
     HW_Flag_EmbeddedMaskedOperation = 0x100000,
 
-    // The intrinsic comes in both vector and scalar variants. During the import stage if the basetype is scalar,
-    // then the intrinsic should be switched to a scalar only version.
-    HW_Flag_HasScalarInputVariant = 0x200000,
-
-    // The intrinsic uses a mask in arg1 to select elements present in the result, and must use a low vector register.
-    HW_Flag_LowVectorOperation = 0x400000,
-
-    // The intrinsic uses a mask in arg1 to select elements present in the result, which zeros inactive elements
-    // (instead of merging).
-    HW_Flag_ZeroingMaskedOperation = 0x800000,
-
-    // The intrinsic has an overload where the base type is extracted from a ValueTuple of SIMD types
-    // (HW_Flag_BaseTypeFrom{First, Second}Arg must also be set to denote the position of the ValueTuple)
-    HW_Flag_BaseTypeFromValueTupleArg = 0x1000000,
-
-    // The intrinsic is a reduce operation.
-    HW_Flag_ReduceOperation = 0x2000000,
-
 #else
 #error Unsupported platform
 #endif
 
     // The intrinsic has some barrier special side effect that should be tracked
-    HW_Flag_SpecialSideEffect_Barrier = 0x8000000,
+    HW_Flag_SpecialSideEffect_Barrier = 0x200000,
 
     // The intrinsic has some other special side effect that should be tracked
-    HW_Flag_SpecialSideEffect_Other = 0x10000000,
+    HW_Flag_SpecialSideEffect_Other = 0x400000,
 
     HW_Flag_SpecialSideEffectMask = (HW_Flag_SpecialSideEffect_Barrier | HW_Flag_SpecialSideEffect_Other),
 
     // MaybeNoJmpTable IMM
     // the imm intrinsic may not need jumptable fallback when it gets non-const argument
-    HW_Flag_MaybeNoJmpTableIMM = 0x20000000,
+    HW_Flag_MaybeNoJmpTableIMM = 0x800000,
+
+#if defined(TARGET_XARCH)
+    // The intrinsic is an RMW intrinsic
+    HW_Flag_RmwIntrinsic = 0x1000000,
+
+    // The intrinsic is a PermuteVar2x intrinsic
+    HW_Flag_PermuteVar2x = 0x2000000,
+
+    // The intrinsic is an embedded broadcast compatible intrinsic
+    HW_Flag_EmbBroadcastCompatible = 0x4000000,
+
+    // The intrinsic is an embedded rounding compatible intrinsic
+    HW_Flag_EmbRoundingCompatible = 0x8000000,
+
+    // The intrinsic is an embedded masking compatible intrinsic
+    HW_Flag_EmbMaskingCompatible = 0x10000000,
+
+    // The base type of this intrinsic needs to be normalized to int/uint unless it is long/ulong.
+    HW_Flag_NormalizeSmallTypeToInt = 0x20000000,
+#elif defined(TARGET_ARM64)
+
+    // The intrinsic has an enum operand. Using this implies HW_Flag_HasImmediateOperand.
+    HW_Flag_HasEnumOperand = 0x1000000,
+
+    // The intrinsic comes in both vector and scalar variants. During the import stage if the basetype is scalar,
+    // then the intrinsic should be switched to a scalar only version.
+    HW_Flag_HasScalarInputVariant = 0x2000000,
+
+    // The intrinsic uses a mask in arg1 to select elements present in the result, and must use a low vector register.
+    HW_Flag_LowVectorOperation = 0x4000000,
+
+    // The intrinsic uses a mask in arg1 to select elements present in the result, which zeros inactive elements
+    // (instead of merging).
+    HW_Flag_ZeroingMaskedOperation = 0x8000000,
+
+    // The intrinsic has an overload where the base type is extracted from a ValueTuple of SIMD types
+    // (HW_Flag_BaseTypeFrom{First, Second}Arg must also be set to denote the position of the ValueTuple)
+    HW_Flag_BaseTypeFromValueTupleArg = 0x10000000,
+
+    // The intrinsic is a reduce operation.
+    HW_Flag_ReduceOperation = 0x20000000,
+
+#endif // TARGET_XARCH
 
     // The intrinsic is a FusedMultiplyAdd intrinsic
     HW_Flag_FmaIntrinsic = 0x40000000,
@@ -923,101 +930,11 @@ struct HWIntrinsicInfo
         return false;
     }
 
-    static bool IsVectorCreate(NamedIntrinsic id)
-    {
-        switch (id)
-        {
-#if defined(TARGET_ARM64)
-            case NI_Vector64_Create:
-#endif // TARGET_ARM64
-            case NI_Vector128_Create:
-#if defined(TARGET_XARCH)
-            case NI_Vector256_Create:
-            case NI_Vector512_Create:
-#endif // TARGET_XARCH
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    static bool IsVectorCreateScalar(NamedIntrinsic id)
-    {
-        switch (id)
-        {
-#if defined(TARGET_ARM64)
-            case NI_Vector64_CreateScalar:
-#endif // TARGET_ARM64
-            case NI_Vector128_CreateScalar:
-#if defined(TARGET_XARCH)
-            case NI_Vector256_CreateScalar:
-            case NI_Vector512_CreateScalar:
-#endif // TARGET_XARCH
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    static bool IsVectorCreateScalarUnsafe(NamedIntrinsic id)
-    {
-        switch (id)
-        {
-#if defined(TARGET_ARM64)
-            case NI_Vector64_CreateScalarUnsafe:
-#endif // TARGET_ARM64
-            case NI_Vector128_CreateScalarUnsafe:
-#if defined(TARGET_XARCH)
-            case NI_Vector256_CreateScalarUnsafe:
-            case NI_Vector512_CreateScalarUnsafe:
-#endif // TARGET_XARCH
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    static bool IsVectorGetElement(NamedIntrinsic id)
-    {
-        switch (id)
-        {
-#if defined(TARGET_ARM64)
-            case NI_Vector64_GetElement:
-#endif // TARGET_ARM64
-            case NI_Vector128_GetElement:
-#if defined(TARGET_XARCH)
-            case NI_Vector256_GetElement:
-            case NI_Vector512_GetElement:
-#endif // TARGET_XARCH
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    static bool IsVectorToScalar(NamedIntrinsic id)
-    {
-        switch (id)
-        {
-#if defined(TARGET_ARM64)
-            case NI_Vector64_ToScalar:
-#endif // TARGET_ARM64
-            case NI_Vector128_ToScalar:
-#if defined(TARGET_XARCH)
-            case NI_Vector256_ToScalar:
-            case NI_Vector512_ToScalar:
-#endif // TARGET_XARCH
-                return true;
-            default:
-                return false;
-        }
-    }
-
     static bool HasImmediateOperand(NamedIntrinsic id)
     {
 #if defined(TARGET_ARM64)
         const HWIntrinsicFlag flags = lookupFlags(id);
-        return ((flags & HW_Flag_HasImmediateOperand) != 0);
+        return ((flags & HW_Flag_HasImmediateOperand) != 0) || HasEnumOperand(id);
 #elif defined(TARGET_XARCH)
         return lookupCategory(id) == HW_Category_IMM;
 #else
@@ -1036,6 +953,12 @@ struct HWIntrinsicInfo
     {
         const HWIntrinsicFlag flags = lookupFlags(id);
         return (flags & HW_Flag_Scalable) != 0;
+    }
+
+    static bool IsMaskedOperation(NamedIntrinsic id)
+    {
+        const HWIntrinsicFlag flags = lookupFlags(id);
+        return IsLowMaskedOperation(id) || IsOptionalEmbeddedMaskedOperation(id) || IsExplicitMaskedOperation(id);
     }
 
     static bool IsLowMaskedOperation(NamedIntrinsic id)
@@ -1072,6 +995,12 @@ struct HWIntrinsicInfo
     {
         const HWIntrinsicFlag flags = lookupFlags(id);
         return (flags & HW_Flag_ExplicitMaskedOperation) != 0;
+    }
+
+    static bool HasEnumOperand(NamedIntrinsic id)
+    {
+        const HWIntrinsicFlag flags = lookupFlags(id);
+        return (flags & HW_Flag_HasEnumOperand) != 0;
     }
 
     static bool HasScalarInputVariant(NamedIntrinsic id)

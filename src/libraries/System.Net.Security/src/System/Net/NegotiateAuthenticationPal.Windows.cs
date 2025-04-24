@@ -587,7 +587,8 @@ namespace System.Net
                             pBuffers = unmanagedBuffer
                         };
 
-                        int errorCode = Interop.SspiCli.MakeSignature(ref _securityContext._handle, 0, ref sdcInOut, 0);
+                        uint qop = IsEncrypted ? 0 : Interop.SspiCli.SECQOP_WRAP_NO_ENCRYPT;
+                        int errorCode = Interop.SspiCli.MakeSignature(ref _securityContext._handle, qop, ref sdcInOut, 0);
 
                         if (errorCode != 0)
                         {

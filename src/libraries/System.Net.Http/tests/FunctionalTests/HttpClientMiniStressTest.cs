@@ -31,6 +31,7 @@ namespace System.Net.Http.Functional.Tests
         }
     }
 
+    [Collection(nameof(DisableParallelization))]
     [ConditionalClass(typeof(HttpClientHandlerTestBase), nameof(IsQuicSupported))]
     public sealed class SocketsHttpHandler_HttpClientMiniStress_Http3 : HttpClientMiniStress
     {

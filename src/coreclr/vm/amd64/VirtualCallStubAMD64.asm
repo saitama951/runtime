@@ -4,9 +4,7 @@
 include <AsmMacros.inc>
 include AsmConstants.inc
 
-ifdef FEATURE_VIRTUAL_STUB_DISPATCH 
-
-CHAIN_SUCCESS_COUNTER  equ g_dispatch_cache_chain_success_counter
+CHAIN_SUCCESS_COUNTER  equ ?g_dispatch_cache_chain_success_counter@@3_KA
 
         extern  VSD_ResolveWorker:proc
         extern  CHAIN_SUCCESS_COUNTER:dword
@@ -85,5 +83,4 @@ Fail:
 
 LEAF_END ResolveWorkerChainLookupAsmStub, _TEXT
 
-endif ;; FEATURE_VIRTUAL_STUB_DISPATCH 
         end

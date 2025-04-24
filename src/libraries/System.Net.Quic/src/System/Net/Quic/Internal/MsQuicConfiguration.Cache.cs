@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
-using System.Security.Cryptography;
 using System.Security.Authentication;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
@@ -16,9 +15,27 @@ namespace System.Net.Quic;
 
 internal static partial class MsQuicConfiguration
 {
-    internal static bool ConfigurationCacheEnabled { get; } = !AppContextSwitchHelper.GetBooleanConfig(
-        "System.Net.Quic.DisableConfigurationCache",
-        "DOTNET_SYSTEM_NET_QUIC_DISABLE_CONFIGURATION_CACHE");
+    private const string DisableCacheEnvironmentVariable = "DOTNET_SYSTEM_NET_QUIC_DISABLE_CONFIGURATION_CACHE";
+    private const string DisableCacheCtxSwitch = "System.Net.Quic.DisableConfigurationCache";
+
+    internal static bool ConfigurationCacheEnabled { get; } = GetConfigurationCacheEnabled();
+
+    private static bool GetConfigurationCacheEnabled()
+    {
+        // AppContext switch takes precedence
+        if (AppContext.TryGetSwitch(DisableCacheCtxSwitch, out bool value))
+        {
+            return !value;
+        }
+        // check environment variable second
+        else if (Environment.GetEnvironmentVariable(DisableCacheEnvironmentVariable) is string envVar)
+        {
+            return !(envVar == "1" || envVar.Equals("true", StringComparison.OrdinalIgnoreCase));
+        }
+
+        // enabled by default
+        return true;
+    }
 
     private static readonly MsQuicConfigurationCache s_configurationCache = new MsQuicConfigurationCache();
 
@@ -28,9 +45,7 @@ internal static partial class MsQuicConfiguration
 
     private readonly struct CacheKey : IEquatable<CacheKey>
     {
-        private const int ThumbprintSize = 64; // SHA512 size
-
-        public readonly ReadOnlyMemory<byte> CertificateThumbprints;
+        public readonly List<byte[]> CertificateThumbprints;
         public readonly QUIC_CREDENTIAL_FLAGS Flags;
         public readonly QUIC_SETTINGS Settings;
         public readonly List<SslApplicationProtocol> ApplicationProtocols;
@@ -38,29 +53,15 @@ internal static partial class MsQuicConfiguration
 
         public CacheKey(QUIC_SETTINGS settings, QUIC_CREDENTIAL_FLAGS flags, X509Certificate? certificate, ReadOnlyCollection<X509Certificate2>? intermediates, List<SslApplicationProtocol> alpnProtocols, QUIC_ALLOWED_CIPHER_SUITE_FLAGS allowedCipherSuites)
         {
-            int certCount = certificate == null ? 0 : 1;
-            certCount += intermediates?.Count ?? 0;
-            byte[] certificateThumbprints = new byte[certCount * ThumbprintSize];
-
-            certCount = 0;
-            if (certificate != null)
-            {
-                bool success = certificate.TryGetCertHash(HashAlgorithmName.SHA512, certificateThumbprints.AsSpan(0, ThumbprintSize), out _);
-                Debug.Assert(success);
-                certCount++;
-            }
+            CertificateThumbprints = certificate == null ? new List<byte[]>() : new List<byte[]> { certificate.GetCertHash() };
 
             if (intermediates != null)
             {
                 foreach (X509Certificate2 intermediate in intermediates)
                 {
-                    bool success = intermediate.TryGetCertHash(HashAlgorithmName.SHA512, certificateThumbprints.AsSpan(certCount * ThumbprintSize, ThumbprintSize), out _);
-                    Debug.Assert(success);
-                    certCount++;
+                    CertificateThumbprints.Add(intermediate.GetCertHash());
                 }
             }
-
-            CertificateThumbprints = certificateThumbprints;
 
             Flags = flags;
             Settings = settings;
@@ -73,9 +74,17 @@ internal static partial class MsQuicConfiguration
 
         public bool Equals(CacheKey other)
         {
-            if (!CertificateThumbprints.Span.SequenceEqual(other.CertificateThumbprints.Span))
+            if (CertificateThumbprints.Count != other.CertificateThumbprints.Count)
             {
                 return false;
+            }
+
+            for (int i = 0; i < CertificateThumbprints.Count; i++)
+            {
+                if (!CertificateThumbprints[i].AsSpan().SequenceEqual(other.CertificateThumbprints[i]))
+                {
+                    return false;
+                }
             }
 
             if (ApplicationProtocols.Count != other.ApplicationProtocols.Count)
@@ -101,7 +110,11 @@ internal static partial class MsQuicConfiguration
         {
             HashCode hash = default;
 
-            hash.AddBytes(CertificateThumbprints.Span);
+            foreach (var thumbprint in CertificateThumbprints)
+            {
+                hash.AddBytes(thumbprint);
+            }
+
             hash.Add(Flags);
             hash.Add(Settings);
 

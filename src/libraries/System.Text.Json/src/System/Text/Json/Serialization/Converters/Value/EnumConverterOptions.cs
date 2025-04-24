@@ -4,7 +4,7 @@
 namespace System.Text.Json.Serialization.Converters
 {
     [Flags]
-    internal enum EnumConverterOptions // Do not modify (legacy schema generation)
+    internal enum EnumConverterOptions
     {
         /// <summary>
         /// Allow string values.

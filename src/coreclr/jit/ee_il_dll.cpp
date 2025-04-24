@@ -29,8 +29,6 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 #define DLLEXPORT
 #endif // !DLLEXPORT
 
-#include "minipal/log.h"
-
 /*****************************************************************************/
 
 ICorJitHost* g_jitHost        = nullptr;
@@ -80,11 +78,11 @@ static FILE* volatile s_jitstdout;
 
 static FILE* jitstdoutInit()
 {
-    const char* jitStdOutFile = JitConfig.JitStdOutFile();
-    FILE*       file          = nullptr;
+    const WCHAR* jitStdOutFile = JitConfig.JitStdOutFile();
+    FILE*        file          = nullptr;
     if (jitStdOutFile != nullptr)
     {
-        file = fopen_utf8(jitStdOutFile, "a");
+        file = _wfopen(jitStdOutFile, W("a"));
         assert(file != nullptr);
     }
 
@@ -148,19 +146,10 @@ FILE* jitstdout()
 // Like printf/logf, but only outputs to jitstdout -- skips call back into EE.
 int jitprintf(const char* fmt, ...)
 {
-    int     status;
     va_list vl;
     va_start(vl, fmt);
-    if (jitstdout() == procstdout())
-    {
-        status = minipal_log_vprint_verbose(fmt, vl);
-    }
-    else
-    {
-        status = vfprintf(jitstdout(), fmt, vl);
-    }
+    int status = vfprintf(jitstdout(), fmt, vl);
     va_end(vl);
-
     return status;
 }
 

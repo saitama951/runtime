@@ -5,59 +5,19 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.Tracing;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Xunit;
-using System.Runtime.CompilerServices;
 
 namespace BasicEventSourceTests
 {
-    public class ActivityTracking : IDisposable
+    public class ActivityTracking
     {
-        public ActivityTracking()
-        {
-            // make sure ActivityTracker is enabled
-            // On CoreCLR, it's enabled via
-            //    FireAssemblyLoadStart -> ActivityTracker::Start -> AssemblyLoadContext.StartAssemblyLoad -> ActivityTracker.Instance.Enable()
-            // on Mono it could be enabled via
-            //    System.Threading.Tasks.TplEventSource followed by EventSource.SetCurrentThreadActivityId
-            // but it's too complex for the unit test, so we just call it explicitly
-            ActivityTracker_Instance_Enable();
-        }
-
-        // ActivityTracker.Instance.Enable(); via reflection
-        private static void ActivityTracker_Instance_Enable()
-        {
-            var type = typeof(EventSource).Assembly.GetType("System.Diagnostics.Tracing.ActivityTracker");
-            var prop = type.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public);
-            var m = type.GetMethod("Enable");
-            var instance = prop.GetValue(null);
-            m.Invoke(instance, null);
-        }
-
-        public void Dispose()
-        {
-            // reset ActivityTracker state between tests
-            EventSource.SetCurrentThreadActivityId(Guid.Empty);
-        }
-
-        [Fact]
-        public void IsSupported()
-        {
-            Assert.True(IsSupported((EventSource)null));
-
-            [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "get_IsSupported")]
-            static extern bool IsSupported(EventSource eventSource);
-        }
-
-        [Fact]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsNotBrowser))]
         public void StartStopCreatesActivity()
         {
             using ActivityEventListener l = new ActivityEventListener();
             using ActivityEventSource es = new ActivityEventSource();
-
-            Assert.True(es.IsEnabled());
 
             Assert.Equal(Guid.Empty, EventSource.CurrentThreadActivityId);
             es.ExampleStart();
@@ -66,7 +26,7 @@ namespace BasicEventSourceTests
             Assert.Equal(Guid.Empty, EventSource.CurrentThreadActivityId);
         }
 
-        [Fact]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsNotBrowser))]
         public async Task ActivityFlowsAsync()
         {
             using ActivityEventListener l = new ActivityEventListener();
@@ -81,7 +41,7 @@ namespace BasicEventSourceTests
             Assert.Equal(Guid.Empty, EventSource.CurrentThreadActivityId);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsNotBrowser))]
         public async Task ActivityIdIsZeroedOnThreadSwitchOut()
         {
             using ActivityEventListener l = new ActivityEventListener();
@@ -114,7 +74,7 @@ namespace BasicEventSourceTests
         // I am attempting to preserve it to lower back compat risk, but in
         // the future we might decide it wasn't even desirable to begin with.
         // Compare with SetCurrentActivityIdAfterEventDoesNotFlowAsync below.
-        [Fact]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsNotBrowser))]
         public async Task SetCurrentActivityIdBeforeEventFlowsAsync()
         {
             using ActivityEventListener l = new ActivityEventListener();
@@ -139,7 +99,7 @@ namespace BasicEventSourceTests
         // I am attempting to preserve it to lower back compat risk, but in
         // the future we might decide it wasn't even desirable to begin with.
         // Compare with SetCurrentActivityIdBeforeEventFlowsAsync above.
-        [Fact]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsNotBrowser))]
         public async Task SetCurrentActivityIdAfterEventDoesNotFlowAsync()
         {
             using ActivityEventListener l = new ActivityEventListener();

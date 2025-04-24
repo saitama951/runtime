@@ -10,274 +10,237 @@ namespace System.SpanTests
         [Fact]
         public static void LastIndexOfSequenceMatchAtStart()
         {
-            var source = new int[] { 5, 1, 77, 2, 3, 77, 77, 4, 5, 77, 77, 77, 88, 6, 6, 77, 77, 88, 9 };
-            var value = new int[] { 5, 1, 77 };
-
-            Assert.Equal(0, new ReadOnlySpan<int>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(0, new ReadOnlySpan<int>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value, GetFalseEqualityComparer<int>()));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(new int[] { 5, 1, 77, 2, 3, 77, 77, 4, 5, 77, 77, 77, 88, 6, 6, 77, 77, 88, 9 });
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(new int[] { 5, 1, 77 });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(0, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceMultipleMatch()
         {
-            var source = new int[] { 1, 2, 3, 1, 2, 3, 1, 2, 3, 1 };
-            var value = new int[] { 2, 3 };
-
-            Assert.Equal(7, new ReadOnlySpan<int>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(7, new ReadOnlySpan<int>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value, GetFalseEqualityComparer<int>()));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(new int[] { 1, 2, 3, 1, 2, 3, 1, 2, 3, 1 });
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(new int[] { 2, 3 });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(7, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceRestart()
         {
-            var source = new int[] { 0, 1, 77, 2, 3, 77, 77, 4, 5, 77, 77, 77, 88, 6, 6, 77, 77, 8, 9, 77, 0, 1 };
-            var value = new int[] { 77, 77, 88 };
-
-            Assert.Equal(10, new ReadOnlySpan<int>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(10, new ReadOnlySpan<int>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value, GetFalseEqualityComparer<int>()));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(new int[] { 0, 1, 77, 2, 3, 77, 77, 4, 5, 77, 77, 77, 88, 6, 6, 77, 77, 8, 9, 77, 0, 1 });
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(new int[] { 77, 77, 88 });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(10, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceNoMatch()
         {
-            var source = new int[] { 0, 1, 77, 2, 3, 77, 77, 4, 5, 77, 77, 77, 88, 6, 6, 77, 77, 88, 9 };
-            var value = new int[] { 77, 77, 88, 99 };
-
-            Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value, comparer)));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(new int[] { 0, 1, 77, 2, 3, 77, 77, 4, 5, 77, 77, 77, 88, 6, 6, 77, 77, 88, 9 });
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(new int[] { 77, 77, 88, 99 });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(-1, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceNotEvenAHeadMatch()
         {
-            var source = new int[] { 0, 1, 77, 2, 3, 77, 77, 4, 5, 77, 77, 77, 88, 6, 6, 77, 77, 88, 9 };
-            var value = new int[] { 100, 77, 88, 99 };
-
-            Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value, comparer)));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(new int[] { 0, 1, 77, 2, 3, 77, 77, 4, 5, 77, 77, 77, 88, 6, 6, 77, 77, 88, 9 });
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(new int[] { 100, 77, 88, 99 });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(-1, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceMatchAtVeryEnd()
         {
-            var source = new int[] { 0, 1, 2, 3, 4, 5 };
-            var value = new int[] { 3, 4, 5 };
-
-            Assert.Equal(3, new ReadOnlySpan<int>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(3, new ReadOnlySpan<int>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value, GetFalseEqualityComparer<int>()));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(new int[] { 0, 1, 2, 3, 4, 5 });
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(new int[] { 3, 4, 5 });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(3, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceJustPastVeryEnd()
         {
-            var source = new int[] { 0, 1, 2, 3, 4, 5 };
-            var value = new int[] { 3, 4, 5 };
-
-            Assert.Equal(-1, new ReadOnlySpan<int>(source, 0, 5).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(-1, new ReadOnlySpan<int>(source, 0, 5).LastIndexOf(value, comparer)));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(new int[] { 0, 1, 2, 3, 4, 5 }, 0, 5);
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(new int[] { 3, 4, 5 });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(-1, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceZeroLengthValue()
         {
-            // A zero-length value is always "found" at the end of the source.
-            var source = new int[] { 0, 1, 77, 2, 3, 77, 77, 4, 5, 77, 77, 77, 88, 6, 6, 77, 77, 88, 9 };
-            var value = Array.Empty<int>();
-
-            Assert.Equal(source.Length, new ReadOnlySpan<int>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(source.Length, new ReadOnlySpan<int>(source).LastIndexOf(value, comparer)));
+            // A zero-length value is always "found" at the end of the span.
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(new int[] { 0, 1, 77, 2, 3, 77, 77, 4, 5, 77, 77, 77, 88, 6, 6, 77, 77, 88, 9 });
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(Array.Empty<int>());
+            int index = span.LastIndexOf(value);
+            Assert.Equal(span.Length, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceZeroLengthSpan()
         {
-            var source = Array.Empty<int>();
-            var value = new int[] { 1, 2, 3 };
-
-            Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value, comparer)));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(Array.Empty<int>());
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(new int[] { 1, 2, 3 });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(-1, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceLengthOneValue()
         {
-            var source = new int[] { 0, 1, 2, 3, 4, 5 };
-            var value = new int[] { 2 };
-
-            Assert.Equal(2, new ReadOnlySpan<int>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(2, new ReadOnlySpan<int>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value, GetFalseEqualityComparer<int>()));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(new int[] { 0, 1, 2, 3, 4, 5 });
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(new int[] { 2 });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(2, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceLengthOneValueAtVeryEnd()
         {
-            var source = new int[] { 0, 1, 2, 3, 4, 5 };
-            var value = new int[] { 5 };
-
-            Assert.Equal(5, new ReadOnlySpan<int>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(5, new ReadOnlySpan<int>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value, GetFalseEqualityComparer<int>()));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(new int[] { 0, 1, 2, 3, 4, 5 });
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(new int[] { 5 });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(5, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceLengthOneValueMultipleTimes()
         {
-            var source = new int[] { 0, 1, 5, 3, 4, 5 };
-            var value = new int[] { 5 };
-
-            Assert.Equal(5, new ReadOnlySpan<int>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(5, new ReadOnlySpan<int>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<int>(source).LastIndexOf(value, GetFalseEqualityComparer<int>()));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(new int[] { 0, 1, 5, 3, 4, 5 });
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(new int[] { 5 });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(5, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceLengthOneValueJustPasttVeryEnd()
         {
-            var source = new int[] { 0, 1, 2, 3, 4, 5 };
-            var value = new int[] { 5 };
-
-            Assert.Equal(-1, new ReadOnlySpan<int>(source, 0, 5).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.Equal(-1, new ReadOnlySpan<int>(source, 0, 5).LastIndexOf(value, comparer)));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(new int[] { 0, 1, 2, 3, 4, 5 }, 0, 5);
+            ReadOnlySpan<int> value = new ReadOnlySpan<int>(new int[] { 5 });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(-1, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceMatchAtStart_String()
         {
-            var source = new string[] { "5", "1", "77", "2", "3", "77", "77", "4", "5", "77", "77", "77", "88", "6", "6", "77", "77", "88", "9" };
-            var value = new string[] { "5", "1", "77" };
-
-            Assert.Equal(0, new ReadOnlySpan<string>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(0, new ReadOnlySpan<string>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<string>(source).LastIndexOf(value, GetFalseEqualityComparer<string>()));
+            ReadOnlySpan<string> span = new ReadOnlySpan<string>(new string[] { "5", "1", "77", "2", "3", "77", "77", "4", "5", "77", "77", "77", "88", "6", "6", "77", "77", "88", "9" });
+            ReadOnlySpan<string> value = new ReadOnlySpan<string>(new string[] { "5", "1", "77" });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(0, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceMultipleMatch_String()
         {
-            var source = new string[] { "1", "2", "3", "1", "2", "3", "1", "2", "3" };
-            var value = new string[] { "2", "3" };
-
-            Assert.Equal(7, new ReadOnlySpan<string>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(7, new ReadOnlySpan<string>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<string>(source).LastIndexOf(value, GetFalseEqualityComparer<string>()));
+            ReadOnlySpan<string> span = new ReadOnlySpan<string>(new string[] { "1", "2", "3", "1", "2", "3", "1", "2", "3" });
+            ReadOnlySpan<string> value = new ReadOnlySpan<string>(new string[] { "2", "3" });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(7, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceRestart_String()
         {
-            var source = new string[] { "0", "1", "77", "2", "3", "77", "77", "4", "5", "77", "77", "77", "88", "6", "6", "77", "77", "8", "9", "77", "0", "1" };
-            var value = new string[] { "77", "77", "88" };
-
-            Assert.Equal(10, new ReadOnlySpan<string>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(10, new ReadOnlySpan<string>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<string>(source).LastIndexOf(value, GetFalseEqualityComparer<string>()));
+            ReadOnlySpan<string> span = new ReadOnlySpan<string>(new string[] { "0", "1", "77", "2", "3", "77", "77", "4", "5", "77", "77", "77", "88", "6", "6", "77", "77", "8", "9", "77", "0", "1" });
+            ReadOnlySpan<string> value = new ReadOnlySpan<string>(new string[] { "77", "77", "88" });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(10, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceNoMatch_String()
         {
-            var source = new string[] { "0", "1", "77", "2", "3", "77", "77", "4", "5", "77", "77", "77", "88", "6", "6", "77", "77", "88", "9" };
-            var value = new string[] { "77", "77", "88", "99" };
-
-            Assert.Equal(-1, new ReadOnlySpan<string>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(-1, new ReadOnlySpan<string>(source).LastIndexOf(value, comparer)));
+            ReadOnlySpan<string> span = new ReadOnlySpan<string>(new string[] { "0", "1", "77", "2", "3", "77", "77", "4", "5", "77", "77", "77", "88", "6", "6", "77", "77", "88", "9" });
+            ReadOnlySpan<string> value = new ReadOnlySpan<string>(new string[] { "77", "77", "88", "99" });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(-1, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceNotEvenAHeadMatch_String()
         {
-            var source = new string[] { "0", "1", "77", "2", "3", "77", "77", "4", "5", "77", "77", "77", "88", "6", "6", "77", "77", "88", "9" };
-            var value = new string[] { "100", "77", "88", "99" };
-
-            Assert.Equal(-1, new ReadOnlySpan<string>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(-1, new ReadOnlySpan<string>(source).LastIndexOf(value, comparer)));
+            ReadOnlySpan<string> span = new ReadOnlySpan<string>(new string[] { "0", "1", "77", "2", "3", "77", "77", "4", "5", "77", "77", "77", "88", "6", "6", "77", "77", "88", "9" });
+            ReadOnlySpan<string> value = new ReadOnlySpan<string>(new string[] { "100", "77", "88", "99" });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(-1, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceMatchAtVeryEnd_String()
         {
-            var source = new string[] { "0", "1", "2", "3", "4", "5" };
-            var value = new string[] { "3", "4", "5" };
-
-            Assert.Equal(3, new ReadOnlySpan<string>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(3, new ReadOnlySpan<string>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<string>(source).LastIndexOf(value, GetFalseEqualityComparer<string>()));
+            ReadOnlySpan<string> span = new ReadOnlySpan<string>(new string[] { "0", "1", "2", "3", "4", "5" });
+            ReadOnlySpan<string> value = new ReadOnlySpan<string>(new string[] { "3", "4", "5" });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(3, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceJustPastVeryEnd_String()
         {
-            var source = new string[] { "0", "1", "2", "3", "4", "5" };
-            var value = new string[] { "3", "4", "5" };
-
-            Assert.Equal(-1, new ReadOnlySpan<string>(source, 0, 5).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(-1, new ReadOnlySpan<string>(source, 0, 5).LastIndexOf(value, comparer)));
+            ReadOnlySpan<string> span = new ReadOnlySpan<string>(new string[] { "0", "1", "2", "3", "4", "5" }, 0, 5);
+            ReadOnlySpan<string> value = new ReadOnlySpan<string>(new string[] { "3", "4", "5" });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(-1, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceZeroLengthValue_String()
         {
-            // A zero-length value is always "found" at the end of the source.
-            var source = new string[] { "0", "1", "77", "2", "3", "77", "77", "4", "5", "77", "77", "77", "88", "6", "6", "77", "77", "88", "9" };
-            var value = Array.Empty<string>();
-
-            Assert.Equal(source.Length, new ReadOnlySpan<string>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(source.Length, new ReadOnlySpan<string>(source).LastIndexOf(value, comparer)));
+            // A zero-length value is always "found" at the end of the span.
+            ReadOnlySpan<string> span = new ReadOnlySpan<string>(new string[] { "0", "1", "77", "2", "3", "77", "77", "4", "5", "77", "77", "77", "88", "6", "6", "77", "77", "88", "9" });
+            ReadOnlySpan<string> value = new ReadOnlySpan<string>(Array.Empty<string>());
+            int index = span.LastIndexOf(value);
+            Assert.Equal(span.Length, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceZeroLengthSpan_String()
         {
-            var source = Array.Empty<string>();
-            var value = new string[] { "1", "2", "3" };
-
-            Assert.Equal(-1, new ReadOnlySpan<string>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(-1, new ReadOnlySpan<string>(source).LastIndexOf(value, comparer)));
+            ReadOnlySpan<string> span = new ReadOnlySpan<string>(Array.Empty<string>());
+            ReadOnlySpan<string> value = new ReadOnlySpan<string>(new string[] { "1", "2", "3" });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(-1, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceLengthOneValue_String()
         {
-            var source = new string[] { "0", "1", "2", "3", "4", "5" };
-            var value = new string[] { "2" };
-
-            Assert.Equal(2, new ReadOnlySpan<string>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(2, new ReadOnlySpan<string>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<string>(source).LastIndexOf(value, GetFalseEqualityComparer<string>()));
+            ReadOnlySpan<string> span = new ReadOnlySpan<string>(new string[] { "0", "1", "2", "3", "4", "5" });
+            ReadOnlySpan<string> value = new ReadOnlySpan<string>(new string[] { "2" });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(2, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceLengthOneValueAtVeryEnd_String()
         {
-            var source = new string[] { "0", "1", "2", "3", "4", "5" };
-            var value = new string[] { "5" };
-
-            Assert.Equal(5, new ReadOnlySpan<string>(source).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(5, new ReadOnlySpan<string>(source).LastIndexOf(value, comparer)));
-            Assert.Equal(-1, new ReadOnlySpan<string>(source).LastIndexOf(value, GetFalseEqualityComparer<string>()));
+            ReadOnlySpan<string> span = new ReadOnlySpan<string>(new string[] { "0", "1", "2", "3", "4", "5" });
+            ReadOnlySpan<string> value = new ReadOnlySpan<string>(new string[] { "5" });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(5, index);
         }
 
         [Fact]
         public static void LastIndexOfSequenceLengthOneValueJustPasttVeryEnd_String()
         {
-            var source = new string[] { "0", "1", "2", "3", "4", "5" };
-            var value = new string[] { "5" };
-
-            Assert.Equal(-1, new ReadOnlySpan<string>(source, 0, 5).LastIndexOf(value));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(-1, new ReadOnlySpan<string>(source, 0, 5).LastIndexOf(value, comparer)));
+            ReadOnlySpan<string> span = new ReadOnlySpan<string>(new string[] { "0", "1", "2", "3", "4", "5" }, 0, 5);
+            ReadOnlySpan<string> value = new ReadOnlySpan<string>(new string[] { "5" });
+            int index = span.LastIndexOf(value);
+            Assert.Equal(-1, index);
         }
 
         [Theory]
         [MemberData(nameof(TestHelpers.LastIndexOfNullSequenceData), MemberType = typeof(TestHelpers))]
-        public static void LastIndexOfNullSequence_String(string[] source, string[] target, int expected)
+        public static void LastIndexOfNullSequence_String(string[] spanInput, string[] searchInput, int expected)
         {
-            Assert.Equal(expected, new ReadOnlySpan<string>(source).LastIndexOf(target));
-            Assert.All(GetDefaultEqualityComparers<string>(), comparer => Assert.Equal(expected, new ReadOnlySpan<string>(source).LastIndexOf(target, comparer)));
+            ReadOnlySpan<string> theStrings = spanInput;
+            Assert.Equal(expected, theStrings.LastIndexOf(searchInput));
+            Assert.Equal(expected, theStrings.LastIndexOf((ReadOnlySpan<string>)searchInput));
         }
     }
 }

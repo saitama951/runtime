@@ -25,10 +25,13 @@ int32_t GlobalizationNative_WindowsIdToIanaId(const UChar* windowsId, const char
 {
     UErrorCode status = U_ZERO_ERROR;
 
-    int32_t ianaIdFilledLength = ucal_getTimeZoneIDForWindowsID(windowsId, -1, region, ianaId, ianaIdLength, &status);
-    if (U_SUCCESS(status))
+    if (ucal_getTimeZoneIDForWindowsID_ptr != NULL)
     {
-        return ianaIdFilledLength;
+        int32_t ianaIdFilledLength = ucal_getTimeZoneIDForWindowsID(windowsId, -1, region, ianaId, ianaIdLength, &status);
+        if (U_SUCCESS(status))
+        {
+            return ianaIdFilledLength;
+        }
     }
 
     // Failed
@@ -42,11 +45,14 @@ int32_t GlobalizationNative_IanaIdToWindowsId(const UChar* ianaId, UChar* window
 {
     UErrorCode status = U_ZERO_ERROR;
 
-    int32_t windowsIdFilledLength = ucal_getWindowsTimeZoneID(ianaId, -1, windowsId, windowsIdLength, &status);
-
-    if (U_SUCCESS(status))
+    if (ucal_getWindowsTimeZoneID_ptr != NULL)
     {
-        return windowsIdFilledLength;
+        int32_t windowsIdFilledLength = ucal_getWindowsTimeZoneID(ianaId, -1, windowsId, windowsIdLength, &status);
+
+        if (U_SUCCESS(status))
+        {
+            return windowsIdFilledLength;
+        }
     }
 
     // Failed

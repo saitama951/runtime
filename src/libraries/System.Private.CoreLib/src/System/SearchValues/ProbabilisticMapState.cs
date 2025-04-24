@@ -52,7 +52,7 @@ namespace System.Buffers
         }
 
         // valuesPtr must remain valid for as long as this ProbabilisticMapState is used.
-        public ProbabilisticMapState(ReadOnlySpan<char>* valuesPtr)
+        public unsafe ProbabilisticMapState(ReadOnlySpan<char>* valuesPtr)
         {
             Debug.Assert((IntPtr)valuesPtr != IntPtr.Zero);
 

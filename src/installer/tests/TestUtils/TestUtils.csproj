@@ -5,9 +5,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>TestUtils</AssemblyName>
     <PackageId>TestUtils</PackageId>
-    <!-- NuGet warns about a transitive P2P to System.Text.Json that can't be pruned.
-         This is a false positive: https://github.com/NuGet/Home/issues/14103 -->
-    <NoWarn>$(NoWarn);NU1511</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AwesomeAssertions" Version="$(AwesomeAssertionsVersion)" />
+    <PackageReference Include="FluentAssertions" Version="$(FluentAssertionsVersion)" />
     <PackageReference Include="Microsoft.DotNet.XUnitExtensions" Version="$(MicrosoftDotNetXUnitExtensionsVersion)" />
     <PackageReference Include="xunit.core" Version="$(XUnitVersion)" ExcludeAssets="build" />
     <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="$(MicrosoftExtensionsDependencyModelVersion)" />

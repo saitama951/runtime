@@ -56,7 +56,7 @@ void Compiler::fgPrintEdgeWeights()
 
 #ifdef DEBUG
 
-void Compiler::fgDebugCheckUpdate()
+void Compiler::fgDebugCheckUpdate(const bool doAggressiveCompaction)
 {
     if (!compStressCompile(STRESS_CHK_FLOW_UPDATE, 30))
     {
@@ -139,7 +139,7 @@ void Compiler::fgDebugCheckUpdate()
 
         /* no un-compacted blocks */
 
-        if (fgCanCompactBlock(block))
+        if (fgCanCompactBlock(block) && (doAggressiveCompaction || block->JumpsToNext()))
         {
             noway_assert(!"Found un-compacted blocks!");
         }
@@ -365,6 +365,24 @@ void Compiler::fgDumpTree(FILE* fgxFile, GenTree* const tree)
     }
 }
 
+#ifdef DEBUG
+namespace
+{
+const char* ConvertToUtf8(LPCWSTR wideString, CompAllocator& allocator)
+{
+    int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wideString, -1, nullptr, 0, nullptr, nullptr);
+    if (utf8Len == 0)
+        return nullptr;
+
+    char* alloc = (char*)allocator.allocate<char>(utf8Len);
+    if (0 == WideCharToMultiByte(CP_UTF8, 0, wideString, -1, alloc, utf8Len, nullptr, nullptr))
+        return nullptr;
+
+    return alloc;
+}
+} // namespace
+#endif
+
 //------------------------------------------------------------------------
 // fgOpenFlowGraphFile: Open a file to dump either the xml or dot format flow graph
 //
@@ -411,10 +429,10 @@ FILE* Compiler::fgOpenFlowGraphFile(bool* wbDontClose, Phases phase, PhasePositi
     dumpFunction = JitConfig.JitDumpFg().contains(info.compMethodHnd, info.compClassHnd, &info.compMethodInfo->args);
 
     CompAllocator allocator = getAllocatorDebugOnly();
-    filename                = JitConfig.JitDumpFgFile();
-    pathname                = JitConfig.JitDumpFgDir();
-    prePhasePattern         = JitConfig.JitDumpFgPrePhase();
-    postPhasePattern        = JitConfig.JitDumpFgPhase();
+    filename                = ConvertToUtf8(JitConfig.JitDumpFgFile(), allocator);
+    pathname                = ConvertToUtf8(JitConfig.JitDumpFgDir(), allocator);
+    prePhasePattern         = ConvertToUtf8(JitConfig.JitDumpFgPrePhase(), allocator);
+    postPhasePattern        = ConvertToUtf8(JitConfig.JitDumpFgPhase(), allocator);
 #endif // DEBUG
 
     if (!dumpFunction)
@@ -564,7 +582,7 @@ FILE* Compiler::fgOpenFlowGraphFile(bool* wbDontClose, Phases phase, PhasePositi
             sprintf_s((char*)filename, charCount, FILENAME_PATTERN, escapedString, phasePositionString, phaseName,
                       tierName, type);
         }
-        fgxFile = fopen_utf8(filename, "wx"); // Open the file for writing only only if it doesn't already exist
+        fgxFile = fopen(filename, "wx"); // Open the file for writing only only if it doesn't already exist
         if (fgxFile == nullptr)
         {
             // This filename already exists, so create a different one by appending ~2, ~3, etc...
@@ -580,7 +598,7 @@ FILE* Compiler::fgOpenFlowGraphFile(bool* wbDontClose, Phases phase, PhasePositi
                     sprintf_s((char*)filename, charCount, FILENAME_PATTERN_WITH_NUMBER, escapedString,
                               phasePositionString, phaseName, tierName, i, type);
                 }
-                fgxFile = fopen_utf8(filename, "wx"); // Open the file for writing only only if it doesn't already exist
+                fgxFile = fopen(filename, "wx"); // Open the file for writing only only if it doesn't already exist
                 if (fgxFile != nullptr)
                 {
                     break;
@@ -621,7 +639,7 @@ FILE* Compiler::fgOpenFlowGraphFile(bool* wbDontClose, Phases phase, PhasePositi
         {
             sprintf_s((char*)filename, charCount, "%s.%s", origFilename, type);
         }
-        fgxFile      = fopen_utf8(filename, "a+");
+        fgxFile      = fopen(filename, "a+");
         *wbDontClose = false;
     }
 
@@ -817,11 +835,10 @@ bool Compiler::fgDumpFlowGraph(Phases phase, PhasePosition pos)
             if (displayBlockFlags)
             {
                 // Don't display the `[` `]` unless we're going to display something.
-                const bool isTryEntryBlock     = bbIsTryBeg(block);
-                const bool isFuncletEntryBlock = fgFuncletsCreated && bbIsFuncletBeg(block);
+                const bool isTryEntryBlock = bbIsTryBeg(block);
 
-                if (isTryEntryBlock || isFuncletEntryBlock ||
-                    block->HasAnyFlag(BBF_RUN_RARELY | BBF_LOOP_HEAD | BBF_LOOP_ALIGN))
+                if (isTryEntryBlock ||
+                    block->HasAnyFlag(BBF_FUNCLET_BEG | BBF_RUN_RARELY | BBF_LOOP_HEAD | BBF_LOOP_ALIGN))
                 {
                     // Display a very few, useful, block flags
                     fprintf(fgxFile, " [");
@@ -829,7 +846,7 @@ bool Compiler::fgDumpFlowGraph(Phases phase, PhasePosition pos)
                     {
                         fprintf(fgxFile, "T");
                     }
-                    if (isFuncletEntryBlock)
+                    if (block->HasFlag(BBF_FUNCLET_BEG))
                     {
                         fprintf(fgxFile, "F");
                     }
@@ -956,17 +973,9 @@ bool Compiler::fgDumpFlowGraph(Phases phase, PhasePosition pos)
             {
                 fprintf(fgxFile, "\n            hot=\"true\"");
             }
-            if (block->HasFlag(BBF_HAS_NEWARR))
-            {
-                fprintf(fgxFile, "\n            callsNewArr=\"true\"");
-            }
             if (block->HasFlag(BBF_HAS_NEWOBJ))
             {
                 fprintf(fgxFile, "\n            callsNew=\"true\"");
-            }
-            if (block->HasFlag(BBF_HAS_NEWARR))
-            {
-                fprintf(fgxFile, "\n            callsNewArr=\"true\"");
             }
             if (block->HasFlag(BBF_LOOP_HEAD))
             {
@@ -998,7 +1007,9 @@ bool Compiler::fgDumpFlowGraph(Phases phase, PhasePosition pos)
     {
         fprintf(fgxFile, "\n    </blocks>");
 
-        fprintf(fgxFile, "\n    <edges>");
+        fprintf(fgxFile, "\n    <edges");
+        fprintf(fgxFile, "\n        edgeCount=\"%d\"", fgEdgeCount);
+        fprintf(fgxFile, ">");
     }
 
     if (fgPredsComputed)
@@ -2105,6 +2116,15 @@ void Compiler::fgTableDispBasicBlock(const BasicBlock* block,
         printf("   ");
     }
 
+    if (flags & BBF_FUNCLET_BEG)
+    {
+        printf("F ");
+    }
+    else
+    {
+        printf("  ");
+    }
+
     int cnt = 0;
 
     switch (block->bbCatchTyp)
@@ -2852,14 +2872,7 @@ bool BBPredsChecker::CheckEHFinallyRet(BasicBlock* blockPred, BasicBlock* block)
         }
     }
 
-    if (!found)
-    {
-        JITDUMP(FMT_BB " is successor of finallyret " FMT_BB " but prev block is not a callfinally to " FMT_BB
-                       " (search range was [" FMT_BB "..." FMT_BB "]\n",
-                block->bbNum, blockPred->bbNum, finBeg->bbNum, firstBlock->bbNum, lastBlock->bbNum);
-        assert(!"BBJ_EHFINALLYRET predecessor of block that doesn't follow a BBJ_CALLFINALLY!");
-    }
-
+    assert(found && "BBJ_EHFINALLYRET predecessor of block that doesn't follow a BBJ_CALLFINALLY!");
     return found;
 }
 
@@ -2910,6 +2923,7 @@ void Compiler::fgDebugCheckBBlist(bool checkBBNum /* = false */, bool checkBBRef
     }
 
     fgDebugCheckBlockLinks();
+    fgFirstBBisScratch();
 
     if (fgBBcount > 10000 && expensiveDebugCheckLevel < 1)
     {
@@ -2927,7 +2941,8 @@ void Compiler::fgDebugCheckBBlist(bool checkBBNum /* = false */, bool checkBBRef
         //
         if (fgFirstFuncletBB != nullptr)
         {
-            assert(bbIsFuncletBeg(fgFirstFuncletBB));
+            assert(fgFirstFuncletBB->hasHndIndex() == true);
+            assert(fgFirstFuncletBB->HasFlag(BBF_FUNCLET_BEG));
         }
     }
 
@@ -3167,14 +3182,11 @@ void Compiler::fgDebugCheckBBlist(bool checkBBNum /* = false */, bool checkBBRef
     }
 
     // Ensure that all throw helper blocks are currently in the block list.
-    if (fgHasAddCodeDscMap())
+    for (Compiler::AddCodeDsc* add = fgAddCodeList; add != nullptr; add = add->acdNext)
     {
-        for (Compiler::AddCodeDsc* const add : Compiler::AddCodeDscMap::ValueIteration(fgAddCodeDscMap))
+        if (add->acdUsed)
         {
-            if (add->acdUsed)
-            {
-                assert(add->acdDstBlk->bbTraversalStamp == curTraversalStamp);
-            }
+            assert(add->acdDstBlk->bbTraversalStamp == curTraversalStamp);
         }
     }
 
@@ -3221,17 +3233,6 @@ void Compiler::fgDebugCheckBBlist(bool checkBBNum /* = false */, bool checkBBRef
 }
 
 //------------------------------------------------------------------------
-// fgDebugCheckInitBB: Check that the first BB is a valid init BB.
-//
-void Compiler::fgDebugCheckInitBB()
-{
-    assert(fgFirstBB != nullptr);
-    assert(!fgFirstBB->hasTryIndex());
-    assert(fgFirstBB->bbPreds == nullptr);
-    assert(!opts.compDbgCode || fgFirstBB->HasFlag(BBF_INTERNAL));
-}
-
-//------------------------------------------------------------------------
 // fgDebugCheckTypes: Validate node types used in the given tree
 //
 // Arguments:
@@ -3269,20 +3270,9 @@ void Compiler::fgDebugCheckTypes(GenTree* tree)
                 assert(!"TYP_ULONG and TYP_UINT are not legal in IR");
             }
 
-            switch (node->OperGet())
+            if (node->OperIs(GT_NOP))
             {
-                case GT_NOP:
-                case GT_JTRUE:
-                case GT_BOUNDS_CHECK:
-                    if (!node->TypeIs(TYP_VOID))
-                    {
-                        m_compiler->gtDispTree(node);
-                        assert(!"The tree is expected to be of TYP_VOID type");
-                    }
-                    break;
-
-                default:
-                    break;
+                assert(node->TypeIs(TYP_VOID) && "GT_NOP should be TYP_VOID.");
             }
 
             if (varTypeIsSmall(node))
@@ -3432,12 +3422,6 @@ void Compiler::fgDebugCheckFlags(GenTree* tree, BasicBlock* block)
                     {
                         assert(tree->OperRequiresCallFlag(this));
                         expectedFlags |= GTF_GLOB_REF;
-                        break;
-                    }
-
-                    case NI_Vector128_op_Division:
-                    case NI_Vector256_op_Division:
-                    {
                         break;
                     }
 #endif // TARGET_XARCH
@@ -4723,7 +4707,6 @@ void Compiler::fgDebugCheckLoops()
         {
             assert(loop->EntryEdges().size() == 1);
             assert(loop->EntryEdge(0)->getSourceBlock()->KindIs(BBJ_ALWAYS));
-            assert(!bbIsTryBeg(loop->GetHeader()));
 
             loop->VisitRegularExitBlocks([=](BasicBlock* exit) {
                 for (BasicBlock* pred : exit->PredBlocks())
@@ -4744,42 +4727,24 @@ void Compiler::fgDebugCheckFlowGraphAnnotations()
 {
     if (m_dfsTree == nullptr)
     {
-        assert(m_loops == nullptr);
-        assert((m_domTree == nullptr) && (m_domFrontiers == nullptr));
-        assert(m_reachabilitySets == nullptr);
+        assert((m_loops == nullptr) && (m_domTree == nullptr) && (m_reachabilitySets == nullptr));
         return;
     }
 
-    auto visitPreorder = [](BasicBlock* block, unsigned preorderNum) {
+    unsigned count = fgRunDfs(
+        [](BasicBlock* block, unsigned preorderNum) {
         assert(block->bbPreorderNum == preorderNum);
-    };
-
-    auto visitPostorder = [=](BasicBlock* block, unsigned postorderNum) {
+    },
+        [=](BasicBlock* block, unsigned postorderNum) {
         assert(block->bbPostorderNum == postorderNum);
         assert(m_dfsTree->GetPostOrder(postorderNum) == block);
-    };
-
-    auto visitEdge = [](BasicBlock* block, BasicBlock* succ) {};
-
-    unsigned count;
-    if (m_dfsTree->IsProfileAware())
-    {
-        count = fgRunDfs<decltype(visitPreorder), decltype(visitPostorder), decltype(visitEdge), true>(visitPreorder,
-                                                                                                       visitPostorder,
-                                                                                                       visitEdge);
-    }
-    else
-    {
-        count = fgRunDfs<decltype(visitPreorder), decltype(visitPostorder), decltype(visitEdge), false>(visitPreorder,
-                                                                                                        visitPostorder,
-                                                                                                        visitEdge);
-    }
+    },
+        [](BasicBlock* block, BasicBlock* succ) {});
 
     assert(m_dfsTree->GetPostOrderCount() == count);
 
     assert((m_loops == nullptr) || (m_loops->GetDfsTree() == m_dfsTree));
     assert((m_domTree == nullptr) || (m_domTree->GetDfsTree() == m_dfsTree));
-    assert((m_domFrontiers == nullptr) || (m_domFrontiers->GetDomTree() == m_domTree));
     assert((m_reachabilitySets == nullptr) || (m_reachabilitySets->GetDfsTree() == m_dfsTree));
 }
 

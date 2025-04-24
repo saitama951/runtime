@@ -3,7 +3,6 @@
 
 using System;
 using System.Runtime.InteropServices;
-using Xunit;
 
 public class Equality
 {
@@ -80,8 +79,7 @@ public class Equality
     }
 
 
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         Equality e = new Equality();
 

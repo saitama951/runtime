@@ -2,12 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using Xunit;
 
 public class NegCollect
 {
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         bool retVal = true;
         GCCollectionMode[] invalidInputs = { (GCCollectionMode)(GCCollectionMode.Default - 1), (GCCollectionMode)(GCCollectionMode.Aggressive + 1) };

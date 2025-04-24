@@ -46,8 +46,6 @@ typedef ULONG_PTR UPTR;
 class Bucket;
 class HashMap;
 
-const unsigned int SLOTS_PER_BUCKET = 4;
-
 //-------------------------------------------------------
 //  class Bucket
 //  used by hash table implementation
@@ -56,8 +54,8 @@ typedef DPTR(class Bucket) PTR_Bucket;
 class Bucket
 {
 public:
-    UPTR m_rgKeys[SLOTS_PER_BUCKET];
-    UPTR m_rgValues[SLOTS_PER_BUCKET];
+    UPTR m_rgKeys[4];
+    UPTR m_rgValues[4];
 
 #define VALUE_MASK (sizeof(LPVOID) == 4 ? 0x7FFFFFFF : I64(0x7FFFFFFFFFFFFFFF))
 
@@ -534,14 +532,6 @@ public:
 
         return m_cbInserts-m_cbDeletes;
     }
-
-    friend struct ::cdac_data<HashMap>;
-};
-
-template<>
-struct cdac_data<HashMap>
-{
-    static constexpr size_t Buckets = offsetof(HashMap, m_rgBuckets);
 };
 
 //---------------------------------------------------------------------------------------

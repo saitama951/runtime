@@ -55,7 +55,7 @@ void CreateModuleIndependentSignature(LoaderHeap* pCreationHeap,
     SigPointer  sigPtr(pSig, cbSig);
 
     SigBuilder sigBuilder;
-    sigPtr.ConvertToInternalSignature(pSigModule, pTypeContext, &sigBuilder, /* bSkipCustomModifier */ FALSE);
+    sigPtr.ConvertToInternalSignature(pSigModule, pTypeContext, &sigBuilder);
 
     DWORD cbNewSig;
     PVOID pConvertedSig = sigBuilder.GetSignature(&cbNewSig);
@@ -148,7 +148,6 @@ namespace
             case DynamicMethodDesc::StubStructMarshalInterop: return "IL_STUB_StructMarshal";
             case DynamicMethodDesc::StubArrayOp:            return "IL_STUB_Array";
             case DynamicMethodDesc::StubMulticastDelegate:  return "IL_STUB_MulticastDelegate_Invoke";
-            case DynamicMethodDesc::StubDelegateInvokeMethod:  return "IL_STUB_Delegate_Invoke";
 #ifdef FEATURE_INSTANTIATINGSTUB_AS_IL
             case DynamicMethodDesc::StubUnboxingIL:         return "IL_STUB_UnboxingStub";
             case DynamicMethodDesc::StubInstantiating:      return "IL_STUB_InstantiatingStub";
@@ -156,8 +155,7 @@ namespace
             case DynamicMethodDesc::StubWrapperDelegate:    return "IL_STUB_WrapperDelegate_Invoke";
             case DynamicMethodDesc::StubTailCallStoreArgs:  return "IL_STUB_StoreTailCallArgs";
             case DynamicMethodDesc::StubTailCallCallTarget: return "IL_STUB_CallTailCallTarget";
-            case DynamicMethodDesc::StubVirtualStaticMethodDispatch: return "IL_STUB_VirtualStaticMethodDispatch";
-            case DynamicMethodDesc::StubDelegateShuffleThunk: return "IL_STUB_DelegateShuffleThunk";
+            case DynamicMethodDesc::StubVirtualStaticMethodDispatch: return "IL_STUB_bVirtualStaticMethodDispatch";
             default:
                 UNREACHABLE_MSG("Unknown stub type");
         }
@@ -244,11 +242,6 @@ MethodDesc* ILStubCache::CreateNewMethodDesc(LoaderHeap* pCreationHeap, MethodTa
         pMD->SetILStubType(DynamicMethodDesc::StubMulticastDelegate);
     }
     else
-    if (SF_IsDelegateInvokeMethod(dwStubFlags))
-    {
-        pMD->SetILStubType(DynamicMethodDesc::StubDelegateInvokeMethod);
-    }
-    else
     if (SF_IsWrapperDelegateStub(dwStubFlags))
     {
         pMD->SetILStubType(DynamicMethodDesc::StubWrapperDelegate);
@@ -302,11 +295,6 @@ MethodDesc* ILStubCache::CreateNewMethodDesc(LoaderHeap* pCreationHeap, MethodTa
     if (SF_IsVirtualStaticMethodDispatchStub(dwStubFlags))
     {
         pMD->SetILStubType(DynamicMethodDesc::StubVirtualStaticMethodDispatch);
-    }
-    else
-    if (SF_IsDelegateShuffleThunk(dwStubFlags))
-    {
-        pMD->SetILStubType(DynamicMethodDesc::StubDelegateShuffleThunk);
     }
     else
     {
@@ -459,9 +447,9 @@ MethodDesc* ILStubCache::InsertStubMethodDesc(MethodDesc *pMD, ILStubHashBlob* p
 //
 // JIT'ed IL stubs
 //
-//    - The ILStubCache is per-LoaderAllocator
+//    - The ILStubCache is per-BaseDomain
 //
-//    - Each LoaderAllocator's ILStubCache will lazily create a "minimal MethodTable" to
+//    - Each BaseDomain's ILStubCache will lazily create a "minimal MethodTable" to
 //      serve as the home for IL stub MethodDescs
 //
 //    - The created MethodTables will use the Module belonging to one of the
@@ -475,7 +463,10 @@ MethodDesc* ILStubCache::InsertStubMethodDesc(MethodDesc *pMD, ILStubHashBlob* p
 //
 // It's important to point out that the Module we latch onto here has no knowledge
 // of the MethodTable that we've just "added" to it.  There only exists a "back
-// pointer" to the Module from the MethodTable itself.
+// pointer" to the Module from the MethodTable itself.  So we're really only using
+// that module to answer the question of what BaseDomain the MethodTable lives in.
+// So as long as the BaseDomain for that module is the same as the BaseDomain the
+// ILStubCache lives in, I think we have a fairly consistent story here.
 //
 // We're relying on the fact that a VASigCookie may only mention types within the
 // corresponding module used to qualify the signature and the fact that interop
@@ -484,7 +475,14 @@ MethodDesc* ILStubCache::InsertStubMethodDesc(MethodDesc *pMD, ILStubHashBlob* p
 // ELEMENT_TYPE_INTERNAL, which may refer to any type.
 //
 // We can only access E_T_INTERNAL through LCG, which does not permit referring
-// to types in other AppDomains.
+// to types in other BaseDomains.
+//
+//
+// Places for improvement:
+//
+//    - allow NGEN'ing of CALLI pinvoke and vararg pinvoke
+//
+//    - pre-populate the per-BaseDomain cache with IL stubs from  NGEN'ed image
 //
 
 MethodDesc* ILStubCache::GetStubMethodDesc(

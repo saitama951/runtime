@@ -259,7 +259,7 @@ public sealed class XUnitWrapperGenerator : IIncrementalGenerator
         {
             if (targetOS?.ToLowerInvariant() is "ios" or "iossimulator" or "tvos" or "tvossimulator" or "maccatalyst" or "android" or "browser")
             {
-                context.AddSource("XHarnessRunner.g.cs", GenerateXHarnessTestRunner(methods, aliasMap, assemblyName, targetOS));
+                context.AddSource("XHarnessRunner.g.cs", GenerateXHarnessTestRunner(methods, aliasMap, assemblyName));
             }
             else
             {
@@ -431,7 +431,7 @@ public sealed class XUnitWrapperGenerator : IIncrementalGenerator
         return builder.GetCode();
     }
 
-    private static string GenerateXHarnessTestRunner(ImmutableArray<ITestInfo> testInfos, ImmutableDictionary<string, string> aliasMap, string assemblyName, string? targetOS)
+    private static string GenerateXHarnessTestRunner(ImmutableArray<ITestInfo> testInfos, ImmutableDictionary<string, string> aliasMap, string assemblyName)
     {
         // For simplicity, we'll use top-level statements for the generated Main method.
         CodeBuilder builder = new();
@@ -440,18 +440,6 @@ public sealed class XUnitWrapperGenerator : IIncrementalGenerator
         builder.AppendLine("XUnitWrapperLibrary.TestSummary summary;");
         builder.AppendLine("System.Diagnostics.Stopwatch stopwatch;");
         builder.AppendLine("XUnitWrapperLibrary.TestOutputRecorder outputRecorder;");
-        if (targetOS?.ToLowerInvariant() is "ios" or "iossimulator" or "tvos" or "tvossimulator" or "maccatalyst")
-        {
-            builder.AppendLine("string documentsPath = System.Environment.GetFolderPath(System.Environment.SpecialFolder.Personal);");
-            builder.AppendLine($@"string tempLogPath = System.IO.Path.Combine(documentsPath, ""{assemblyName}.templog.xml"");");
-            builder.AppendLine($@"string testStatsPath = System.IO.Path.Combine(documentsPath, ""{assemblyName}.testStats.csv"");");
-        }
-        else
-        {
-            builder.AppendLine($@"string tempLogPath = ""{assemblyName}.templog.xml"";");
-            builder.AppendLine($@"string testStatsPath = ""{assemblyName}.testStats.csv"";");
-        }
-
         builder.AppendLine();
 
         builder.AppendLine("try");
@@ -480,16 +468,16 @@ public sealed class XUnitWrapperGenerator : IIncrementalGenerator
 
         using (builder.NewBracesScope())
         {
-            builder.AppendLine("if (System.IO.File.Exists(tempLogPath))");
+            builder.AppendLine($@"if (System.IO.File.Exists(""{assemblyName}.tempLog.xml""))");
             using (builder.NewBracesScope())
             {
-                builder.AppendLine("System.IO.File.Delete(tempLogPath);");
+                builder.AppendLine($@"System.IO.File.Delete(""{assemblyName}.tempLog.xml"");");
             }
 
-            builder.AppendLine("if (System.IO.File.Exists(testStatsPath))");
+            builder.AppendLine($@"if (System.IO.File.Exists(""{assemblyName}.testStats.csv""))");
             using (builder.NewBracesScope())
             {
-                builder.AppendLine("System.IO.File.Delete(testStatsPath);");
+                builder.AppendLine($@"System.IO.File.Delete(""{assemblyName}.testStats.csv"");");
             }
             builder.AppendLine();
 
@@ -507,8 +495,8 @@ public sealed class XUnitWrapperGenerator : IIncrementalGenerator
             builder.AppendLine("Initialize();");
 
             // Open the stream writer for the temp log.
-            builder.AppendLine($"using (System.IO.StreamWriter tempLogSw = System.IO.File.AppendText(tempLogPath))");
-            builder.AppendLine($"using (System.IO.StreamWriter statsCsvSw = System.IO.File.AppendText(testStatsPath))");
+            builder.AppendLine($@"using (System.IO.StreamWriter tempLogSw = System.IO.File.AppendText(""{assemblyName}.templog.xml""))");
+            builder.AppendLine($@"using (System.IO.StreamWriter statsCsvSw = System.IO.File.AppendText(""{assemblyName}.testStats.csv""))");
             CodeBuilder testExecutorBuilder = new();
 
             using (builder.NewBracesScope())

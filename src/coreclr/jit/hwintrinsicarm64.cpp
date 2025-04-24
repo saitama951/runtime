@@ -1263,8 +1263,8 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
                 break;
             }
 
-            impSpillSideEffect(true, stackState.esStackDepth -
-                                         2 DEBUGARG("Spilling op1 side effects for vector CreateSequence"));
+            impSpillSideEffect(true, verCurrentState.esStackDepth -
+                                         2 DEBUGARG("Spilling op1 side effects for SimdAsHWIntrinsic"));
 
             op2 = impPopStack().val;
             op1 = impPopStack().val;
@@ -1343,6 +1343,7 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_op_Equality:
         {
             assert(sig->numArgs == 2);
+            var_types simdType = getSIMDTypeForSize(simdSize);
 
             op2 = impSIMDPopStack();
             op1 = impSIMDPopStack();
@@ -1355,6 +1356,7 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_EqualsAny:
         {
             assert(sig->numArgs == 2);
+            var_types simdType = getSIMDTypeForSize(simdSize);
 
             op2 = impSIMDPopStack();
             op1 = impSIMDPopStack();
@@ -1552,11 +1554,11 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
             assert(sig->numArgs == 3);
             assert(varTypeIsFloating(simdBaseType));
 
-            impSpillSideEffect(true,
-                               stackState.esStackDepth - 3 DEBUGARG("Spilling op1 side effects for FusedMultiplyAdd"));
+            impSpillSideEffect(true, verCurrentState.esStackDepth -
+                                         3 DEBUGARG("Spilling op1 side effects for FusedMultiplyAdd"));
 
-            impSpillSideEffect(true,
-                               stackState.esStackDepth - 2 DEBUGARG("Spilling op2 side effects for FusedMultiplyAdd"));
+            impSpillSideEffect(true, verCurrentState.esStackDepth -
+                                         2 DEBUGARG("Spilling op2 side effects for FusedMultiplyAdd"));
 
             op3 = impSIMDPopStack();
             op2 = impSIMDPopStack();
@@ -1645,6 +1647,7 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_GreaterThanAll:
         {
             assert(sig->numArgs == 2);
+            var_types simdType = getSIMDTypeForSize(simdSize);
 
             op2 = impSIMDPopStack();
             op1 = impSIMDPopStack();
@@ -1657,6 +1660,7 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_GreaterThanAny:
         {
             assert(sig->numArgs == 2);
+            var_types simdType = getSIMDTypeForSize(simdSize);
 
             op2 = impSIMDPopStack();
             op1 = impSIMDPopStack();
@@ -1681,6 +1685,7 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_GreaterThanOrEqualAll:
         {
             assert(sig->numArgs == 2);
+            var_types simdType = getSIMDTypeForSize(simdSize);
 
             op2 = impSIMDPopStack();
             op1 = impSIMDPopStack();
@@ -1693,6 +1698,7 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_GreaterThanOrEqualAny:
         {
             assert(sig->numArgs == 2);
+            var_types simdType = getSIMDTypeForSize(simdSize);
 
             op2 = impSIMDPopStack();
             op1 = impSIMDPopStack();
@@ -1701,54 +1707,12 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
             break;
         }
 
-        case NI_Vector64_IsEvenInteger:
-        case NI_Vector128_IsEvenInteger:
-        {
-            assert(sig->numArgs == 1);
-
-            if (varTypeIsFloating(simdBaseType))
-            {
-                // The code for handling floating-point is decently complex but also expected
-                // to be rare, so we fallback to the managed implementation, which is accelerated
-                break;
-            }
-
-            op1     = impSIMDPopStack();
-            retNode = gtNewSimdIsEvenIntegerNode(retType, op1, simdBaseJitType, simdSize);
-            break;
-        }
-
-        case NI_Vector64_IsFinite:
-        case NI_Vector128_IsFinite:
-        {
-            assert(sig->numArgs == 1);
-            op1     = impSIMDPopStack();
-            retNode = gtNewSimdIsFiniteNode(retType, op1, simdBaseJitType, simdSize);
-            break;
-        }
-
-        case NI_Vector64_IsInfinity:
-        case NI_Vector128_IsInfinity:
-        {
-            assert(sig->numArgs == 1);
-            op1     = impSIMDPopStack();
-            retNode = gtNewSimdIsInfinityNode(retType, op1, simdBaseJitType, simdSize);
-            break;
-        }
-
-        case NI_Vector64_IsInteger:
-        case NI_Vector128_IsInteger:
-        {
-            assert(sig->numArgs == 1);
-            op1     = impSIMDPopStack();
-            retNode = gtNewSimdIsIntegerNode(retType, op1, simdBaseJitType, simdSize);
-            break;
-        }
-
         case NI_Vector64_IsNaN:
         case NI_Vector128_IsNaN:
         {
             assert(sig->numArgs == 1);
+            var_types simdType = getSIMDTypeForSize(simdSize);
+
             op1     = impSIMDPopStack();
             retNode = gtNewSimdIsNaNNode(retType, op1, simdBaseJitType, simdSize);
             break;
@@ -1758,43 +1722,10 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_IsNegative:
         {
             assert(sig->numArgs == 1);
+            var_types simdType = getSIMDTypeForSize(simdSize);
+
             op1     = impSIMDPopStack();
             retNode = gtNewSimdIsNegativeNode(retType, op1, simdBaseJitType, simdSize);
-            break;
-        }
-
-        case NI_Vector64_IsNegativeInfinity:
-        case NI_Vector128_IsNegativeInfinity:
-        {
-            assert(sig->numArgs == 1);
-            op1     = impSIMDPopStack();
-            retNode = gtNewSimdIsNegativeInfinityNode(retType, op1, simdBaseJitType, simdSize);
-            break;
-        }
-
-        case NI_Vector64_IsNormal:
-        case NI_Vector128_IsNormal:
-        {
-            assert(sig->numArgs == 1);
-            op1     = impSIMDPopStack();
-            retNode = gtNewSimdIsNormalNode(retType, op1, simdBaseJitType, simdSize);
-            break;
-        }
-
-        case NI_Vector64_IsOddInteger:
-        case NI_Vector128_IsOddInteger:
-        {
-            assert(sig->numArgs == 1);
-
-            if (varTypeIsFloating(simdBaseType))
-            {
-                // The code for handling floating-point is decently complex but also expected
-                // to be rare, so we fallback to the managed implementation, which is accelerated
-                break;
-            }
-
-            op1     = impSIMDPopStack();
-            retNode = gtNewSimdIsOddIntegerNode(retType, op1, simdBaseJitType, simdSize);
             break;
         }
 
@@ -1802,6 +1733,8 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_IsPositive:
         {
             assert(sig->numArgs == 1);
+            var_types simdType = getSIMDTypeForSize(simdSize);
+
             op1     = impSIMDPopStack();
             retNode = gtNewSimdIsPositiveNode(retType, op1, simdBaseJitType, simdSize);
             break;
@@ -1811,17 +1744,10 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_IsPositiveInfinity:
         {
             assert(sig->numArgs == 1);
+            var_types simdType = getSIMDTypeForSize(simdSize);
+
             op1     = impSIMDPopStack();
             retNode = gtNewSimdIsPositiveInfinityNode(retType, op1, simdBaseJitType, simdSize);
-            break;
-        }
-
-        case NI_Vector64_IsSubnormal:
-        case NI_Vector128_IsSubnormal:
-        {
-            assert(sig->numArgs == 1);
-            op1     = impSIMDPopStack();
-            retNode = gtNewSimdIsSubnormalNode(retType, op1, simdBaseJitType, simdSize);
             break;
         }
 
@@ -1829,6 +1755,8 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_IsZero:
         {
             assert(sig->numArgs == 1);
+            var_types simdType = getSIMDTypeForSize(simdSize);
+
             op1     = impSIMDPopStack();
             retNode = gtNewSimdIsZeroNode(retType, op1, simdBaseJitType, simdSize);
             break;
@@ -1850,6 +1778,7 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_LessThanAll:
         {
             assert(sig->numArgs == 2);
+            var_types simdType = getSIMDTypeForSize(simdSize);
 
             op2 = impSIMDPopStack();
             op1 = impSIMDPopStack();
@@ -1862,6 +1791,7 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_LessThanAny:
         {
             assert(sig->numArgs == 2);
+            var_types simdType = getSIMDTypeForSize(simdSize);
 
             op2 = impSIMDPopStack();
             op1 = impSIMDPopStack();
@@ -1886,6 +1816,7 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_LessThanOrEqualAll:
         {
             assert(sig->numArgs == 2);
+            var_types simdType = getSIMDTypeForSize(simdSize);
 
             op2 = impSIMDPopStack();
             op1 = impSIMDPopStack();
@@ -1898,6 +1829,7 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_LessThanOrEqualAny:
         {
             assert(sig->numArgs == 2);
+            var_types simdType = getSIMDTypeForSize(simdSize);
 
             op2 = impSIMDPopStack();
             op1 = impSIMDPopStack();
@@ -2079,10 +2011,10 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
 
             if (varTypeIsFloating(simdBaseType))
             {
-                impSpillSideEffect(true, stackState.esStackDepth -
+                impSpillSideEffect(true, verCurrentState.esStackDepth -
                                              3 DEBUGARG("Spilling op1 side effects for MultiplyAddEstimate"));
 
-                impSpillSideEffect(true, stackState.esStackDepth -
+                impSpillSideEffect(true, verCurrentState.esStackDepth -
                                              2 DEBUGARG("Spilling op2 side effects for MultiplyAddEstimate"));
             }
 
@@ -2136,6 +2068,7 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_op_Inequality:
         {
             assert(sig->numArgs == 2);
+            var_types simdType = getSIMDTypeForSize(simdSize);
 
             op2 = impSIMDPopStack();
             op1 = impSIMDPopStack();
@@ -2220,87 +2153,40 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
             break;
         }
 
-        case NI_Vector64_ShiftLeft:
-        case NI_Vector128_ShiftLeft:
-        {
-            assert(sig->numArgs == 2);
-
-            if (!varTypeIsSIMD(impStackTop(0).val))
-            {
-                // We just want the inlining profitability boost for the helper intrinsics/
-                // that have operator alternatives like `simd << int`
-                break;
-            }
-
-            op2 = impSIMDPopStack();
-            op1 = impSIMDPopStack();
-
-            if (simdSize == 8)
-            {
-                intrinsic = varTypeIsLong(simdBaseType) ? NI_AdvSimd_ShiftLogicalScalar : NI_AdvSimd_ShiftLogical;
-            }
-            else
-            {
-                assert(simdSize == 16);
-                intrinsic = NI_AdvSimd_ShiftLogical;
-            }
-
-            retNode = gtNewSimdHWIntrinsicNode(retType, op1, op2, intrinsic, simdBaseJitType, simdSize);
-            break;
-        }
-
         case NI_Vector64_Shuffle:
         case NI_Vector128_Shuffle:
-        case NI_Vector64_ShuffleNative:
-        case NI_Vector128_ShuffleNative:
-        case NI_Vector64_ShuffleNativeFallback:
-        case NI_Vector128_ShuffleNativeFallback:
         {
             assert((sig->numArgs == 2) || (sig->numArgs == 3));
             assert((simdSize == 8) || (simdSize == 16));
 
-            // The Native variants are non-deterministic on arm64 (for element size > 1)
-            bool isShuffleNative = (intrinsic != NI_Vector64_Shuffle) && (intrinsic != NI_Vector128_Shuffle);
-            if (isShuffleNative && (genTypeSize(simdBaseType) > 1) && BlockNonDeterministicIntrinsics(mustExpand))
-            {
-                break;
-            }
-
             GenTree* indices = impStackTop(0).val;
 
-            // Check if the required intrinsics to emit are available.
-            bool canBecomeValidForShuffle = false;
-            if (!IsValidForShuffle(indices, simdSize, simdBaseType, &canBecomeValidForShuffle, isShuffleNative))
-            {
-                // All cases on arm64 are either valid or invalid, they cannot become valid later
-                assert(!canBecomeValidForShuffle);
-                break;
-            }
-
-            // If the indices might become constant later, then we don't emit for now, delay until later.
-            if (!indices->IsCnsVec())
+            if (!indices->IsCnsVec() || !IsValidForShuffle(indices->AsVecCon(), simdSize, simdBaseType))
             {
                 assert(sig->numArgs == 2);
 
-                if (opts.OptimizationEnabled())
+                if (!opts.OptimizationEnabled())
                 {
                     // Only enable late stage rewriting if optimizations are enabled
                     // as we won't otherwise encounter a constant at the later point
-                    op2 = impSIMDPopStack();
-                    op1 = impSIMDPopStack();
-
-                    retNode = gtNewSimdHWIntrinsicNode(retType, op1, op2, intrinsic, simdBaseJitType, simdSize);
-
-                    retNode->AsHWIntrinsic()->SetMethodHandle(this, method R2RARG(*entryPoint));
-                    break;
+                    return nullptr;
                 }
+
+                op2 = impSIMDPopStack();
+                op1 = impSIMDPopStack();
+
+                retNode = gtNewSimdHWIntrinsicNode(retType, op1, op2, intrinsic, simdBaseJitType, simdSize);
+
+                retNode->AsHWIntrinsic()->SetMethodHandle(this, method R2RARG(*entryPoint));
+                break;
             }
 
             if (sig->numArgs == 2)
             {
-                op2     = impSIMDPopStack();
-                op1     = impSIMDPopStack();
-                retNode = gtNewSimdShuffleNode(retType, op1, op2, simdBaseJitType, simdSize, isShuffleNative);
+                op2 = impSIMDPopStack();
+                op1 = impSIMDPopStack();
+
+                retNode = gtNewSimdShuffleNode(retType, op1, op2, simdBaseJitType, simdSize);
             }
             break;
         }
@@ -2365,7 +2251,8 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
                     simdSize = 16;
                 }
 
-                op1 = impPopStack().val;
+                var_types simdType = getSIMDTypeForSize(simdSize);
+                op1                = impPopStack().val;
 
                 if (op1->OperIs(GT_CAST) && op1->gtGetOp1()->TypeIs(TYP_BYREF))
                 {
@@ -2382,11 +2269,12 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_StoreUnsafe:
         {
             assert(retType == TYP_VOID);
+            var_types simdType = getSIMDTypeForSize(simdSize);
 
             if (sig->numArgs == 3)
             {
-                impSpillSideEffect(true,
-                                   stackState.esStackDepth - 3 DEBUGARG("Spilling op1 side effects for HWIntrinsic"));
+                impSpillSideEffect(true, verCurrentState.esStackDepth -
+                                             3 DEBUGARG("Spilling op1 side effects for HWIntrinsic"));
 
                 op3 = impPopStack().val;
             }
@@ -2394,8 +2282,8 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
             {
                 assert(sig->numArgs == 2);
 
-                impSpillSideEffect(true,
-                                   stackState.esStackDepth - 2 DEBUGARG("Spilling op1 side effects for HWIntrinsic"));
+                impSpillSideEffect(true, verCurrentState.esStackDepth -
+                                             2 DEBUGARG("Spilling op1 side effects for HWIntrinsic"));
             }
 
             op2 = impPopStack().val;
@@ -2433,7 +2321,10 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
                 break;
             }
 
-            impSpillSideEffect(true, stackState.esStackDepth - 2 DEBUGARG("Spilling op1 side effects for HWIntrinsic"));
+            var_types simdType = getSIMDTypeForSize(simdSize);
+
+            impSpillSideEffect(true,
+                               verCurrentState.esStackDepth - 2 DEBUGARG("Spilling op1 side effects for HWIntrinsic"));
 
             op2 = impPopStack().val;
 
@@ -2463,7 +2354,10 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
                 break;
             }
 
-            impSpillSideEffect(true, stackState.esStackDepth - 2 DEBUGARG("Spilling op1 side effects for HWIntrinsic"));
+            var_types simdType = getSIMDTypeForSize(simdSize);
+
+            impSpillSideEffect(true,
+                               verCurrentState.esStackDepth - 2 DEBUGARG("Spilling op1 side effects for HWIntrinsic"));
 
             op2 = impPopStack().val;
 
@@ -2594,6 +2488,8 @@ GenTree* Compiler::impSpecialIntrinsic(NamedIntrinsic        intrinsic,
         case NI_Vector128_Sum:
         {
             assert(sig->numArgs == 1);
+            var_types simdType = getSIMDTypeForSize(simdSize);
+
             op1     = impSIMDPopStack();
             retNode = gtNewSimdSumNode(retType, op1, simdBaseJitType, simdSize);
             break;

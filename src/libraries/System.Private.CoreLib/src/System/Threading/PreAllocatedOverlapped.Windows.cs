@@ -144,7 +144,7 @@ namespace System.Threading
             Dispose();
         }
 
-        void IDeferredDisposable.OnFinalRelease(bool disposed)
+        unsafe void IDeferredDisposable.OnFinalRelease(bool disposed)
         {
             if (ThreadPool.UseWindowsThreadPool)
             {

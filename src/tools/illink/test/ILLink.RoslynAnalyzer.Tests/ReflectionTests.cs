@@ -149,12 +149,6 @@ namespace ILLink.RoslynAnalyzer.Tests
 		}
 
 		[Fact]
-		public Task ObjectGetTypeLibraryMode ()
-		{
-			return RunTest ();
-		}
-
-		[Fact]
 		public Task PropertyUsedViaReflection ()
 		{
 			return RunTest ();
@@ -191,21 +185,17 @@ namespace ILLink.RoslynAnalyzer.Tests
 		}
 
 		[Fact]
-		public Task TypeHierarchyLibraryModeSuppressions ()
-		{
-			return RunTest ();
-		}
-
-		[Fact]
 		public Task TypeHierarchyReflectionWarnings ()
 		{
-			return RunTest ();
+			// https://github.com/dotnet/runtime/issues/104742
+			return RunTest (allowMissingWarnings: true);
 		}
 
 		[Fact]
 		public Task TypeHierarchySuppressions ()
 		{
-			return RunTest ();
+			// https://github.com/dotnet/runtime/issues/104742
+			return RunTest (allowMissingWarnings: true);
 		}
 
 		[Fact]

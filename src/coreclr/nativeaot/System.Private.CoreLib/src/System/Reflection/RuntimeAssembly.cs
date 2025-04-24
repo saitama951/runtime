@@ -21,7 +21,7 @@ namespace System.Reflection
             an.Flags = mainAssemblyAn.Flags;
             an.Version = version ?? mainAssemblyAn.Version;
 
-            Assembly? retAssembly = ReflectionAugments.Load(an, throwOnFileNotFound);
+            Assembly? retAssembly = ReflectionAugments.ReflectionCoreCallbacks.Load(an, throwOnFileNotFound);
 
             if (retAssembly == mainAssembly)
             {

@@ -15,8 +15,6 @@ namespace ILCompiler.Metadata
             get { return _map.Values; }
         }
 
-        public IEnumerable<KeyValuePair<TEntity, TRecord>> Entries => _map;
-
         public EntityMap(IEqualityComparer<TEntity> comparer)
         {
             _map = new Dictionary<TEntity, TRecord>(comparer);

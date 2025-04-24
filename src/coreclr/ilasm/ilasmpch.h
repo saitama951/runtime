@@ -25,12 +25,4 @@
 #include "mdfileformat.h"
 #include "stgpooli.h"
 
-#ifdef _EXPORT
-#undef _EXPORT
-#endif
-
-#ifdef _IMPORT
-#undef _IMPORT
-#endif
-
 #endif

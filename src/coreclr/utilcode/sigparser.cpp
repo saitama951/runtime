@@ -33,6 +33,7 @@ HRESULT SigParser::SkipExactlyOne()
         switch ((DWORD)typ)
         {
             default:
+                // _ASSERT(!"Illegal or unimplement type in COM+ sig.");
                 return META_E_BAD_SIGNATURE;
                 break;
             case ELEMENT_TYPE_VAR:

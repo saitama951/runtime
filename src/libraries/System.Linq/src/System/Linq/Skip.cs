@@ -30,12 +30,14 @@ namespace System.Linq
 
                 count = 0;
             }
-            else if (!IsSizeOptimized && source is Iterator<TSource> iterator)
+#if !OPTIMIZE_FOR_SIZE
+            else if (source is Iterator<TSource> iterator)
             {
                 return iterator.Skip(count) ?? Empty<TSource>();
             }
+#endif
 
-            return IsSizeOptimized ? SizeOptimizedSkipIterator(source, count) : SpeedOptimizedSkipIterator(source, count);
+            return SkipIterator(source, count);
         }
 
         public static IEnumerable<TSource> SkipWhile<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
@@ -60,19 +62,21 @@ namespace System.Linq
 
         private static IEnumerable<TSource> SkipWhileIterator<TSource>(IEnumerable<TSource> source, Func<TSource, bool> predicate)
         {
-            using IEnumerator<TSource> e = source.GetEnumerator();
-            while (e.MoveNext())
+            using (IEnumerator<TSource> e = source.GetEnumerator())
             {
-                TSource element = e.Current;
-                if (!predicate(element))
+                while (e.MoveNext())
                 {
-                    yield return element;
-                    while (e.MoveNext())
+                    TSource element = e.Current;
+                    if (!predicate(element))
                     {
-                        yield return e.Current;
-                    }
+                        yield return element;
+                        while (e.MoveNext())
+                        {
+                            yield return e.Current;
+                        }
 
-                    yield break;
+                        yield break;
+                    }
                 }
             }
         }
@@ -99,25 +103,27 @@ namespace System.Linq
 
         private static IEnumerable<TSource> SkipWhileIterator<TSource>(IEnumerable<TSource> source, Func<TSource, int, bool> predicate)
         {
-            using IEnumerator<TSource> e = source.GetEnumerator();
-            int index = -1;
-            while (e.MoveNext())
+            using (IEnumerator<TSource> e = source.GetEnumerator())
             {
-                checked
+                int index = -1;
+                while (e.MoveNext())
                 {
-                    index++;
-                }
-
-                TSource element = e.Current;
-                if (!predicate(element, index))
-                {
-                    yield return element;
-                    while (e.MoveNext())
+                    checked
                     {
-                        yield return e.Current;
+                        index++;
                     }
 
-                    yield break;
+                    TSource element = e.Current;
+                    if (!predicate(element, index))
+                    {
+                        yield return element;
+                        while (e.MoveNext())
+                        {
+                            yield return e.Current;
+                        }
+
+                        yield break;
+                    }
                 }
             }
         }

@@ -11,7 +11,7 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Microsoft.Interop
 {
-    public abstract class BoolMarshallerBase : IUnboundMarshallingGenerator
+    public abstract class BoolMarshallerBase : IMarshallingGenerator
     {
         private readonly ManagedTypeInfo _nativeType;
         private readonly int _trueValue;
@@ -47,15 +47,15 @@ namespace Microsoft.Interop
             return ValueBoundaryBehavior.NativeIdentifier;
         }
 
-        public IEnumerable<StatementSyntax> Generate(TypePositionInfo info, StubCodeContext codeContext, StubIdentifierContext context)
+        public IEnumerable<StatementSyntax> Generate(TypePositionInfo info, StubCodeContext context)
         {
-            MarshalDirection elementMarshalDirection = MarshallerHelpers.GetMarshalDirection(info, codeContext);
+            MarshalDirection elementMarshalDirection = MarshallerHelpers.GetMarshalDirection(info, context);
             (string managedIdentifier, string nativeIdentifier) = context.GetIdentifiers(info);
             switch (context.CurrentStage)
             {
-                case StubIdentifierContext.Stage.Setup:
+                case StubCodeContext.Stage.Setup:
                     break;
-                case StubIdentifierContext.Stage.Marshal:
+                case StubCodeContext.Stage.Marshal:
                     // <nativeIdentifier> = (<nativeType>)(<managedIdentifier> ? _trueValue : _falseValue);
                     if (elementMarshalDirection is MarshalDirection.ManagedToUnmanaged or MarshalDirection.Bidirectional)
                     {
@@ -72,7 +72,7 @@ namespace Microsoft.Interop
                     }
 
                     break;
-                case StubIdentifierContext.Stage.Unmarshal:
+                case StubCodeContext.Stage.Unmarshal:
                     if (elementMarshalDirection is MarshalDirection.UnmanagedToManaged or MarshalDirection.Bidirectional)
                     {
                         // <managedIdentifier> = <nativeIdentifier> == _trueValue;
@@ -97,8 +97,8 @@ namespace Microsoft.Interop
 
         public bool UsesNativeIdentifier(TypePositionInfo info, StubCodeContext context) => true;
 
-        public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, TypePositionInfo info, out GeneratorDiagnostic? diagnostic)
-            => ByValueMarshalKindSupportDescriptor.Default.GetSupport(marshalKind, info, out diagnostic);
+        public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, TypePositionInfo info, StubCodeContext context, out GeneratorDiagnostic? diagnostic)
+            => ByValueMarshalKindSupportDescriptor.Default.GetSupport(marshalKind, info, context, out diagnostic);
     }
 
     /// <summary>

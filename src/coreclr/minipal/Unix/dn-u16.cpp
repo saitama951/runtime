@@ -5,11 +5,13 @@ typedef char16_t WCHAR;
 
 #include <dn-u16.h>
 #include <string.h>
-#include <minipal/strings.h>
 
 size_t u16_strlen(const WCHAR* str)
 {
-    return minipal_u16_strlen((CHAR16_T*)str);
+    size_t nChar = 0;
+    while (*str++)
+        nChar++;
+    return nChar;
 }
 
 int u16_strcmp(const WCHAR* str1, const WCHAR* str2)

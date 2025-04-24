@@ -10,70 +10,74 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Microsoft.Interop
 {
-    public sealed class StaticPinnableManagedValueMarshaller(IBoundMarshallingGenerator innerMarshallingGenerator, TypeSyntax getPinnableReferenceType) : IBoundMarshallingGenerator
+    public sealed class StaticPinnableManagedValueMarshaller : IMarshallingGenerator
     {
-        public TypePositionInfo TypeInfo => innerMarshallingGenerator.TypeInfo;
+        private readonly IMarshallingGenerator _innerMarshallingGenerator;
+        private readonly TypeSyntax _getPinnableReferenceType;
 
-        public StubCodeContext CodeContext => innerMarshallingGenerator.CodeContext;
-
-        public ManagedTypeInfo NativeType => innerMarshallingGenerator.NativeType;
-
-        public SignatureBehavior NativeSignatureBehavior => innerMarshallingGenerator.NativeSignatureBehavior;
-
-        public ValueBoundaryBehavior ValueBoundaryBehavior
+        public StaticPinnableManagedValueMarshaller(IMarshallingGenerator innerMarshallingGenerator, TypeSyntax getPinnableReferenceType)
         {
-            get
-            {
-                if (IsPinningPathSupported(CodeContext))
-                {
-                    if (NativeType.Syntax is PointerTypeSyntax pointerType
-                        && pointerType.ElementType is PredefinedTypeSyntax predefinedType
-                        && predefinedType.Keyword.IsKind(SyntaxKind.VoidKeyword))
-                    {
-                        return Interop.ValueBoundaryBehavior.NativeIdentifier;
-                    }
+            _innerMarshallingGenerator = innerMarshallingGenerator;
+            _getPinnableReferenceType = getPinnableReferenceType;
+        }
 
-                    // Cast to native type if it is not void*
-                    return Interop.ValueBoundaryBehavior.CastNativeIdentifier;
+        public ValueBoundaryBehavior GetValueBoundaryBehavior(TypePositionInfo info, StubCodeContext context)
+        {
+            if (IsPinningPathSupported(info, context))
+            {
+                if (AsNativeType(info).Syntax is PointerTypeSyntax pointerType
+                    && pointerType.ElementType is PredefinedTypeSyntax predefinedType
+                    && predefinedType.Keyword.IsKind(SyntaxKind.VoidKeyword))
+                {
+                    return ValueBoundaryBehavior.NativeIdentifier;
                 }
 
-                return innerMarshallingGenerator.ValueBoundaryBehavior;
-            }
-        }
-
-        public IEnumerable<StatementSyntax> Generate(StubIdentifierContext context)
-        {
-            if (IsPinningPathSupported(CodeContext))
-            {
-                return GeneratePinningPath(context);
+                // Cast to native type if it is not void*
+                return ValueBoundaryBehavior.CastNativeIdentifier;
             }
 
-            return innerMarshallingGenerator.Generate(context);
+            return _innerMarshallingGenerator.GetValueBoundaryBehavior(info, context);
         }
 
-        public bool UsesNativeIdentifier
+        public ManagedTypeInfo AsNativeType(TypePositionInfo info)
         {
-            get
-            {
-                if (IsPinningPathSupported(CodeContext))
-                {
-                    return false;
-                }
+            return _innerMarshallingGenerator.AsNativeType(info);
+        }
 
-                return innerMarshallingGenerator.UsesNativeIdentifier;
+        public SignatureBehavior GetNativeSignatureBehavior(TypePositionInfo info)
+        {
+            return _innerMarshallingGenerator.GetNativeSignatureBehavior(info);
+        }
+
+        public IEnumerable<StatementSyntax> Generate(TypePositionInfo info, StubCodeContext context)
+        {
+            if (IsPinningPathSupported(info, context))
+            {
+                return GeneratePinningPath(info, context);
             }
+
+            return _innerMarshallingGenerator.Generate(info, context);
         }
 
-        private bool IsPinningPathSupported(StubCodeContext context)
+        public bool UsesNativeIdentifier(TypePositionInfo info, StubCodeContext context)
         {
-            return context.SingleFrameSpansNativeContext && !TypeInfo.IsByRef && !context.IsInStubReturnPosition(TypeInfo);
-        }
-
-        private IEnumerable<StatementSyntax> GeneratePinningPath(StubIdentifierContext context)
-        {
-            if (context.CurrentStage == StubIdentifierContext.Stage.Pin)
+            if (IsPinningPathSupported(info, context))
             {
-                (string managedIdentifier, string nativeIdentifier) = context.GetIdentifiers(innerMarshallingGenerator.TypeInfo);
+                return false;
+            }
+
+            return _innerMarshallingGenerator.UsesNativeIdentifier(info, context);
+        }
+        private static bool IsPinningPathSupported(TypePositionInfo info, StubCodeContext context)
+        {
+            return context.SingleFrameSpansNativeContext && !info.IsByRef && !context.IsInStubReturnPosition(info);
+        }
+
+        private IEnumerable<StatementSyntax> GeneratePinningPath(TypePositionInfo info, StubCodeContext context)
+        {
+            if (context.CurrentStage == StubCodeContext.Stage.Pin)
+            {
+                (string managedIdentifier, string nativeIdentifier) = context.GetIdentifiers(info);
 
                 // fixed (void* <nativeIdentifier> = &<getPinnableReferenceType>.GetPinnableReference(<managedIdentifier>))
                 yield return FixedStatement(
@@ -85,7 +89,7 @@ namespace Microsoft.Interop
                                     PrefixUnaryExpression(SyntaxKind.AddressOfExpression,
                                     InvocationExpression(
                                         MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-                                            getPinnableReferenceType,
+                                            _getPinnableReferenceType,
                                             IdentifierName(ShapeMemberNames.GetPinnableReference)),
                                         ArgumentList(SingletonSeparatedList(
                                             Argument(IdentifierName(managedIdentifier))))))
@@ -96,9 +100,9 @@ namespace Microsoft.Interop
             }
         }
 
-        public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, out GeneratorDiagnostic? diagnostic)
+        public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, TypePositionInfo info, StubCodeContext context, out GeneratorDiagnostic? diagnostic)
         {
-            return innerMarshallingGenerator.SupportsByValueMarshalKind(marshalKind, out diagnostic);
+            return _innerMarshallingGenerator.SupportsByValueMarshalKind(marshalKind, info, context, out diagnostic);
         }
     }
 }

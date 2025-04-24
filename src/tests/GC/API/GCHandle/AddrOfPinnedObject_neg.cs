@@ -5,12 +5,10 @@
 
 using System;
 using System.Runtime.InteropServices;
-using Xunit;
 
 public class Test_AddrOfPinnedObject_neg
 {
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         int[] array = new int[25];
         bool passed = true;

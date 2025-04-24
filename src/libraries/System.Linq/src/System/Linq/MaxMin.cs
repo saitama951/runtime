@@ -123,19 +123,21 @@ namespace System.Linq
             }
             else
             {
-                using IEnumerator<T> e = source.GetEnumerator();
-                if (!e.MoveNext())
+                using (IEnumerator<T> e = source.GetEnumerator())
                 {
-                    ThrowHelper.ThrowNoElementsException();
-                }
-
-                value = e.Current;
-                while (e.MoveNext())
-                {
-                    T x = e.Current;
-                    if (TMinMax.Compare(x, value))
+                    if (!e.MoveNext())
                     {
-                        value = x;
+                        ThrowHelper.ThrowNoElementsException();
+                    }
+
+                    value = e.Current;
+                    while (e.MoveNext())
+                    {
+                        T x = e.Current;
+                        if (TMinMax.Compare(x, value))
+                        {
+                            value = x;
+                        }
                     }
                 }
             }

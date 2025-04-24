@@ -4,7 +4,6 @@
 using System;
 
 using System.Threading;
-using Xunit;
 
 public class Program
 {
@@ -37,8 +36,7 @@ public class Program
 
     }
 
-    [Fact]
-    public static void TestEntryPoint()
+    public static int Main()
     {
 
         Program p = new Program();
@@ -58,5 +56,9 @@ public class Program
 
             if (g_completed >= g_interations) break; 
         }
+
+        return 100;
+
     }
+
 }

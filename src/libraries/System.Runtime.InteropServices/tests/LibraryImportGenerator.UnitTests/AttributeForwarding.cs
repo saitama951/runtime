@@ -332,9 +332,9 @@ namespace LibraryImportGenerator.UnitTests
                 });
         }
 
-        private static Task VerifySourceGeneratorAsync(string source, Action<IMethodSymbol, Compilation> targetPInvokeAssertion)
+        private static Task VerifySourceGeneratorAsync(string source, Action<IMethodSymbol, Compilation> targetPInvokeAssertion, TestTargetFramework targetFramework = TestTargetFramework.Net)
         {
-            var test = new GeneratedTargetPInvokeTest(targetPInvokeAssertion)
+            var test = new GeneratedTargetPInvokeTest(targetPInvokeAssertion, targetFramework)
             {
                 TestCode = source,
                 TestBehaviors = TestBehaviors.SkipGeneratedSourcesCheck
@@ -347,8 +347,8 @@ namespace LibraryImportGenerator.UnitTests
         {
             private readonly Action<IMethodSymbol, Compilation> _targetPInvokeAssertion;
 
-            public GeneratedTargetPInvokeTest(Action<IMethodSymbol, Compilation> targetPInvokeAssertion)
-                :base(referenceAncillaryInterop: false)
+            public GeneratedTargetPInvokeTest(Action<IMethodSymbol, Compilation> targetPInvokeAssertion, TestTargetFramework targetFramework)
+                :base(targetFramework)
             {
                 _targetPInvokeAssertion = targetPInvokeAssertion;
             }

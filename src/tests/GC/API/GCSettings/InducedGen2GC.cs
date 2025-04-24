@@ -3,19 +3,23 @@
 
 using System;
 using System.Runtime;
-using Xunit;
 
 namespace GCLatencyTest
 {
-    public class InducedGen2GC
+    public class InducedGen2GC : ILatencyTest
     {
-        [Fact]
-        public static void Test()
+        public void Test()
         {
-            int _numCollections = GC.CollectionCount(2);
             GC.Collect();
-            _numCollections = GC.CollectionCount(2) - _numCollections;
-            Assert.True(_numCollections > 0);
+        }
+
+        public void Cleanup()
+        {
+        }
+
+        public bool Pass(GCLatencyMode gcMode, int numCollections)
+        {
+            return (numCollections > 0);
         }
     }
 }

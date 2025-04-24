@@ -1,12 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Needed for Content, Environment.Exit, GC.WaitForPendingFinalizers -->
-    <RequiresProcessIsolation>true</RequiresProcessIsolation>
-
-    <!-- Test needs explicit Main as it uses command-line parameters -->
-    <ReferenceXUnitWrapperGenerator>false</ReferenceXUnitWrapperGenerator>
+    <OutputType>Exe</OutputType>
     <CLRTestExecutionArguments>-unittest</CLRTestExecutionArguments>
-
     <IsLongRunningGCTest>true</IsLongRunningGCTest>
   </PropertyGroup>
   <ItemGroup>

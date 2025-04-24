@@ -10,7 +10,7 @@ using static Microsoft.Interop.SyntaxFactoryExtensions;
 
 namespace Microsoft.Interop
 {
-    public sealed class DelegateMarshaller : IUnboundMarshallingGenerator
+    public sealed class DelegateMarshaller : IMarshallingGenerator
     {
         public ManagedTypeInfo AsNativeType(TypePositionInfo info)
         {
@@ -27,15 +27,15 @@ namespace Microsoft.Interop
             return info.IsByRef ? ValueBoundaryBehavior.AddressOfNativeIdentifier : ValueBoundaryBehavior.NativeIdentifier;
         }
 
-        public IEnumerable<StatementSyntax> Generate(TypePositionInfo info, StubCodeContext codeContext, StubIdentifierContext context)
+        public IEnumerable<StatementSyntax> Generate(TypePositionInfo info, StubCodeContext context)
         {
-            MarshalDirection elementMarshalDirection = MarshallerHelpers.GetMarshalDirection(info, codeContext);
+            MarshalDirection elementMarshalDirection = MarshallerHelpers.GetMarshalDirection(info, context);
             (string managedIdentifier, string nativeIdentifier) = context.GetIdentifiers(info);
             switch (context.CurrentStage)
             {
-                case StubIdentifierContext.Stage.Setup:
+                case StubCodeContext.Stage.Setup:
                     break;
-                case StubIdentifierContext.Stage.Marshal:
+                case StubCodeContext.Stage.Marshal:
                     if (elementMarshalDirection is MarshalDirection.ManagedToUnmanaged or MarshalDirection.Bidirectional)
                     {
                         // <nativeIdentifier> = <managedIdentifier> != null ? Marshal.GetFunctionPointerForDelegate(<managedIdentifier>) : default;
@@ -54,7 +54,7 @@ namespace Microsoft.Interop
                                     LiteralExpression(SyntaxKind.DefaultLiteralExpression)));
                     }
                     break;
-                case StubIdentifierContext.Stage.Unmarshal:
+                case StubCodeContext.Stage.Unmarshal:
                     if (elementMarshalDirection is MarshalDirection.UnmanagedToManaged or MarshalDirection.Bidirectional)
                     {
                         // <managedIdentifier> = <nativeIdentifier> != default : Marshal.GetDelegateForFunctionPointer<<managedType>>(<nativeIdentifier>) : null;
@@ -76,7 +76,7 @@ namespace Microsoft.Interop
                                     LiteralExpression(SyntaxKind.NullLiteralExpression)));
                     }
                     break;
-                case StubIdentifierContext.Stage.NotifyForSuccessfulInvoke:
+                case StubCodeContext.Stage.NotifyForSuccessfulInvoke:
                     if (elementMarshalDirection is MarshalDirection.ManagedToUnmanaged or MarshalDirection.Bidirectional)
                     {
                         yield return ExpressionStatement(
@@ -92,7 +92,7 @@ namespace Microsoft.Interop
 
         public bool UsesNativeIdentifier(TypePositionInfo info, StubCodeContext context) => true;
 
-        public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, TypePositionInfo info, out GeneratorDiagnostic? diagnostic)
-            => ByValueMarshalKindSupportDescriptor.Default.GetSupport(marshalKind, info, out diagnostic);
+        public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, TypePositionInfo info, StubCodeContext context, out GeneratorDiagnostic? diagnostic)
+            => ByValueMarshalKindSupportDescriptor.Default.GetSupport(marshalKind, info, context, out diagnostic);
     }
 }

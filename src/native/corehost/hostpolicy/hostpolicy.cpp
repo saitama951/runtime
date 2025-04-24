@@ -463,7 +463,7 @@ SHARED_API int HOSTPOLICY_CALLTYPE corehost_main_with_output_buffer(const int ar
     else
     {
         trace::error(_X("Unknown command: %s"), g_init.host_command.c_str());
-        rc = StatusCode::LibHostInvalidArgs;
+        rc = StatusCode::LibHostUnknownCommand;
     }
 
     return rc;
@@ -551,10 +551,8 @@ namespace
 
     int HOSTPOLICY_CALLTYPE get_property(const pal::char_t *key, const pal::char_t **value)
     {
-        if (key == nullptr || value == nullptr)
+        if (key == nullptr)
             return StatusCode::InvalidArgFailure;
-
-        *value = nullptr;
 
         const std::shared_ptr<hostpolicy_context_t> context = get_hostpolicy_context(/*require_runtime*/ false);
         if (context == nullptr)
@@ -597,10 +595,7 @@ namespace
 
         const std::shared_ptr<hostpolicy_context_t> context = get_hostpolicy_context(/*require_runtime*/ false);
         if (context == nullptr)
-        {
-            *count = 0;
             return StatusCode::HostInvalidState;
-        }
 
         size_t actualCount = context->coreclr_properties.count();
         size_t input_count = *count;

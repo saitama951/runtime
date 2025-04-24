@@ -4,12 +4,9 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 
 using Internal.Reflection.Augments;
-using Internal.Reflection.Core.Execution;
 
 namespace System
 {
@@ -99,18 +96,6 @@ namespace System
                         FailFast("Access Violation: Attempted to read or write protected memory. This is often an indication that other memory is corrupt. The application will be terminated since this platform does not support throwing an AccessViolationException.");
                         return null;
 
-                    case ExceptionIDs.IllegalInstruction:
-                        FailFast("Illegal instruction: Attempted to execute an instruction code not defined by the processor.");
-                        return null;
-
-                    case ExceptionIDs.PrivilegedInstruction:
-                        FailFast("Privileged instruction: Attempted to execute an instruction code that cannot be executed in user mode.");
-                        return null;
-
-                    case ExceptionIDs.InPageError:
-                        FailFast("In page error: Attempted to access a memory page that is not present, and the system is unable to load the page. For example, this exception might occur if a network connection is lost while running a program over a network.");
-                        return null;
-
                     case ExceptionIDs.DataMisaligned:
                         return new DataMisalignedException();
 
@@ -174,7 +159,7 @@ namespace System
         internal const uint STATUS_STACK_BUFFER_OVERRUN = 0xC0000409;
         internal const uint FAST_FAIL_EXCEPTION_DOTNET_AOT = 0x48;
 
-        [StructLayout(LayoutKind.Sequential)]
+#pragma warning disable 649
         internal unsafe struct EXCEPTION_RECORD
         {
             internal uint ExceptionCode;
@@ -182,14 +167,13 @@ namespace System
             internal IntPtr ExceptionRecord;
             internal IntPtr ExceptionAddress;
             internal uint NumberParameters;
-            internal ExceptionInformationArray ExceptionInformation;
-
-            [InlineArray(15)]
-            public struct ExceptionInformationArray
-            {
-                internal nuint _value;
-            }
+#if TARGET_64BIT
+            internal fixed ulong ExceptionInformation[15];
+#else
+            internal fixed uint ExceptionInformation[15];
+#endif
         }
+#pragma warning restore 649
 
         private static ulong s_crashingThreadId;
 
@@ -310,13 +294,17 @@ namespace System
             exceptionRecord.NumberParameters = 4;
             exceptionRecord.ExceptionInformation[0] = FAST_FAIL_EXCEPTION_DOTNET_AOT;
             exceptionRecord.ExceptionInformation[1] = (uint)errorCode;
-            exceptionRecord.ExceptionInformation[2] = (nuint)triageBufferAddress;
+#if TARGET_64BIT
+            exceptionRecord.ExceptionInformation[2] = (ulong)triageBufferAddress;
+#else
+            exceptionRecord.ExceptionInformation[2] = (uint)triageBufferAddress;
+#endif
             exceptionRecord.ExceptionInformation[3] = (uint)triageBufferSize;
 
 #if TARGET_WINDOWS
             Interop.Kernel32.RaiseFailFastException(new IntPtr(&exceptionRecord), pExContext, pExAddress == IntPtr.Zero ? FAIL_FAST_GENERATE_EXCEPTION_ADDRESS : 0);
 #else
-            RuntimeImports.RhCreateCrashDumpIfEnabled(new IntPtr(&exceptionRecord));
+            RuntimeImports.RhCreateCrashDumpIfEnabled(new IntPtr(&exceptionRecord), pExContext);
             Interop.Sys.Abort();
 #endif
         }
@@ -328,7 +316,7 @@ namespace System
             get
             {
                 // Reflection needs to work as the exception code calls GetType() and GetType().ToString()
-                return ReflectionCoreExecution.ExecutionEnvironment != null;
+                return ReflectionAugments.IsInitialized;
             }
         }
     }

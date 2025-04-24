@@ -8,7 +8,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Xunit;
 
 public class Test_HandleCopy
 {
@@ -71,8 +70,7 @@ public class Test_HandleCopy
         }
     }
 
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         CreateObj temp = new CreateObj();
         if (temp.RunTest())

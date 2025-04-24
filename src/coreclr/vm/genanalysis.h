@@ -8,8 +8,6 @@
 
 #ifdef FEATURE_PERFTRACING
 #include "eventpipeadaptertypes.h"
-#else
-typedef struct _EventPipeSession EventPipeSession;
 #endif // FEATURE_PERFTRACING
 
 enum GcGenAnalysisState

@@ -293,7 +293,7 @@ namespace Microsoft.Extensions.Hosting
 
                 logging.AddConfiguration(hostingContext.Configuration.GetSection("Logging"));
 #if NET
-                if (!OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi())
+                if (!OperatingSystem.IsBrowser())
 #endif
                 {
                     logging.AddConsole();

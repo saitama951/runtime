@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Needed for CLRTestTargetUnsupported, GCStressIncompatible -->
-    <RequiresProcessIsolation>true</RequiresProcessIsolation>
+    <OutputType>Exe</OutputType>
     <GCStressIncompatible>true</GCStressIncompatible>
     <CLRTestPriority>1</CLRTestPriority>
     <!-- Test unsupported outside of windows -->

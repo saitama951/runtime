@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Needed for GCStressIncompatible, UnloadabilityIncompatible -->
-    <RequiresProcessIsolation>true</RequiresProcessIsolation>
+    <OutputType>Exe</OutputType>
     <GCStressIncompatible>true</GCStressIncompatible>
     <UnloadabilityIncompatible>true</UnloadabilityIncompatible>
   </PropertyGroup>

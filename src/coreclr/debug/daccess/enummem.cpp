@@ -318,12 +318,8 @@ HRESULT ClrDataAccess::EnumMemDumpJitManagerInfo(IN CLRDataEnumMemoryFlags flags
 
     if (flags == CLRDATA_ENUM_MEM_HEAP2)
     {
-        EECodeGenManager* managerPtr = ExecutionManager::GetEEJitManager();
+        EEJitManager* managerPtr = ExecutionManager::GetEEJitManager();
         managerPtr->EnumMemoryRegions(flags);
-#ifdef FEATURE_INTERPRETER
-        managerPtr = ExecutionManager::GetInterpreterJitManager();
-        managerPtr->EnumMemoryRegions(flags);
-#endif // FEATURE_INTERPRETER
     }
 
     return status;
@@ -747,7 +743,7 @@ HRESULT ClrDataAccess::EnumMemDumpAppDomainInfo(CLRDataEnumMemoryFlags flags)
 
     if (flags == CLRDATA_ENUM_MEM_HEAP2)
     {
-        SystemDomain::GetGlobalLoaderAllocator()->EnumMemoryRegions(flags);
+        SystemDomain::System()->GetLoaderAllocator()->EnumMemoryRegions(flags);
     }
 
     AppDomain* appDomain = AppDomain::GetCurrentDomain();

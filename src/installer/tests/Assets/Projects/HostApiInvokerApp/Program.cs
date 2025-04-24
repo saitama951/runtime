@@ -61,11 +61,10 @@ namespace HostApiInvokerApp
 
             if (hostfxrPath is not null)
             {
-                Console.WriteLine($"Registering DLLImportResolver for {nameof(HostFXR.hostfxr)} -> {hostfxrPath}");
                 NativeLibrary.SetDllImportResolver(typeof(Program).Assembly, (libraryName, assembly, searchPath) =>
                 {
                     return libraryName == nameof(HostFXR.hostfxr)
-                        ? NativeLibrary.Load(hostfxrPath, assembly, searchPath)
+                        ? NativeLibrary.Load(libraryName, assembly, searchPath)
                         : default;
                 });
             }

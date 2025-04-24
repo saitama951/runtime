@@ -4,6 +4,8 @@
 using System.Runtime.InteropServices;
 using Xunit;
 
+[assembly: ActiveIssue("https://github.com/dotnet/runtime/issues/35912", TestRuntimes.Mono)]
+
 namespace System.DirectoryServices.Protocols.Tests
 {
     public static class DirectoryServicesTestHelpers
@@ -29,18 +31,14 @@ namespace System.DirectoryServices.Protocols.Tests
                     }
                     else
                     {
-                        _isLibLdapInstalled =
-                            NativeLibrary.TryLoad("libldap.so.2", out _) ||
-                            NativeLibrary.TryLoad("libldap-2.6.so.0", out _) ||
-                            NativeLibrary.TryLoad("libldap-2.5.so.0", out _) ||
-                            NativeLibrary.TryLoad("libldap-2.4.so.2", out _);
+                        _isLibLdapInstalled = NativeLibrary.TryLoad("libldap-2.4.so.2", out _);
                     }
                 }
+                return _isLibLdapInstalled.Value;
 #else
                 _isLibLdapInstalled = true; // In .NET Framework ldap is always installed.
-#endif
-
                 return _isLibLdapInstalled.Value;
+#endif
             }
         }
     }

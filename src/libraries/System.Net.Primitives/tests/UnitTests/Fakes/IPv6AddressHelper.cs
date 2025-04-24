@@ -2,22 +2,15 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
-using System.Numerics;
 
-namespace System.Net
+namespace System
 {
     internal static class IPv6AddressHelper
     {
         internal static unsafe (int longestSequenceStart, int longestSequenceLength) FindCompressionRange(
             ReadOnlySpan<ushort> numbers) => (-1, -1);
         internal static unsafe bool ShouldHaveIpv4Embedded(ReadOnlySpan<ushort> numbers) => false;
-        internal static unsafe bool IsValidStrict<TChar>(TChar* name, int start, int end)
-            where TChar : unmanaged, IBinaryInteger<TChar> => false;
-        internal static unsafe bool Parse<TChar>(ReadOnlySpan<TChar> address, Span<ushort> numbers, out ReadOnlySpan<TChar> scopeId)
-            where TChar : unmanaged, IBinaryInteger<TChar>
-        {
-            scopeId = ReadOnlySpan<TChar>.Empty;
-            return false;
-        }
+        internal static unsafe bool IsValidStrict(char* name, int start, ref int end) => false;
+        internal static unsafe bool Parse(ReadOnlySpan<char> ipSpan, Span<ushort> numbers, int start, ref string scopeId) => false;
     }
 }

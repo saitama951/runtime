@@ -13,9 +13,9 @@ namespace Mono.Linker.Dataflow
 	// or local functions).
 	public readonly struct HoistedLocalKey : IEquatable<HoistedLocalKey>
 	{
-		readonly FieldReference Field;
+		readonly FieldDefinition Field;
 
-		public HoistedLocalKey (FieldReference field)
+		public HoistedLocalKey (FieldDefinition field)
 		{
 			Debug.Assert (CompilerGeneratedState.IsHoistedLocal (field));
 			Field = field;

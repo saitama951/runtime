@@ -6,7 +6,6 @@ using System.Runtime;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Xunit;
 
 [ StructLayout( LayoutKind.Sequential, CharSet=CharSet.Unicode )]
 public class Node
@@ -28,8 +27,7 @@ public class Test_445488
     //public static PerformanceCounter PC;
 
 
-    [Fact]
-    public static void TestEntryPoint()
+    public static int Main()
     {
         List<byte[]> list = new List<byte[]>();
         List<GCHandle> glist = new List<GCHandle>();
@@ -53,6 +51,8 @@ public class Test_445488
 
         GC.KeepAlive(list);
         GC.KeepAlive(glist);
+        return 100;
+
     }
 
 }

@@ -64,14 +64,12 @@ namespace System.IO.Ports
         private char[] _singleCharBuffer;
 
         public event SerialErrorReceivedEventHandler ErrorReceived;
+        public event SerialPinChangedEventHandler PinChanged;
 
-        // handlers for the underlying stream
+        // handler for the underlying stream
         private readonly SerialDataReceivedEventHandler _dataReceivedHandler;
-        private readonly SerialPinChangedEventHandler _pinChangedHandler;
 
         private SerialDataReceivedEventHandler _dataReceived;
-        private SerialPinChangedEventHandler _pinChanged;
-
         public event SerialDataReceivedEventHandler DataReceived
         {
             add
@@ -96,35 +94,6 @@ namespace System.IO.Ports
                     if (_internalSerialStream != null)
                     {
                         _internalSerialStream.DataReceived -= _dataReceivedHandler;
-                    }
-                }
-            }
-        }
-
-        public event SerialPinChangedEventHandler PinChanged
-        {
-            add
-            {
-                bool wasNull = _pinChanged == null;
-                _pinChanged += value;
-
-                if (wasNull)
-                {
-                    if (_internalSerialStream != null)
-                    {
-                        _internalSerialStream.PinChanged += _pinChangedHandler;
-                    }
-                }
-            }
-            remove
-            {
-                _pinChanged -= value;
-
-                if (_pinChanged == null)
-                {
-                    if (_internalSerialStream != null)
-                    {
-                        _internalSerialStream.PinChanged -= _pinChangedHandler;
                     }
                 }
             }
@@ -542,7 +511,6 @@ namespace System.IO.Ports
         public SerialPort()
         {
             _dataReceivedHandler = new SerialDataReceivedEventHandler(CatchReceivedEvents);
-            _pinChangedHandler = CatchPinChangedEvents;
         }
 
         public SerialPort(IContainer container) : this()
@@ -595,7 +563,6 @@ namespace System.IO.Ports
                 if (IsOpen)
                 {
                     _internalSerialStream.DataReceived -= _dataReceivedHandler;
-                    _internalSerialStream.PinChanged -= _pinChangedHandler;
                     _internalSerialStream.Flush();
                     _internalSerialStream.Close();
                     _internalSerialStream = null;
@@ -634,11 +601,7 @@ namespace System.IO.Ports
             _internalSerialStream.SetBufferSizes(_readBufferSize, _writeBufferSize);
 
             _internalSerialStream.ErrorReceived += new SerialErrorReceivedEventHandler(CatchErrorEvents);
-
-            if (_pinChanged != null)
-            {
-                _internalSerialStream.PinChanged += _pinChangedHandler;
-            }
+            _internalSerialStream.PinChanged += new SerialPinChangedEventHandler(CatchPinChangedEvents);
 
             if (_dataReceived != null)
             {
@@ -1250,7 +1213,7 @@ namespace System.IO.Ports
 
         private void CatchPinChangedEvents(object src, SerialPinChangedEventArgs e)
         {
-            SerialPinChangedEventHandler eventHandler = _pinChanged;
+            SerialPinChangedEventHandler eventHandler = PinChanged;
             SerialStream stream = _internalSerialStream;
 
             if ((eventHandler != null) && (stream != null))

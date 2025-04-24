@@ -150,7 +150,7 @@ namespace System.Net.Http
 
         public RendezvousAwaitable<int> LifecycleAwaitable { get; set; } = new RendezvousAwaitable<int>();
         public TaskCompletionSource<bool>? TcsInternalWriteDataToRequestStream { get; set; }
-        public volatile int AsyncReadInProgress;
+        public bool AsyncReadInProgress { get; set; }
 
         // WinHttpResponseStream state.
         public long? ExpectedBytesToRead { get; set; }

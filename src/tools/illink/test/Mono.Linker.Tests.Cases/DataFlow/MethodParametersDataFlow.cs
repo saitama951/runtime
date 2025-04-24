@@ -246,6 +246,7 @@ namespace Mono.Linker.Tests.Cases.DataFlow
 			static UnsupportedType GetUnsupportedTypeInstance () => null;
 
 			[ExpectedWarning ("IL2098", nameof (UnsupportedType))]
+			[UnexpectedWarning ("IL2067", Tool.Analyzer, "https://github.com/dotnet/runtime/issues/101211")]
 			static void RequirePublicMethods (
 				[DynamicallyAccessedMembers (DynamicallyAccessedMemberTypes.PublicMethods)]
 				UnsupportedType unsupportedTypeInstance)
@@ -260,6 +261,7 @@ namespace Mono.Linker.Tests.Cases.DataFlow
 			{
 			}
 
+			[UnexpectedWarning ("IL2072", Tool.Analyzer, "https://github.com/dotnet/runtime/issues/101211")]
 			static void TestUnsupportedType ()
 			{
 				var t = GetUnsupportedTypeInstance ();
@@ -269,6 +271,7 @@ namespace Mono.Linker.Tests.Cases.DataFlow
 			static Type[] GetTypeArray () => null;
 
 			[ExpectedWarning ("IL2098")]
+			[UnexpectedWarning ("IL2067", Tool.Analyzer, "https://github.com/dotnet/runtime/issues/101211")]
 			static void RequirePublicMethods (
 				[DynamicallyAccessedMembers (DynamicallyAccessedMemberTypes.PublicMethods)]
 				Type[] types)
@@ -283,6 +286,7 @@ namespace Mono.Linker.Tests.Cases.DataFlow
 			{
 			}
 
+			[UnexpectedWarning ("IL2072", Tool.Analyzer, "https://github.com/dotnet/runtime/issues/101211")]
 			static void TestTypeArray ()
 			{
 				var types = GetTypeArray ();
@@ -292,6 +296,7 @@ namespace Mono.Linker.Tests.Cases.DataFlow
 			static unsafe Type* GetTypePtr () => throw null;
 
 			[ExpectedWarning ("IL2098")]
+			[UnexpectedWarning ("IL2067", Tool.Analyzer, "https://github.com/dotnet/runtime/issues/101211")]
 			static unsafe void RequirePublicMethods (
 				[DynamicallyAccessedMembers (DynamicallyAccessedMemberTypes.PublicMethods)]
 				Type* typePtr)
@@ -306,6 +311,7 @@ namespace Mono.Linker.Tests.Cases.DataFlow
 			{
 			}
 
+			[UnexpectedWarning ("IL2072", Tool.Analyzer, "https://github.com/dotnet/runtime/issues/101211")]
 			static unsafe void TestTypePointer ()
 			{
 				var typePtr = GetTypePtr ();
@@ -315,6 +321,7 @@ namespace Mono.Linker.Tests.Cases.DataFlow
 			static T GetTConstrainedToType<T> () where T : Type => throw null;
 
 			[ExpectedWarning ("IL2098")]
+			[UnexpectedWarning ("IL2067", Tool.Analyzer, "https://github.com/dotnet/runtime/issues/101211")]
 			static void RequirePublicMethods<T> (
 				[DynamicallyAccessedMembers (DynamicallyAccessedMemberTypes.PublicMethods)]
 				T t) where T : Type
@@ -329,6 +336,7 @@ namespace Mono.Linker.Tests.Cases.DataFlow
 			{
 			}
 
+			[UnexpectedWarning ("IL2072", Tool.Analyzer, "https://github.com/dotnet/runtime/issues/101211")]
 			static void TestTypeGenericParameter ()
 			{
 				var t = GetTConstrainedToType<Type> ();
@@ -338,6 +346,7 @@ namespace Mono.Linker.Tests.Cases.DataFlow
 			static ref string GetStringRef () => throw null;
 
 			[ExpectedWarning ("IL2098")]
+			[UnexpectedWarning ("IL2067", Tool.Analyzer, "https://github.com/dotnet/runtime/issues/101211")]
 			static void RequirePublicMethods (
 				[DynamicallyAccessedMembers (DynamicallyAccessedMemberTypes.PublicMethods)]
 				ref string stringRef)
@@ -352,6 +361,7 @@ namespace Mono.Linker.Tests.Cases.DataFlow
 			{
 			}
 
+			[UnexpectedWarning ("IL2072", Tool.Analyzer, "https://github.com/dotnet/runtime/issues/101211")]
 			static void TestStringRef ()
 			{
 				var stringRef = GetStringRef ();

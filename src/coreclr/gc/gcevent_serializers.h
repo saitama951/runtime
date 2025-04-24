@@ -101,10 +101,9 @@ struct EventSerializationTraits<uint16_t>
     static void Serialize(const uint16_t& value, uint8_t** buffer)
     {
 #if defined(BIGENDIAN)
-        uint16_t swapped = ByteSwap16(value);
-        memcpy(*buffer, &swapped, sizeof(uint16_t));
+        **((uint16_t**)buffer) = ByteSwap16(value);
 #else
-        memcpy(*buffer, &value, sizeof(uint16_t));
+        **((uint16_t**)buffer) = value;
 #endif // BIGENDIAN
         *buffer += sizeof(uint16_t);
     }
@@ -121,10 +120,9 @@ struct EventSerializationTraits<uint32_t>
     static void Serialize(const uint32_t& value, uint8_t** buffer)
     {
 #if defined(BIGENDIAN)
-        uint32_t swapped = ByteSwap32(value);
-        memcpy(*buffer, &swapped, sizeof(uint32_t));
+        **((uint32_t**)buffer) = ByteSwap32(value);
 #else
-        memcpy(*buffer, &value, sizeof(uint32_t));
+        **((uint32_t**)buffer) = value;
 #endif // BIGENDIAN
         *buffer += sizeof(uint32_t);
     }
@@ -141,10 +139,9 @@ struct EventSerializationTraits<uint64_t>
     static void Serialize(const uint64_t& value, uint8_t** buffer)
     {
 #if defined(BIGENDIAN)
-        uint64_t swapped = ByteSwap64(value);
-        memcpy(*buffer, &swapped, sizeof(uint64_t));
+        **((uint32_t**)buffer) = ByteSwap64(value);
 #else
-        memcpy(*buffer, &value, sizeof(uint64_t));
+        **((uint64_t**)buffer) = value;
 #endif // BIGENDIAN
         *buffer += sizeof(uint64_t);
     }
@@ -160,7 +157,7 @@ struct EventSerializationTraits<float>
 {
     static void Serialize(const float& value, uint8_t** buffer)
     {
-        memcpy(*buffer, &value, sizeof(float));
+        **((float**)buffer) = value;
         *buffer += sizeof(float);
     }
 

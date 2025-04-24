@@ -10,9 +10,7 @@
 //*****************************************************************************
 
 #include "stdafx.h"
-#ifdef FEATURE_INTERPRETER
-#include "interpexec.h"
-#endif // FEATURE_INTERPRETER
+
 //----------------------------------------------------------------------------
 //
 // ClrDataStackWalk.
@@ -1311,7 +1309,7 @@ ClrDataFrame::ValueFromDebugInfo(MetaSig* sig,
 {
     HRESULT status;
     ULONG32 numVarInfo;
-    NewArrayHolder<ICorDebugInfo::NativeVarInfo> varInfo(NULL);
+    NewHolder<ICorDebugInfo::NativeVarInfo> varInfo(NULL);
     ULONG32 codeOffset;
     ULONG32 valueFlags;
     ULONG32 i;

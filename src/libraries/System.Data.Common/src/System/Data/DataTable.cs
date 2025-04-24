@@ -195,7 +195,6 @@ namespace System.Data
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2112:ReflectionToRequiresUnreferencedCode",
             Justification = "CreateInstance's use of GetType uses only the parameterless constructor. Warnings are about serialization related constructors.")]
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         [Obsolete(Obsoletions.LegacyFormatterImplMessage, DiagnosticId = Obsoletions.LegacyFormatterImplDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         [EditorBrowsable(EditorBrowsableState.Never)]
         protected DataTable(SerializationInfo info, StreamingContext context) : this()
@@ -224,8 +223,6 @@ namespace System.Data
 
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
             Justification = "Binary serialization is unsafe in general and is planned to be obsoleted. We do not want to mark interface or ctors of this class as unsafe as that would show many unnecessary warnings elsewhere.")]
-        [UnconditionalSuppressMessage("AotAnalysis", "IL3050:RequiresDynamicCode",
-            Justification = "Binary serialization is unsafe in general and is planned to be obsoleted. We do not want to mark interface or ctors of this class as unsafe as that would show many unnecessary warnings elsewhere.")]
         [Obsolete(Obsoletions.LegacyFormatterImplMessage, DiagnosticId = Obsoletions.LegacyFormatterImplDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         [EditorBrowsable(EditorBrowsableState.Never)]
         public virtual void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -237,7 +234,6 @@ namespace System.Data
 
         // Serialize the table schema and data.
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private void SerializeDataTable(SerializationInfo info, bool isSingleTable, SerializationFormat remotingFormat)
         {
             info.AddValue("DataTable.RemotingVersion", new Version(2, 0));
@@ -302,7 +298,6 @@ namespace System.Data
 
         // Deserialize the table schema and data.
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal void DeserializeDataTable(SerializationInfo info, bool isSingleTable, SerializationFormat remotingFormat)
         {
             if (remotingFormat != SerializationFormat.Xml)
@@ -5312,43 +5307,33 @@ namespace System.Data
         public DataTableReader CreateDataReader() => new DataTableReader(this);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(Stream? stream) => WriteXml(stream, XmlWriteMode.IgnoreSchema, false);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(Stream? stream, bool writeHierarchy) => WriteXml(stream, XmlWriteMode.IgnoreSchema, writeHierarchy);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(TextWriter? writer) => WriteXml(writer, XmlWriteMode.IgnoreSchema, false);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(TextWriter? writer, bool writeHierarchy) => WriteXml(writer, XmlWriteMode.IgnoreSchema, writeHierarchy);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(XmlWriter? writer) => WriteXml(writer, XmlWriteMode.IgnoreSchema, false);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(XmlWriter? writer, bool writeHierarchy) => WriteXml(writer, XmlWriteMode.IgnoreSchema, writeHierarchy);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(string fileName) => WriteXml(fileName, XmlWriteMode.IgnoreSchema, false);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(string fileName, bool writeHierarchy) => WriteXml(fileName, XmlWriteMode.IgnoreSchema, writeHierarchy);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(Stream? stream, XmlWriteMode mode) => WriteXml(stream, mode, false);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(Stream? stream, XmlWriteMode mode, bool writeHierarchy)
         {
             if (stream != null)
@@ -5361,14 +5346,12 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(TextWriter? writer, XmlWriteMode mode)
         {
             WriteXml(writer, mode, false);
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(TextWriter? writer, XmlWriteMode mode, bool writeHierarchy)
         {
             if (writer != null)
@@ -5381,14 +5364,12 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(XmlWriter? writer, XmlWriteMode mode)
         {
             WriteXml(writer, mode, false);
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(XmlWriter? writer, XmlWriteMode mode, bool writeHierarchy)
         {
             long logScopeId = DataCommonEventSource.Log.EnterScope("<ds.DataTable.WriteXml|API> {0}, mode={1}", ObjectID, mode);
@@ -5457,11 +5438,9 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(string fileName, XmlWriteMode mode) => WriteXml(fileName, mode, false);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXml(string fileName, XmlWriteMode mode, bool writeHierarchy)
         {
             long logScopeId = DataCommonEventSource.Log.EnterScope("<ds.DataTable.WriteXml|API> {0}, fileName='{1}', mode={2}", ObjectID, fileName, mode);
@@ -5484,11 +5463,9 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXmlSchema(Stream? stream) => WriteXmlSchema(stream, false);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXmlSchema(Stream? stream, bool writeHierarchy)
         {
             if (stream == null)
@@ -5503,11 +5480,9 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXmlSchema(TextWriter? writer) => WriteXmlSchema(writer, false);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXmlSchema(TextWriter? writer, bool writeHierarchy)
         {
             if (writer == null)
@@ -5557,11 +5532,9 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXmlSchema(XmlWriter? writer) => WriteXmlSchema(writer, false);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXmlSchema(XmlWriter? writer, bool writeHierarchy)
         {
             long logScopeId = DataCommonEventSource.Log.EnterScope("<ds.DataTable.WriteXmlSchema|API> {0}", ObjectID);
@@ -5616,11 +5589,9 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXmlSchema(string fileName) => WriteXmlSchema(fileName, false);
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void WriteXmlSchema(string fileName, bool writeHierarchy)
         {
             XmlTextWriter xw = new XmlTextWriter(fileName, null);
@@ -5638,7 +5609,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public XmlReadMode ReadXml(Stream? stream)
         {
             if (stream == null)
@@ -5655,7 +5625,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public XmlReadMode ReadXml(TextReader? reader)
         {
             if (reader == null)
@@ -5672,7 +5641,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public XmlReadMode ReadXml(string fileName)
         {
             XmlTextReader xr = new XmlTextReader(fileName);
@@ -5691,7 +5659,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public XmlReadMode ReadXml(XmlReader? reader) => ReadXml(reader, false);
 
         private void RestoreConstraint(bool originalEnforceConstraint)
@@ -5730,7 +5697,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal XmlReadMode ReadXml(XmlReader? reader, bool denyResolving)
         {
             IDisposable? restrictedScope = null;
@@ -5974,7 +5940,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal XmlReadMode ReadXml(XmlReader? reader, XmlReadMode mode, bool denyResolving)
         {
             IDisposable? restrictedScope = null;
@@ -6299,7 +6264,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private void ReadXmlDiffgram(XmlReader reader)
         {
             // fill correctly
@@ -6410,7 +6374,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal void ReadXSDSchema(XmlReader reader)
         {
             XmlSchemaSet sSet = new XmlSchemaSet();
@@ -6428,7 +6391,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void ReadXmlSchema(Stream? stream)
         {
             if (stream == null)
@@ -6440,7 +6402,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void ReadXmlSchema(TextReader? reader)
         {
             if (reader == null)
@@ -6452,7 +6413,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void ReadXmlSchema(string fileName)
         {
             XmlTextReader xr = new XmlTextReader(fileName);
@@ -6467,14 +6427,12 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         public void ReadXmlSchema(XmlReader? reader)
         {
             ReadXmlSchema(reader, false);
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal void ReadXmlSchema(XmlReader? reader, bool denyResolving)
         {
             long logScopeId = DataCommonEventSource.Log.EnterScope("<ds.DataTable.ReadXmlSchema|INFO> {0}, denyResolving={1}", ObjectID, denyResolving);
@@ -6706,18 +6664,11 @@ namespace System.Data
             return type;
         }
 
-        XmlSchema? IXmlSerializable.GetSchema()
-        {
-            if (!DataSet.XmlSerializationIsSupported)
-            {
-                throw new NotSupportedException(SR.DataSet_XmlSerializationUnsupported);
-            }
-
-            return GetXmlSchema();
-        }
+#pragma warning disable IL2026 // suppressed in ILLink.Suppressions.LibraryBuild.xml
+        XmlSchema? IXmlSerializable.GetSchema() => GetXmlSchema();
+#pragma warning restore IL2026
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2046:UnrecognizedReflectionPattern",
             Justification = "https://github.com/mono/linker/issues/1187 Trimmer thinks this implements IXmlSerializable.GetSchema() and warns about not matching attributes.")]
         protected virtual XmlSchema? GetSchema()
@@ -6735,7 +6686,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode("DataTable.GetSchema uses TypeDescriptor and XmlSerialization underneath which are not trimming safe. Members from serialized types may be trimmed if not referenced directly.")]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private XmlSchema? GetXmlSchema()
         {
             return GetSchema();
@@ -6743,11 +6693,6 @@ namespace System.Data
 
         void IXmlSerializable.ReadXml(XmlReader reader)
         {
-            if (!DataSet.XmlSerializationIsSupported)
-            {
-                throw new NotSupportedException(SR.DataSet_XmlSerializationUnsupported);
-            }
-
             IXmlTextParser? textReader = reader as IXmlTextParser;
             bool fNormalization = true;
             if (textReader != null)
@@ -6755,7 +6700,9 @@ namespace System.Data
                 fNormalization = textReader.Normalized;
                 textReader.Normalized = false;
             }
+#pragma warning disable IL2026 // suppressed in ILLink.Suppressions.LibraryBuild.xml
             ReadXmlSerializableInternal(reader);
+#pragma warning restore IL2026
 
             if (textReader != null)
             {
@@ -6764,7 +6711,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode("DataTable.ReadXml uses XmlSerialization underneath which is not trimming safe. Members from serialized types may be trimmed if not referenced directly.")]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private void ReadXmlSerializableInternal(XmlReader reader)
         {
             ReadXmlSerializable(reader);
@@ -6772,16 +6718,12 @@ namespace System.Data
 
         void IXmlSerializable.WriteXml(XmlWriter writer)
         {
-            if (!DataSet.XmlSerializationIsSupported)
-            {
-                throw new NotSupportedException(SR.DataSet_XmlSerializationUnsupported);
-            }
-
+#pragma warning disable IL2026 // suppressed in ILLink.Suppressions.LibraryBuild.xml
             WriteXmlInternal(writer);
+#pragma warning restore IL2026
         }
 
         [RequiresUnreferencedCode("DataTable.WriteXml uses XmlSerialization underneath which is not trimming safe. Members from serialized types may be trimmed if not referenced directly.")]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private void WriteXmlInternal(XmlWriter writer)
         {
             WriteXmlSchema(writer, false);
@@ -6789,7 +6731,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         protected virtual void ReadXmlSerializable(XmlReader? reader) => ReadXml(reader, XmlReadMode.DiffGram, true);
 
         // RowDiffIdUsageSection & DSRowDiffIdUsageSection Usage:

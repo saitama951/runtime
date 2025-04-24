@@ -257,9 +257,6 @@ namespace System.Security.Cryptography
             }
         }
 
-        // Windows's Finalize always does a reset.
-        public int FinalizeAndReset(Span<byte> destination) => Finalize(destination);
-
         public void Reset() => Finalize(Span<byte>.Empty);
 
         public unsafe void Current(Span<byte> destination)

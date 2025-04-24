@@ -13,6 +13,7 @@
 #include "daccess.h"
 
 #include "slist.h"
+#include "varint.h"
 #include "regdisplay.h"
 #include "StackFrameIterator.h"
 #include "thread.h"
@@ -231,13 +232,13 @@ void ETW::GCLog::MovedReference(
 #ifdef PROFILING_SUPPORTED
     // ProfAPI
     {
-        BEGIN_PROFILER_CALLBACK(CORProfilerTrackGC());
+        BEGIN_PIN_PROFILER(CORProfilerTrackGC());
         g_profControlBlock.pProfInterface->MovedReference(pbMemBlockStart,
             pbMemBlockEnd,
             cbRelocDistance,
             &(pCtxForEtwAndProfapi->pctxProfAPI),
             fCompacting);
-        END_PROFILER_CALLBACK();
+        END_PIN_PROFILER();
     }
 #endif // PROFILING_SUPPORTED
 
@@ -357,9 +358,9 @@ void ETW::GCLog::EndMovedReferences(size_t profilingContext,
 #ifdef PROFILING_SUPPORTED
     // ProfAPI
     {
-        BEGIN_PROFILER_CALLBACK(CORProfilerTrackGC());
+        BEGIN_PIN_PROFILER(CORProfilerTrackGC());
         g_profControlBlock.pProfInterface->EndMovedReferences(&(pCtxForEtwAndProfapi->pctxProfAPI));
-        END_PROFILER_CALLBACK();
+        END_PIN_PROFILER();
     }
 #endif //PROFILING_SUPPORTED
 

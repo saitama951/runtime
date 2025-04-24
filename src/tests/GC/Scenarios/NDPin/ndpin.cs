@@ -1,12 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit;
 namespace DefaultNamespace {
     using System;
     using System.Runtime.InteropServices;
 
-    public class NDPin
+    internal class NDPin
     {
 
         internal Object p;
@@ -18,8 +17,7 @@ namespace DefaultNamespace {
             this.p = p;
         }
 
-        [Fact]
-        public static int TestEntryPoint()
+        public static int Main()
         {
             Console.WriteLine("Test should return with ExitCode 100 ...");
 

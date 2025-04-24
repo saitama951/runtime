@@ -42,9 +42,6 @@ internal static partial class Interop
         internal static partial BOOL BrotliEncoderHasMoreOutput(SafeBrotliEncoderHandle state);
 
         [LibraryImport(Libraries.CompressionNative)]
-        internal static partial nuint BrotliEncoderMaxCompressedSize(nuint inputSize);
-
-        [LibraryImport(Libraries.CompressionNative)]
         internal static partial void BrotliEncoderDestroyInstance(IntPtr state);
 
         [LibraryImport(Libraries.CompressionNative)]

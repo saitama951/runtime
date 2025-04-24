@@ -66,8 +66,8 @@
 
   <!-- Allow P2Ps to retrieve the DocFileItem path. -->
   <Target Name="AnnotateTargetPathWithTargetPlatformMonikerWithDocFileItem"
-          DependsOnTargets="ChangeDocumentationFileForPackaging;GetTargetPathWithTargetPlatformMoniker"
-          BeforeTargets="GetTargetPath">
+          DependsOnTargets="ChangeDocumentationFileForPackaging"
+          AfterTargets="GetTargetPathWithTargetPlatformMoniker">
     <ItemGroup>
       <TargetPathWithTargetPlatformMoniker DocFileItem="@(DocFileItem)" />
     </ItemGroup>

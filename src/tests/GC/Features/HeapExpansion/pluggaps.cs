@@ -8,20 +8,20 @@ This test fragments the heap with ~50 byte holes, then allocates ~50 byte object
 using System;
 using System.Runtime.InteropServices;
 using System.Collections.Generic;
-using Xunit;
 
 public class Test_pluggaps
 {
     public static List<GCHandle> gchList = new List<GCHandle>();
     public static List<byte[]> bList = new List<byte[]>();
 
-    [Fact]
-    public static void TestEntryPoint()
+    public static int Main()
     {
+
         Console.WriteLine("Beginning phase 1");
         GCUtil.AllocWithGaps();
 
         Console.WriteLine("phase 1 complete");
+
 
         // losing all live references to the unpinned byte arrays
         // this will fragment the heap with ~50 byte holes
@@ -44,5 +44,7 @@ public class Test_pluggaps
 
         GC.KeepAlive(gchList);
         GC.KeepAlive(bList);
+
+        return 100;
     }
 }

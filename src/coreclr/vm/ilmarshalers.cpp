@@ -1477,19 +1477,25 @@ LocalDesc ILOleColorMarshaler::GetManagedType()
 {
     STANDARD_VM_CONTRACT;
 
+    LoaderAllocator* pLoader = m_pargs->m_pMarshalInfo->GetModule()->GetLoaderAllocator();
+    TypeHandle  hndColorType = pLoader->GetMarshalingData()->GetOleColorMarshalingInfo()->GetColorType();
+
     //
     // value class
     //
-    return LocalDesc(m_pargs->color.m_pColorType);
+    return LocalDesc(hndColorType); // System.Drawing.Color
 }
 
 void ILOleColorMarshaler::EmitConvertContentsCLRToNative(ILCodeStream* pslILEmit)
 {
     STANDARD_VM_CONTRACT;
 
+    LoaderAllocator* pLoader = m_pargs->m_pMarshalInfo->GetModule()->GetLoaderAllocator();
+    MethodDesc* pConvertMD = pLoader->GetMarshalingData()->GetOleColorMarshalingInfo()->GetSystemColorToOleColorMD();
+
     EmitLoadManagedValue(pslILEmit);
-    pslILEmit->EmitBOX(pslILEmit->GetToken(m_pargs->color.m_pColorType));
-    pslILEmit->EmitCALL(METHOD__COLORMARSHALER__CONVERT_TO_NATIVE, 1, 1);
+    // int System.Drawing.ColorTranslator.ToOle(System.Drawing.Color c)
+    pslILEmit->EmitCALL(pslILEmit->GetToken(pConvertMD), 1, 1);
     EmitStoreNativeValue(pslILEmit);
 }
 
@@ -1497,9 +1503,12 @@ void ILOleColorMarshaler::EmitConvertContentsNativeToCLR(ILCodeStream* pslILEmit
 {
     STANDARD_VM_CONTRACT;
 
+    LoaderAllocator* pLoader = m_pargs->m_pMarshalInfo->GetModule()->GetLoaderAllocator();
+    MethodDesc* pConvertMD = pLoader->GetMarshalingData()->GetOleColorMarshalingInfo()->GetOleColorToSystemColorMD();
+
     EmitLoadNativeValue(pslILEmit);
-    pslILEmit->EmitCALL(METHOD__COLORMARSHALER__CONVERT_TO_MANAGED, 1, 1);
-    pslILEmit->EmitUNBOX_ANY(pslILEmit->GetToken(m_pargs->color.m_pColorType));
+    // System.Drawing.Color System.Drawing.ColorTranslator.FromOle(int oleColor)
+    pslILEmit->EmitCALL(pslILEmit->GetToken(pConvertMD), 1, 1);
     EmitStoreManagedValue(pslILEmit);
 }
 
@@ -2224,10 +2233,9 @@ void ILLayoutClassPtrMarshalerBase::EmitConvertSpaceNativeToCLR(ILCodeStream* ps
     pslILEmit->EmitBRFALSE(pNullRefLabel);
 
     pslILEmit->EmitLDTOKEN(pslILEmit->GetToken(m_pargs->m_pMT));
-    // static Type Type.GetTypeFromHandle(RuntimeTypeHandle handle)
-    pslILEmit->EmitCALL(METHOD__TYPE__GET_TYPE_FROM_HANDLE, 1, 1);
-    // static object RuntimeHelpers.GetUninitializedObject(Type type)
-    pslILEmit->EmitCALL(METHOD__RUNTIME_HELPERS__GET_UNINITIALIZED_OBJECT, 1, 1);
+    pslILEmit->EmitCALL(METHOD__RT_TYPE_HANDLE__TO_INTPTR, 1, 1);
+    // static object AllocateInternal(IntPtr typeHandle);
+    pslILEmit->EmitCALL(METHOD__STUBHELPERS__ALLOCATE_INTERNAL, 1, 1);
     EmitStoreManagedValue(pslILEmit);
     pslILEmit->EmitLabel(pNullRefLabel);
 }
@@ -2636,7 +2644,8 @@ MarshalerOverrideStatus ILHandleRefMarshaler::ArgumentOverride(NDirectStubLinker
                                                 BOOL               fManagedToNative,
                                                 OverrideProcArgs*  pargs,
                                                 UINT*              pResID,
-                                                UINT               argidx)
+                                                UINT               argidx,
+                                                UINT               nativeStackOffset)
 {
     CONTRACTL
     {
@@ -2728,7 +2737,8 @@ MarshalerOverrideStatus ILSafeHandleMarshaler::ArgumentOverride(NDirectStubLinke
                                                 BOOL               fManagedToNative,
                                                 OverrideProcArgs*  pargs,
                                                 UINT*              pResID,
-                                                UINT               argidx)
+                                                UINT               argidx,
+                                                UINT               nativeStackOffset)
 {
     CONTRACTL
     {
@@ -3085,7 +3095,8 @@ MarshalerOverrideStatus ILCriticalHandleMarshaler::ArgumentOverride(NDirectStubL
                                                 BOOL               fManagedToNative,
                                                 OverrideProcArgs*  pargs,
                                                 UINT*              pResID,
-                                                UINT               argidx)
+                                                UINT               argidx,
+                                                UINT               nativeStackOffset)
 {
     CONTRACTL
     {
@@ -3391,7 +3402,8 @@ MarshalerOverrideStatus ILBlittableValueClassWithCopyCtorMarshaler::ArgumentOver
                                                 BOOL               fManagedToNative,
                                                 OverrideProcArgs*  pargs,
                                                 UINT*              pResID,
-                                                UINT               argidx)
+                                                UINT               argidx,
+                                                UINT               nativeStackOffset)
 {
     CONTRACTL
     {
@@ -3412,40 +3424,75 @@ MarshalerOverrideStatus ILBlittableValueClassWithCopyCtorMarshaler::ArgumentOver
 
     if (fManagedToNative)
     {
+        // 1) create new native value type local
+        // 2) run new->CopyCtor(old)
+        // 3) run old->Dtor()
+
+        LocalDesc   locDesc(pargs->mm.m_pMT);
+
+        DWORD       dwNewValueTypeLocal;
+
+        // Step 1
+        dwNewValueTypeLocal = pslIL->NewLocal(locDesc);
+
+        // Step 2
+        if (pargs->mm.m_pCopyCtor)
+        {
+            // Managed copy constructor has signature of CopyCtor(T* new, T old);
+            pslIL->EmitLDLOCA(dwNewValueTypeLocal);
+            pslIL->EmitLDARG(argidx);
+            pslIL->EmitCALL(pslIL->GetToken(pargs->mm.m_pCopyCtor), 2, 0);
+        }
+        else
+        {
+            pslIL->EmitLDARG(argidx);
+            pslIL->EmitLDOBJ(pslIL->GetToken(pargs->mm.m_pMT));
+            pslIL->EmitSTLOC(dwNewValueTypeLocal);
+        }
+
+        // Step 3
+        if (pargs->mm.m_pDtor)
+        {
+            // Managed destructor has signature of Destructor(T old);
+            pslIL->EmitLDARG(argidx);
+            pslIL->EmitCALL(pslIL->GetToken(pargs->mm.m_pDtor), 1, 0);
+        }
 #ifdef TARGET_X86
-        LocalDesc   locDesc(pargs->mm.m_pMT);
         pslIL->SetStubTargetArgType(&locDesc);              // native type is the value type
-        locDesc.MakeByRef();
+        pslILDispatch->EmitLDLOC(dwNewValueTypeLocal);      // we load the local directly
 
-        locDesc.MakePinned();
+        // Record this argument's stack slot in the copy constructor chain so we can correctly invoke the copy constructor.
+        DWORD ctorCookie = pslIL->NewLocal(CoreLibBinder::GetClass(CLASS__COPY_CONSTRUCTOR_COOKIE));
+        pslIL->EmitLDLOCA(ctorCookie);
+        pslIL->EmitINITOBJ(pslIL->GetToken(CoreLibBinder::GetClass(CLASS__COPY_CONSTRUCTOR_COOKIE)));
+        pslIL->EmitLDLOCA(ctorCookie);
+        pslIL->EmitLDLOCA(dwNewValueTypeLocal);
+        pslIL->EmitSTFLD(pslIL->GetToken(CoreLibBinder::GetField(FIELD__COPY_CONSTRUCTOR_COOKIE__SOURCE)));
+        pslIL->EmitLDLOCA(ctorCookie);
+        pslIL->EmitLDC(nativeStackOffset);
+        pslIL->EmitSTFLD(pslIL->GetToken(CoreLibBinder::GetField(FIELD__COPY_CONSTRUCTOR_COOKIE__DESTINATION_OFFSET)));
 
-        DWORD       dwPinnedArgLocal;
+        if (pargs->mm.m_pCopyCtor)
+        {
+            pslIL->EmitLDLOCA(ctorCookie);
+            pslIL->EmitLDFTN(pslIL->GetToken(pargs->mm.m_pCopyCtor));
+            pslIL->EmitSTFLD(pslIL->GetToken(CoreLibBinder::GetField(FIELD__COPY_CONSTRUCTOR_COOKIE__COPY_CONSTRUCTOR)));
+        }
 
-        // Step 1
-        dwPinnedArgLocal = pslIL->NewLocal(locDesc);
+        if (pargs->mm.m_pDtor)
+        {
+            pslIL->EmitLDLOCA(ctorCookie);
+            pslIL->EmitLDFTN(pslIL->GetToken(pargs->mm.m_pDtor));
+            pslIL->EmitSTFLD(pslIL->GetToken(CoreLibBinder::GetField(FIELD__COPY_CONSTRUCTOR_COOKIE__DESTRUCTOR)));
+        }
 
-        pslIL->EmitLDARG(argidx);
-        pslIL->EmitSTLOC(dwPinnedArgLocal);
+        pslIL->EmitLDLOCA(psl->GetCopyCtorChainLocalNum());
+        pslIL->EmitLDLOCA(ctorCookie);
+        pslIL->EmitCALL(METHOD__COPY_CONSTRUCTOR_CHAIN__ADD, 2, 0);
 
-        pslILDispatch->EmitLDARG(argidx);
-        pslILDispatch->EmitLDOBJ(pslIL->GetToken(pargs->mm.m_pMT));
 #else
-        LocalDesc   locDesc(pargs->mm.m_pMT);
-
-        locDesc.MakeByRef();
-        locDesc.MakePinned();
-
-        DWORD       dwPinnedArgLocal;
-
-        // Step 1
-        dwPinnedArgLocal = pslIL->NewLocal(locDesc);
-
-        pslIL->EmitLDARG(argidx);
-        pslIL->EmitSTLOC(dwPinnedArgLocal);
-
-        pslIL->SetStubTargetArgType(ELEMENT_TYPE_U);        // native type is a pointer
-        pslILDispatch->EmitLDLOC(dwPinnedArgLocal);
-        pslILDispatch->EmitCONV_U();
+        pslIL->SetStubTargetArgType(ELEMENT_TYPE_I);        // native type is a pointer
+        EmitLoadNativeLocalAddrForByRefDispatch(pslILDispatch, dwNewValueTypeLocal);
 #endif
 
         return OVERRIDDEN;
@@ -3457,9 +3504,10 @@ MarshalerOverrideStatus ILBlittableValueClassWithCopyCtorMarshaler::ArgumentOver
         // but on other platforms it comes by-reference
 #ifdef TARGET_X86
         LocalDesc locDesc(pargs->mm.m_pMT);
-        locDesc.AddModifier(true, pargs->mm.m_pSigMod);
         pslIL->SetStubTargetArgType(&locDesc);
 
+        DWORD       dwNewValueTypeLocal;
+        dwNewValueTypeLocal = pslIL->NewLocal(locDesc);
         pslILDispatch->EmitLDARGA(argidx);
 #else
         LocalDesc   locDesc(pargs->mm.m_pMT);
@@ -3514,11 +3562,11 @@ void ILArgIteratorMarshaler::EmitConvertSpaceAndContentsCLRToNative(ILCodeStream
     pslILEmit->EmitLOCALLOC();
     EmitStoreNativeValue(pslILEmit);
 
-    // void MarshalToUnmanagedVaList(va_list, uint vaListSize, VARARGS* data)
+    // void MarshalToUnmanagedVaListInternal(va_list, uint vaListSize, VARARGS* data)
     EmitLoadNativeValue(pslILEmit);
     pslILEmit->EmitLDLOC(dwVaListSizeLocal);
     EmitLoadManagedHomeAddr(pslILEmit);
-    pslILEmit->EmitCALL(METHOD__STUBHELPERS__MARSHAL_TO_UNMANAGED_VA_LIST, 3, 0);
+    pslILEmit->EmitCALL(METHOD__STUBHELPERS__MARSHAL_TO_UNMANAGED_VA_LIST_INTERNAL, 3, 0);
 }
 
 void ILArgIteratorMarshaler::EmitConvertContentsNativeToCLR(ILCodeStream* pslILEmit)
@@ -3527,7 +3575,7 @@ void ILArgIteratorMarshaler::EmitConvertContentsNativeToCLR(ILCodeStream* pslILE
     EmitLoadManagedHomeAddr(pslILEmit);
 
     // void MarshalToManagedVaList(va_list va, VARARGS *dataout)
-    pslILEmit->EmitCALL(METHOD__STUBHELPERS__MARSHAL_TO_MANAGED_VA_LIST, 2, 0);
+    pslILEmit->EmitCALL(METHOD__STUBHELPERS__MARSHAL_TO_MANAGED_VA_LIST_INTERNAL, 2, 0);
 }
 
 LocalDesc ILArrayWithOffsetMarshaler::GetNativeType()
@@ -4335,7 +4383,7 @@ extern "C" void QCALLTYPE MngdNativeArrayMarshaler_ConvertContentsToNative(MngdN
             if ( (!ClrSafeInt<SIZE_T>::multiply(cElements, OleVariant::GetElementSizeForVarType(pThis->m_vt, pThis->m_pElementMT), cElements)) || cElements > MAX_SIZE_FOR_INTEROP)
                 COMPlusThrow(kArgumentException, IDS_EE_STRUCTARRAYTOOLARGE);
 
-            _ASSERTE(!OleVariant::GetTypeHandleForVarType(pThis->m_vt).GetMethodTable()->ContainsGCPointers());
+            _ASSERTE(!GetTypeHandleForCVType(OleVariant::GetCVTypeForVarType(pThis->m_vt)).GetMethodTable()->ContainsGCPointers());
             memcpyNoGCRefs(*pNativeHome, arrayRef->GetDataPtr(), cElements);
         }
         else
@@ -4404,7 +4452,7 @@ extern "C" void QCALLTYPE MngdNativeArrayMarshaler_ConvertContentsToManaged(Mngd
                 COMPlusThrow(kArgumentException, IDS_EE_STRUCTARRAYTOOLARGE);
 
                 // If we are copying variants, strings, etc, we need to use write barrier
-            _ASSERTE(!OleVariant::GetTypeHandleForVarType(pThis->m_vt).GetMethodTable()->ContainsGCPointers());
+            _ASSERTE(!GetTypeHandleForCVType(OleVariant::GetCVTypeForVarType(pThis->m_vt)).GetMethodTable()->ContainsGCPointers());
             memcpyNoGCRefs(arrayRef->GetDataPtr(), *pNativeHome, cElements);
         }
         else
@@ -4519,7 +4567,7 @@ extern "C" void QCALLTYPE MngdFixedArrayMarshaler_ConvertContentsToNative(MngdFi
             SIZE_T cElements = arrayRef->GetNumComponents();
             if (pMarshaler == NULL || pMarshaler->ComToOleArray == NULL)
             {
-                _ASSERTE(!OleVariant::GetTypeHandleForVarType(pThis->m_vt).GetMethodTable()->ContainsGCPointers());
+                _ASSERTE(!GetTypeHandleForCVType(OleVariant::GetCVTypeForVarType(pThis->m_vt)).GetMethodTable()->ContainsGCPointers());
                 memcpyNoGCRefs(pNativeHome, arrayRef->GetDataPtr(), nativeSize);
             }
             else
@@ -4593,7 +4641,7 @@ extern "C" void QCALLTYPE MngdFixedArrayMarshaler_ConvertContentsToManaged(MngdF
         if (pMarshaler == NULL || pMarshaler->OleToComArray == NULL)
         {
             // If we are copying variants, strings, etc, we need to use write barrier
-            _ASSERTE(!OleVariant::GetTypeHandleForVarType(pThis->m_vt).GetMethodTable()->ContainsGCPointers());
+            _ASSERTE(!GetTypeHandleForCVType(OleVariant::GetCVTypeForVarType(pThis->m_vt)).GetMethodTable()->ContainsGCPointers());
             memcpyNoGCRefs(arrayRef->GetDataPtr(), pNativeHome, nativeSize);
         }
         else
@@ -4926,7 +4974,7 @@ void ILReferenceCustomMarshaler::EmitCreateMngdMarshaler(ILCodeStream* pslILEmit
     m_dwMngdMarshalerLocalNum = pslILEmit->NewLocal(LocalDesc(CoreLibBinder::GetClass(CLASS__ICUSTOM_MARSHALER)));
 
     //
-    // call CreateCustomMarshaler
+    // call CreateCustomMarshalerHelper
     //
 
     pslILEmit->EmitLDTOKEN(pslILEmit->GetToken(m_pargs->rcm.m_pMD));
@@ -4937,7 +4985,10 @@ void ILReferenceCustomMarshaler::EmitCreateMngdMarshaler(ILCodeStream* pslILEmit
     pslILEmit->EmitLDTOKEN(pslILEmit->GetToken(TypeHandle::FromPtr(m_pargs->rcm.m_hndManagedType)));
     pslILEmit->EmitCALL(METHOD__RT_TYPE_HANDLE__TO_INTPTR, 1, 1);
 
-    pslILEmit->EmitCALL(METHOD__STUBHELPERS__CREATE_CUSTOM_MARSHALER, 3, 1);  // Create the ICustomMarshaler
+    pslILEmit->EmitCALL(METHOD__STUBHELPERS__CREATE_CUSTOM_MARSHALER_HELPER, 3, 1);  // Create the CustomMarshalerHelper
+
+    // Get the managed ICustomMarshaler object from the helper
+    pslILEmit->EmitCALL(METHOD__MNGD_REF_CUSTOM_MARSHALER__GET_MARSHALER, 1, 1);
 
     pslILEmit->EmitSTLOC(m_dwMngdMarshalerLocalNum); // Store the ICustomMarshaler as our marshaler state
 }

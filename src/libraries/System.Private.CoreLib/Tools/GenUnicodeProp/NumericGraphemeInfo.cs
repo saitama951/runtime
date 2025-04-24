@@ -55,7 +55,8 @@ namespace GenUnicodeProp
         public static byte[] ToNumericBytes(NumericGraphemeInfo input)
         {
             byte[] bytes = new byte[sizeof(double)];
-            BinaryPrimitives.WriteDoubleLittleEndian(bytes, input._data.numericValue);
+            double value = input._data.numericValue;
+            BinaryPrimitives.WriteUInt64LittleEndian(bytes, Unsafe.As<double, ulong>(ref value));
             return bytes;
         }
 

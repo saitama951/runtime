@@ -2,17 +2,14 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 
 namespace System.Reflection
 {
-    [EditorBrowsable(EditorBrowsableState.Never)]
     public static partial class RuntimeReflectionExtensions
     {
         private const BindingFlags Everything = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance;
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public static IEnumerable<FieldInfo> GetRuntimeFields(
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)]
             this Type type)
@@ -22,7 +19,6 @@ namespace System.Reflection
             return type.GetFields(Everything);
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public static IEnumerable<MethodInfo> GetRuntimeMethods(
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods)]
             this Type type)
@@ -32,7 +28,6 @@ namespace System.Reflection
             return type.GetMethods(Everything);
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public static IEnumerable<PropertyInfo> GetRuntimeProperties(
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties)]
             this Type type)
@@ -42,7 +37,6 @@ namespace System.Reflection
             return type.GetProperties(Everything);
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public static IEnumerable<EventInfo> GetRuntimeEvents(
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicEvents | DynamicallyAccessedMemberTypes.NonPublicEvents)]
             this Type type)
@@ -52,7 +46,6 @@ namespace System.Reflection
             return type.GetEvents(Everything);
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public static FieldInfo? GetRuntimeField(
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)]
             this Type type, string name)
@@ -62,7 +55,6 @@ namespace System.Reflection
             return type.GetField(name);
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public static MethodInfo? GetRuntimeMethod(
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
             this Type type, string name, Type[] parameters)
@@ -72,7 +64,6 @@ namespace System.Reflection
             return type.GetMethod(name, parameters);
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public static PropertyInfo? GetRuntimeProperty(
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)]
             this Type type, string name)
@@ -82,7 +73,6 @@ namespace System.Reflection
             return type.GetProperty(name);
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public static EventInfo? GetRuntimeEvent(
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicEvents)]
             this Type type, string name)
@@ -92,7 +82,6 @@ namespace System.Reflection
             return type.GetEvent(name);
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public static MethodInfo? GetRuntimeBaseDefinition(this MethodInfo method)
         {
             ArgumentNullException.ThrowIfNull(method);
@@ -100,7 +89,6 @@ namespace System.Reflection
             return method.GetBaseDefinition();
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public static InterfaceMapping GetRuntimeInterfaceMap(this TypeInfo typeInfo, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods)] Type interfaceType)
         {
             ArgumentNullException.ThrowIfNull(typeInfo);
@@ -108,7 +96,6 @@ namespace System.Reflection
             return typeInfo.GetInterfaceMap(interfaceType);
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public static MethodInfo GetMethodInfo(this Delegate del)
         {
             ArgumentNullException.ThrowIfNull(del);

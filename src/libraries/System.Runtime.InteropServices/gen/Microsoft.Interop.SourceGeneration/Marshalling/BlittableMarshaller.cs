@@ -9,7 +9,7 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Microsoft.Interop
 {
-    public sealed class BlittableMarshaller : IUnboundMarshallingGenerator
+    public sealed class BlittableMarshaller : IMarshallingGenerator
     {
         public ManagedTypeInfo AsNativeType(TypePositionInfo info)
         {
@@ -34,16 +34,16 @@ namespace Microsoft.Interop
             return ValueBoundaryBehavior.AddressOfNativeIdentifier;
         }
 
-        public IEnumerable<StatementSyntax> Generate(TypePositionInfo info, StubCodeContext codeContext, StubIdentifierContext context)
+        public IEnumerable<StatementSyntax> Generate(TypePositionInfo info, StubCodeContext context)
         {
-            if (!info.IsByRef || codeContext.IsInStubReturnPosition(info))
+            if (!info.IsByRef || context.IsInStubReturnPosition(info))
                 yield break;
 
             (string managedIdentifier, string nativeIdentifier) = context.GetIdentifiers(info);
 
-            if (codeContext.SingleFrameSpansNativeContext)
+            if (context.SingleFrameSpansNativeContext)
             {
-                if (context.CurrentStage == StubIdentifierContext.Stage.Pin)
+                if (context.CurrentStage == StubCodeContext.Stage.Pin)
                 {
                     yield return FixedStatement(
                         VariableDeclaration(
@@ -62,14 +62,14 @@ namespace Microsoft.Interop
                 yield break;
             }
 
-            MarshalDirection direction = MarshallerHelpers.GetMarshalDirection(info, codeContext);
+            MarshalDirection elementMarshalling = MarshallerHelpers.GetMarshalDirection(info, context);
 
             switch (context.CurrentStage)
             {
-                case StubIdentifierContext.Stage.Setup:
+                case StubCodeContext.Stage.Setup:
                     break;
-                case StubIdentifierContext.Stage.Marshal:
-                    if (direction is MarshalDirection.ManagedToUnmanaged or MarshalDirection.Bidirectional && info.IsByRef)
+                case StubCodeContext.Stage.Marshal:
+                    if (elementMarshalling is MarshalDirection.ManagedToUnmanaged or MarshalDirection.Bidirectional && info.IsByRef)
                     {
                         yield return ExpressionStatement(
                             AssignmentExpression(
@@ -79,8 +79,8 @@ namespace Microsoft.Interop
                     }
 
                     break;
-                case StubIdentifierContext.Stage.Unmarshal:
-                    if (direction is MarshalDirection.UnmanagedToManaged or MarshalDirection.Bidirectional && info.IsByRef)
+                case StubCodeContext.Stage.Unmarshal:
+                    if (elementMarshalling is MarshalDirection.UnmanagedToManaged or MarshalDirection.Bidirectional && info.IsByRef)
                     {
                         yield return ExpressionStatement(
                             AssignmentExpression(
@@ -99,7 +99,7 @@ namespace Microsoft.Interop
             return info.IsByRef && !context.IsInStubReturnPosition(info) && !context.SingleFrameSpansNativeContext;
         }
 
-        public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, TypePositionInfo info, out GeneratorDiagnostic? diagnostic)
-            => ByValueMarshalKindSupportDescriptor.Default.GetSupport(marshalKind, info, out diagnostic);
+        public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, TypePositionInfo info, StubCodeContext context, out GeneratorDiagnostic? diagnostic)
+            => ByValueMarshalKindSupportDescriptor.Default.GetSupport(marshalKind, info, context, out diagnostic);
     }
 }

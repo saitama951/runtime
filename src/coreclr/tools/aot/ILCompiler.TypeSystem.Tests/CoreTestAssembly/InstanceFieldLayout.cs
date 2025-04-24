@@ -118,9 +118,6 @@ namespace Explicit
 
     ref struct ByRefStruct
     {
-#pragma warning disable CS9265 // Field is never ref-assigned to, and will always have its default value (null reference)
-        public ref int R;
-#pragma warning restore CS9265
     }
 }
 

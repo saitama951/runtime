@@ -7,7 +7,6 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
-using Xunit;
 
 public class Dummy
 {
@@ -97,8 +96,7 @@ public class Test_Target
         }
     }
 
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         bool passed1, passed2;
 

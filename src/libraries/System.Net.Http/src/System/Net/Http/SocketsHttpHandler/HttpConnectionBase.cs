@@ -148,7 +148,6 @@ namespace System.Net.Http
         {
             if (stream is SslStream sslStream)
             {
-#pragma warning disable SYSLIB0058 // Use NegotiatedCipherSuite.
                 Trace(
                     $"{this}. Id:{Id}, " +
                     $"SslProtocol:{sslStream.SslProtocol}, NegotiatedApplicationProtocol:{sslStream.NegotiatedApplicationProtocol}, " +
@@ -156,7 +155,6 @@ namespace System.Net.Http
                     $"HashAlgorithm:{sslStream.HashAlgorithm}, HashStrength:{sslStream.HashStrength}, " +
                     $"KeyExchangeAlgorithm:{sslStream.KeyExchangeAlgorithm}, KeyExchangeStrength:{sslStream.KeyExchangeStrength}, " +
                     $"LocalCertificate:{sslStream.LocalCertificate}, RemoteCertificate:{sslStream.RemoteCertificate}");
-#pragma warning restore SYSLIB0058 // Use NegotiatedCipherSuite.
             }
             else
             {

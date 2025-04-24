@@ -20,7 +20,7 @@ namespace System.Tests
 #if !Unix
             return Environment.GetEnvironmentVariable("COMPUTERNAME");
 #else
-            if (PlatformDetection.IsBrowser || PlatformDetection.IsWasi)
+            if (PlatformDetection.IsBrowser)
                 return "localhost";
             string temp = Interop.Sys.GetHostName();
             int index = temp.IndexOf('.');

@@ -3,11 +3,9 @@
 
 import { MonoMethod, MonoType } from "./types/internal";
 import { NativePointer } from "./types/emscripten";
-import { mono_assert } from "./globals";
+import { Module, mono_assert } from "./globals";
 import {
-    setI32, getU32_unaligned, _zero_region,
-    malloc,
-    free
+    setI32, getU32_unaligned, _zero_region
 } from "./memory";
 import { WasmOpcode } from "./jiterpreter-opcodes";
 import cwraps from "./cwraps";
@@ -138,7 +136,7 @@ class TrampolineInfo {
             this.traceName = subName;
         } finally {
             if (namePtr)
-                free(<any>namePtr);
+                Module._free(<any>namePtr);
         }
     }
 
@@ -451,7 +449,7 @@ function flush_wasm_entry_trampoline_jit_queue () {
                 ;
             }
 
-            const buf = builder.getArrayView(false, true);
+            const buf = builder.getArrayView();
             for (let i = 0; i < buf.length; i++) {
                 const b = buf[i];
                 if (b < 0x10)
@@ -556,7 +554,7 @@ function generate_wasm_body (
     // FIXME: Pre-allocate these buffers and their constant slots at the start before we
     //  generate function bodies, so that even if we run out of constant slots for MonoType we
     //  will always have put the buffers in a constant slot. This will be necessary for thread safety
-    const scratchBuffer = <any>malloc(sizeOfJiterpEntryData);
+    const scratchBuffer = <any>Module._malloc(sizeOfJiterpEntryData);
     _zero_region(scratchBuffer, sizeOfJiterpEntryData);
 
     // Initialize the parameter count in the data blob. This is used to calculate the new value of sp

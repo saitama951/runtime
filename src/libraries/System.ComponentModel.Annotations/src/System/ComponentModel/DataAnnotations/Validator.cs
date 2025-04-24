@@ -522,6 +522,7 @@ namespace System.ComponentModel.DataAnnotations
             {
                 var context = CreateValidationContext(instance, validationContext);
                 context.MemberName = property.Name;
+                context.MemberType = property.PropertyType;
 
                 if (_store.GetPropertyValidationAttributes(context).Any())
                 {

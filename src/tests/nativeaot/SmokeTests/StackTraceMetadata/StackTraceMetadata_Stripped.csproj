@@ -9,8 +9,6 @@
     <CLRTestTargetUnsupported Condition="'$(TargetsAppleMobile)' == 'true'">true</CLRTestTargetUnsupported>
     <DefineConstants>$(DefineConstants);STRIPPED</DefineConstants>
     <StackTraceSupport>false</StackTraceSupport>
-    <RequiresProcessIsolation>true</RequiresProcessIsolation>
-    <ReferenceXUnitWrapperGenerator>false</ReferenceXUnitWrapperGenerator>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="StackTraceMetadata.cs" />

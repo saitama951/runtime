@@ -1,5 +1,2 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <Compile Include="..\..\src\ILLink.Shared\DynamicallyAccessedMemberTypesEx.cs" Link="Support\DynamicallyAccessedMemberTypesEx.cs" />
-  </ItemGroup>
 </Project>

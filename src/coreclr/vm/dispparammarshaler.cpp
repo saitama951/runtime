@@ -96,7 +96,14 @@ void DispParamOleColorMarshaler::MarshalNativeToManaged(VARIANT *pSrcVar, OBJECT
     OLE_COLOR OleColor = bByref ? *V_UI4REF(pSrcVar) : V_UI4(pSrcVar);
 
     // Convert the OLECOLOR to a System.Drawing.Color.
-    ConvertOleColorToSystemColor(OleColor, pDestObj);
+    SYSTEMCOLOR MngColor;
+    ConvertOleColorToSystemColor(OleColor, &MngColor);
+
+    // Box the System.Drawing.Color value class and give back the boxed object.
+    TypeHandle hndColorType =
+        AppDomain::GetCurrentDomain()->GetLoaderAllocator()->GetMarshalingData()->GetOleColorMarshalingInfo()->GetColorType();
+
+    *pDestObj = hndColorType.GetMethodTable()->Box(&MngColor);
 }
 
 void DispParamOleColorMarshaler::MarshalManagedToNative(OBJECTREF *pSrcObj, VARIANT *pDestVar)
@@ -347,7 +354,7 @@ void DispParamArrayMarshaler::MarshalManagedToNativeRef(OBJECTREF *pSrcObj, VARI
     }
 
     // Copy the converted variant back into the byref variant.
-    OleVariant::InsertContentsIntoByRefVariant(&vtmp, pRefVar);
+    OleVariant::InsertContentsIntoByrefVariant(&vtmp, pRefVar);
 }
 
 void DispParamRecordMarshaler::MarshalNativeToManaged(VARIANT *pSrcVar, OBJECTREF *pDestObj)
@@ -549,18 +556,7 @@ void DispParamCustomMarshaler::MarshalNativeToManaged(VARIANT *pSrcVar, OBJECTRE
     IUnknown *pUnk = bByref ? *V_UNKNOWNREF(pSrcVar) : V_UNKNOWN(pSrcVar);
 
     // Marshal the contents of the VARIANT using the custom marshaler.
-    OBJECTREF customMarshaler = m_pCMInfo->GetCustomMarshaler();
-    GCPROTECT_BEGIN (customMarshaler);
-    MethodDescCallSite marshalNativeToManaged(METHOD__MNGD_REF_CUSTOM_MARSHALER__CONVERT_CONTENTS_TO_MANAGED);
-
-    ARG_SLOT Args[] = {
-        ObjToArgSlot(customMarshaler),
-        PtrToArgSlot(pDestObj),
-        PtrToArgSlot(&pUnk)
-    };
-
-    marshalNativeToManaged.Call(Args);
-    GCPROTECT_END ();
+    *pDestObj = m_pCMHelper->InvokeMarshalNativeToManagedMeth(pUnk);
 }
 
 void DispParamCustomMarshaler::MarshalManagedToNative(OBJECTREF *pSrcObj, VARIANT *pDestVar)
@@ -581,21 +577,7 @@ void DispParamCustomMarshaler::MarshalManagedToNative(OBJECTREF *pSrcObj, VARIAN
     SafeVariantClear(pDestVar);
 
     // Invoke the MarshalManagedToNative method.
-    IUnknown* pUnkRaw = nullptr;
-    OBJECTREF customMarshaler = m_pCMInfo->GetCustomMarshaler();
-    GCPROTECT_BEGIN (customMarshaler);
-    MethodDescCallSite marshalManagedToNative(METHOD__MNGD_REF_CUSTOM_MARSHALER__CONVERT_CONTENTS_TO_NATIVE);
-
-    ARG_SLOT Args[] = {
-        ObjToArgSlot(customMarshaler),
-        PtrToArgSlot(pSrcObj),
-        PtrToArgSlot(&pUnkRaw)
-    };
-
-    marshalManagedToNative.Call(Args);
-    GCPROTECT_END();
-    pUnk = pUnkRaw;
-
+    pUnk = (IUnknown*)m_pCMHelper->InvokeMarshalManagedToNativeMeth(*pSrcObj);
     if (!pUnk)
     {
         // Put a null IDispatch pointer in the VARIANT.
@@ -649,18 +631,7 @@ void DispParamCustomMarshaler::MarshalManagedToNativeRef(OBJECTREF *pSrcObj, VAR
     SafeVariantClear(&vtmp);
 
     // Convert the object using the custom marshaler.
-    OBJECTREF customMarshaler = m_pCMInfo->GetCustomMarshaler();
-    GCPROTECT_BEGIN (customMarshaler);
-    MethodDescCallSite marshalManagedToNative(METHOD__MNGD_REF_CUSTOM_MARSHALER__CONVERT_CONTENTS_TO_NATIVE);
-
-    ARG_SLOT Args[] = {
-        ObjToArgSlot(customMarshaler),
-        PtrToArgSlot(pSrcObj),
-        PtrToArgSlot(V_UNKNOWN(&vtmp))
-    };
-
-    marshalManagedToNative.Call(Args);
-    GCPROTECT_END();
+    V_UNKNOWN(&vtmp) = (IUnknown*)m_pCMHelper->InvokeMarshalManagedToNativeMeth(*pSrcObj);
     V_VT(&vtmp) = m_vt;
 
     // Call VariantChangeType if required.
@@ -678,7 +649,7 @@ void DispParamCustomMarshaler::MarshalManagedToNativeRef(OBJECTREF *pSrcObj, VAR
     }
 
     // Copy the converted variant back into the byref variant.
-    OleVariant::InsertContentsIntoByRefVariant(&vtmp, pRefVar);
+    OleVariant::InsertContentsIntoByrefVariant(&vtmp, pRefVar);
 }
 
 void DispParamCustomMarshaler::CleanUpManaged(OBJECTREF *pObj)
@@ -690,19 +661,5 @@ void DispParamCustomMarshaler::CleanUpManaged(OBJECTREF *pObj)
         MODE_COOPERATIVE;
     }
     CONTRACTL_END;
-
-    OBJECTREF customMarshaler = m_pCMInfo->GetCustomMarshaler();
-    GCPROTECT_BEGIN (customMarshaler);
-    MethodDescCallSite clearManaged(METHOD__MNGD_REF_CUSTOM_MARSHALER__CLEAR_MANAGED);
-
-    void* dummyNative = nullptr;
-
-    ARG_SLOT Args[] = {
-        ObjToArgSlot(customMarshaler),
-        PtrToArgSlot(pObj),
-        PtrToArgSlot(&dummyNative)
-    };
-
-    clearManaged.Call(Args);
-    GCPROTECT_END ();
+    m_pCMHelper->InvokeCleanUpManagedMeth(*pObj);
 }

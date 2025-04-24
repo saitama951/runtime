@@ -40,27 +40,14 @@
 #define EMBED_HASH_LO_PART_UTF8 "74e592c2fa383d4a3960714caef0c4f2"
 #define EMBED_HASH_FULL_UTF8    (EMBED_HASH_HI_PART_UTF8 EMBED_HASH_LO_PART_UTF8) // NUL terminated
 
-// This avoids compiler optimization which cause EMBED_HASH_HI_PART_UTF8 EMBED_HASH_LO_PART_UTF8
-// to be placed adjacent causing them to match EMBED_HASH_FULL_UTF8 when searched for replacing.
-// See https://github.com/dotnet/runtime/issues/109611 for more details.
-static bool compare_memory_nooptimization(volatile const char* a, volatile const char* b, size_t length)
-{
-    for (size_t i = 0; i < length; i++)
-    {
-        if (*a++ != *b++)
-            return false;
-    }
-    return true;
-}
-
 bool is_exe_enabled_for_execution(pal::string_t* app_dll)
 {
     constexpr int EMBED_SZ = sizeof(EMBED_HASH_FULL_UTF8) / sizeof(EMBED_HASH_FULL_UTF8[0]);
     constexpr int EMBED_MAX = (EMBED_SZ > 1025 ? EMBED_SZ : 1025); // 1024 DLL name length, 1 NUL
 
     // Contains the EMBED_HASH_FULL_UTF8 value at compile time or the managed DLL name replaced by "dotnet build".
-    // Must not be 'const' because strlen below could be determined at compile time (=64) instead of the actual
-    // length of the string at runtime.
+    // Must not be 'const' because std::string(&embed[0]) below would bind to a const string ctor plus length
+    // where length is determined at compile time (=64) instead of the actual length of the string at runtime.
     static char embed[EMBED_MAX] = EMBED_HASH_FULL_UTF8;     // series of NULs followed by embed hash string
 
     static const char hi_part[] = EMBED_HASH_HI_PART_UTF8;
@@ -72,10 +59,10 @@ bool is_exe_enabled_for_execution(pal::string_t* app_dll)
         return false;
     }
 
-    size_t binding_len = strlen(&embed[0]);
+    std::string binding(&embed[0]);
 
     // Check if the path exceeds the max allowed size
-    if (binding_len > EMBED_MAX - 1) // -1 for null terminator
+    if (binding.size() > EMBED_MAX - 1) // -1 for null terminator
     {
         trace::error(_X("The managed DLL bound to this executable is longer than the max allowed length (%d)"), EMBED_MAX - 1);
         return false;
@@ -86,9 +73,9 @@ bool is_exe_enabled_for_execution(pal::string_t* app_dll)
     // So use two parts of the string that will be unaffected by the edit.
     size_t hi_len = (sizeof(hi_part) / sizeof(hi_part[0])) - 1;
     size_t lo_len = (sizeof(lo_part) / sizeof(lo_part[0])) - 1;
-    if (binding_len >= (hi_len + lo_len)
-        && compare_memory_nooptimization(&embed[0], hi_part, hi_len)
-        && compare_memory_nooptimization(&embed[hi_len], lo_part, lo_len))
+    if (binding.size() >= (hi_len + lo_len)
+        && binding.compare(0, hi_len, &hi_part[0]) == 0
+        && binding.compare(hi_len, lo_len, &lo_part[0]) == 0)
     {
         trace::error(_X("This executable is not bound to a managed DLL to execute. The binding value is: '%s'"), app_dll->c_str());
         return false;
@@ -131,7 +118,7 @@ int exe_start(const int argc, const pal::char_t* argv[])
     if (!pal::get_own_executable_path(&host_path) || !pal::realpath(&host_path))
     {
         trace::error(_X("Failed to resolve full path of the current executable [%s]"), host_path.c_str());
-        return StatusCode::CurrentHostFindFailure;
+        return StatusCode::CoreHostCurHostFindFailure;
     }
 
     pal::string_t app_path;
@@ -166,7 +153,7 @@ int exe_start(const int argc, const pal::char_t* argv[])
     else if (!pal::fullpath(&app_path))
     {
         trace::error(_X("The application to execute does not exist: '%s'."), app_path.c_str());
-        return StatusCode::AppPathFindFailure;
+        return StatusCode::LibHostAppRootFindFailure;
     }
 
     app_root.assign(get_directory(app_path));

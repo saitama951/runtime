@@ -69,7 +69,9 @@ namespace System.Linq
             }
 
             return
-                !IsSizeOptimized && source is Iterator<TSource> iterator ? iterator.TryGetLast(out found) :
+#if !OPTIMIZE_FOR_SIZE
+                source is Iterator<TSource> iterator ? iterator.TryGetLast(out found) :
+#endif
                 TryGetLastNonIterator(source, out found);
         }
 
@@ -86,18 +88,20 @@ namespace System.Linq
             }
             else
             {
-                using IEnumerator<TSource> e = source.GetEnumerator();
-                if (e.MoveNext())
+                using (IEnumerator<TSource> e = source.GetEnumerator())
                 {
-                    TSource result;
-                    do
+                    if (e.MoveNext())
                     {
-                        result = e.Current;
-                    }
-                    while (e.MoveNext());
+                        TSource result;
+                        do
+                        {
+                            result = e.Current;
+                        }
+                        while (e.MoveNext());
 
-                    found = true;
-                    return result;
+                        found = true;
+                        return result;
+                    }
                 }
             }
 
@@ -136,23 +140,25 @@ namespace System.Linq
             }
             else
             {
-                using IEnumerator<TSource> e = source.GetEnumerator();
-                while (e.MoveNext())
+                using (IEnumerator<TSource> e = source.GetEnumerator())
                 {
-                    TSource result = e.Current;
-                    if (predicate(result))
+                    while (e.MoveNext())
                     {
-                        while (e.MoveNext())
+                        TSource result = e.Current;
+                        if (predicate(result))
                         {
-                            TSource element = e.Current;
-                            if (predicate(element))
+                            while (e.MoveNext())
                             {
-                                result = element;
+                                TSource element = e.Current;
+                                if (predicate(element))
+                                {
+                                    result = element;
+                                }
                             }
-                        }
 
-                        found = true;
-                        return result;
+                            found = true;
+                            return result;
+                        }
                     }
                 }
             }

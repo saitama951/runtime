@@ -137,7 +137,9 @@ namespace System.Collections.Generic.Tests
         {
             var data = new TheoryData<IEnumerable<T>>();
 
-            foreach (int count in CountData())
+            IEnumerable<int> counts = CountData().Select(array => array[0]).Cast<int>();
+
+            foreach (int count in counts)
             {
                 data.Add(Enumerable.Repeat(default(T), count));
 

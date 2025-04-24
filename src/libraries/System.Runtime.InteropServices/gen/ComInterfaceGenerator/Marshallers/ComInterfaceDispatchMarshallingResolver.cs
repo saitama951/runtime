@@ -17,29 +17,18 @@ namespace Microsoft.Interop
     internal sealed class ComInterfaceDispatchMarshallingResolver : IMarshallingGeneratorResolver
     {
         public ResolvedGenerator Create(TypePositionInfo info, StubCodeContext context)
-        {
-            if (info.MarshallingAttributeInfo is ComInterfaceDispatchMarshallingInfo)
-            {
-                return context.Direction == MarshalDirection.UnmanagedToManaged
-                    ? ResolvedGenerator.Resolved(new Marshaller().Bind(info, context))
-                    : ResolvedGenerator.Resolved(KeepAliveThisMarshaller.Instance.Bind(info, context));
-            }
-            else
-            {
-                return ResolvedGenerator.UnresolvedGenerator;
-            }
-        }
+            => info.MarshallingAttributeInfo is ComInterfaceDispatchMarshallingInfo ? ResolvedGenerator.Resolved(new Marshaller()) : ResolvedGenerator.UnresolvedGenerator;
 
-        private sealed class Marshaller : IUnboundMarshallingGenerator
+        private sealed class Marshaller : IMarshallingGenerator
         {
             public ManagedTypeInfo AsNativeType(TypePositionInfo info) =>
                 new PointerTypeInfo(
                     $"{TypeNames.GlobalAlias + TypeNames.System_Runtime_InteropServices_ComWrappers_ComInterfaceDispatch}*",
                     $"{TypeNames.System_Runtime_InteropServices_ComWrappers_ComInterfaceDispatch}*",
                     IsFunctionPointer: false);
-            public IEnumerable<StatementSyntax> Generate(TypePositionInfo info, StubCodeContext codeContext, StubIdentifierContext context)
+            public IEnumerable<StatementSyntax> Generate(TypePositionInfo info, StubCodeContext context)
             {
-                if (context.CurrentStage != StubIdentifierContext.Stage.Unmarshal)
+                if (context.CurrentStage != StubCodeContext.Stage.Unmarshal)
                 {
                     yield break;
                 }
@@ -64,8 +53,8 @@ namespace Microsoft.Interop
 
             public SignatureBehavior GetNativeSignatureBehavior(TypePositionInfo info) => SignatureBehavior.NativeType;
             public ValueBoundaryBehavior GetValueBoundaryBehavior(TypePositionInfo info, StubCodeContext context) => ValueBoundaryBehavior.NativeIdentifier;
-            public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, TypePositionInfo info, out GeneratorDiagnostic? diagnostic)
-                => ByValueMarshalKindSupportDescriptor.Default.GetSupport(marshalKind, info, out diagnostic);
+            public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, TypePositionInfo info, StubCodeContext context, out GeneratorDiagnostic? diagnostic)
+                => ByValueMarshalKindSupportDescriptor.Default.GetSupport(marshalKind, info, context, out diagnostic);
             public bool UsesNativeIdentifier(TypePositionInfo info, StubCodeContext context) => true;
         }
     }

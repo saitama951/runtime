@@ -24,9 +24,6 @@ public class BootJsonData
 
     public string mainAssemblyName { get; set; }
 
-    [DataMember(EmitDefaultValue = false)]
-    public string applicationEnvironment { get; set; }
-
     /// <summary>
     /// Gets the set of resources needed to boot the application. This includes the transitive
     /// closure of .NET assemblies (including the entrypoint assembly), the dotnet.wasm file,
@@ -103,7 +100,7 @@ public class BootJsonData
     /// <summary>
     /// Gets or sets environment variables.
     /// </summary>
-    public System.Collections.Generic.Dictionary<string, string> environmentVariables { get; set; }
+    public object environmentVariables { get; set; }
 
     /// <summary>
     /// Gets or sets diagnostic tracing.
@@ -144,7 +141,7 @@ public class ResourcesData
     public ResourceHashesByNameDictionary jsModuleWorker { get; set; }
 
     [DataMember(EmitDefaultValue = false)]
-    public ResourceHashesByNameDictionary jsModuleDiagnostics { get; set; }
+    public ResourceHashesByNameDictionary jsModuleGlobalization { get; set; }
 
     [DataMember(EmitDefaultValue = false)]
     public ResourceHashesByNameDictionary jsModuleNative { get; set; }
@@ -255,6 +252,11 @@ public enum GlobalizationMode : int
     /// Load custom icu file provided by the developer.
     /// </summary>
     Custom = 3,
+
+    /// <summary>
+    /// Use the reduced icudt_hybrid.dat file
+    /// </summary>
+    Hybrid = 4,
 }
 
 [DataContract]

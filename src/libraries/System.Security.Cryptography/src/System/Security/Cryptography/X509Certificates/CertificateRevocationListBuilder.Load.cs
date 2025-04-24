@@ -265,7 +265,7 @@ namespace System.Security.Cryptography.X509Certificates
         /// </exception>
         public static CertificateRevocationListBuilder LoadPem(ReadOnlySpan<char> currentCrl, out BigInteger currentCrlNumber)
         {
-            foreach ((ReadOnlySpan<char> contents, PemFields fields) in PemEnumerator.Utf16(currentCrl))
+            foreach ((ReadOnlySpan<char> contents, PemFields fields) in new PemEnumerator(currentCrl))
             {
                 if (contents[fields.Label].SequenceEqual(PemLabels.X509CertificateRevocationList))
                 {

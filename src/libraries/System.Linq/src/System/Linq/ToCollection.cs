@@ -11,10 +11,12 @@ namespace System.Linq
     {
         public static TSource[] ToArray<TSource>(this IEnumerable<TSource> source)
         {
-            if (!IsSizeOptimized && source is Iterator<TSource> iterator)
+#if !OPTIMIZE_FOR_SIZE
+            if (source is Iterator<TSource> iterator)
             {
                 return iterator.ToArray();
             }
+#endif
 
             if (source is ICollection<TSource> collection)
             {
@@ -62,10 +64,12 @@ namespace System.Linq
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.source);
             }
 
-            if (!IsSizeOptimized && source is Iterator<TSource> iterator)
+#if !OPTIMIZE_FOR_SIZE
+            if (source is Iterator<TSource> iterator)
             {
                 return iterator.ToList();
             }
+#endif
 
             return new List<TSource>(source);
         }

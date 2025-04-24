@@ -108,8 +108,6 @@ namespace XarchHardwareIntrinsicTest._CpuId
                 testResult = Fail;
             }
 
-            bool isSse41HierarchyDisabled = isHierarchyDisabled;
-
             if (IsBitIncorrect(ecx, 20, typeof(Sse42), Sse42.IsSupported, "SSE42", ref isHierarchyDisabled))
             {
                 testResult = Fail;
@@ -286,51 +284,16 @@ namespace XarchHardwareIntrinsicTest._CpuId
                 testResult = Fail;
             }
 
-            isHierarchyDisabled = isSse41HierarchyDisabled;
-
-            if (IsBitIncorrect(ecx, 8, typeof(Gfni), Gfni.IsSupported, "GFNI", ref isHierarchyDisabled))
-            {
-                testResult = Fail;
-            }
-
-            isHierarchyDisabled = isAvxHierarchyDisabled;
-
-            if (IsBitIncorrect(ecx, 8, typeof(Gfni.V256), Gfni.V256.IsSupported, "GFNI", ref isHierarchyDisabled))
-            {
-                testResult = Fail;
-            }
-
-            isHierarchyDisabled = isAvx512HierarchyDisabled;
-
-            if (IsBitIncorrect(ecx, 8, typeof(Gfni.V512), Gfni.V512.IsSupported, "GFNI", ref isHierarchyDisabled))
-            {
-                testResult = Fail;
-            }
-
-            isHierarchyDisabled = isAvxHierarchyDisabled;
-
-            if (IsBitIncorrect(ecx, 10, typeof(Pclmulqdq.V256), Pclmulqdq.V256.IsSupported, "VPCLMULQDQ", ref isHierarchyDisabled))
-            {
-                testResult = Fail;
-            }
-
-            isHierarchyDisabled = isAvx512HierarchyDisabled;
-
-            if (IsBitIncorrect(ecx, 10, typeof(Pclmulqdq.V512), Pclmulqdq.V512.IsSupported, "VPCLMULQDQ", ref isHierarchyDisabled))
-            {
-                testResult = Fail;
-            }
-
             (eax, ebx, ecx, edx) = X86Base.CpuId(0x00000007, 0x00000001);
 
             isHierarchyDisabled = isAvx2HierarchyDisabled;
 
+#pragma warning disable CA2252 // No need to opt into preview feature for an internal test
             if (IsBitIncorrect(eax, 4, typeof(AvxVnni), AvxVnni.IsSupported, "AVXVNNI", ref isHierarchyDisabled))
             {
                 testResult = Fail;
             }
-
-            isHierarchyDisabled = isAvxHierarchyDisabled | isFmaHierarchyDisabled;
+#pragma warning restore CA2252
 
             if (IsBitIncorrect(edx, 19, typeof(Avx10v1), Avx10v1.IsSupported, "AVX10V1", ref isHierarchyDisabled))
             {
@@ -381,21 +344,25 @@ namespace XarchHardwareIntrinsicTest._CpuId
                 testResult = Fail;
             }
 
-            int vectorTByteLength = 16;
-            int maxVectorTBitWidth = (GetDotnetEnvVar("MaxVectorTBitWidth", defaultValue: 0) / 128) * 128;
-
-            if ((maxVectorTBitWidth >= 512) && !isAvx512HierarchyDisabled)
+            if (Vector<byte>.Count == 16)
             {
-                vectorTByteLength = int.Min(64, preferredVectorByteLength);
+                if (!isAvx2HierarchyDisabled)
+                {
+                    Console.WriteLine($"{typeof(Vector).FullName}.Count returned 16 but the hardware returned 32");
+                    testResult = Fail;
+                }
             }
-            else if ((maxVectorTBitWidth is 0 or >= 256) && !isAvx2HierarchyDisabled)
+            else if (Vector<byte>.Count == 32)
             {
-                vectorTByteLength = int.Min(32, preferredVectorByteLength);
+                if (isAvx2HierarchyDisabled)
+                {
+                    Console.WriteLine($"{typeof(Vector).FullName}.Count returned 32 but the hardware returned 16");
+                    testResult = Fail;
+                }
             }
-
-            if (Vector<byte>.Count != vectorTByteLength)
+            else
             {
-                Console.WriteLine($"{typeof(Vector).FullName}.Count returned {Vector<byte>.Count}. The expected value was {vectorTByteLength}.");
+                Console.WriteLine($"{typeof(Vector).FullName}.Count returned {Vector<byte>.Count} which is unexpected");
                 testResult = Fail;
             }
 

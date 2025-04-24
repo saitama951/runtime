@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Needed for GC.WaitForPendingFinalizers -->
-    <RequiresProcessIsolation>true</RequiresProcessIsolation>
+    <OutputType>Exe</OutputType>
     <Optimize>True</Optimize>
     <!-- Move it out of CI for 78899 -->
     <CLRTestPriority>1</CLRTestPriority>

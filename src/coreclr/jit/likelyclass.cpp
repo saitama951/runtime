@@ -38,10 +38,7 @@ struct LikelyClassMethodHistogramEntry
 //
 struct LikelyClassMethodHistogram
 {
-    LikelyClassMethodHistogram(INT_PTR* histogramEntries, unsigned entryCount, bool int32Data = false);
-
-    template <typename ElemType>
-    void LikelyClassMethodHistogramInner(ElemType* histogramEntries, unsigned entryCount);
+    LikelyClassMethodHistogram(INT_PTR* histogramEntries, unsigned entryCount);
 
     // Sum of counts from all entries in the histogram. This includes "unknown" entries which are not captured in
     // m_histogram
@@ -64,22 +61,8 @@ struct LikelyClassMethodHistogram
 // Arguments:
 //    histogramEntries - pointer to the table portion of a ClassProfile* object (see corjit.h)
 //    entryCount - number of entries in the table to examine
-//    int32Data - true if table entries are 32 bits
 //
-LikelyClassMethodHistogram::LikelyClassMethodHistogram(INT_PTR* histogramEntries, unsigned entryCount, bool int32Data)
-{
-    if (int32Data)
-    {
-        LikelyClassMethodHistogramInner<int>((int*)histogramEntries, entryCount);
-    }
-    else
-    {
-        LikelyClassMethodHistogramInner<INT_PTR>(histogramEntries, entryCount);
-    }
-}
-
-template <typename ElemType>
-void LikelyClassMethodHistogram::LikelyClassMethodHistogramInner(ElemType* histogramEntries, unsigned entryCount)
+LikelyClassMethodHistogram::LikelyClassMethodHistogram(INT_PTR* histogramEntries, unsigned entryCount)
 {
     m_unknownHandles               = 0;
     m_totalCount                   = 0;
@@ -93,7 +76,8 @@ void LikelyClassMethodHistogram::LikelyClassMethodHistogramInner(ElemType* histo
         }
 
         m_totalCount++;
-        INT_PTR currentEntry = (INT_PTR)histogramEntries[k];
+
+        INT_PTR currentEntry = histogramEntries[k];
 
         bool     found = false;
         unsigned h     = 0;
@@ -401,18 +385,15 @@ extern "C" DLLEXPORT UINT32 WINAPI getLikelyValues(LikelyValueRecord*           
             continue;
 
         // We currently re-use existing infrastructure for type handles for simplicity.
-        //
-        const bool isIntHistogramCount =
-            (schema[i].InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::ValueHistogramIntCount);
-        const bool isLongHistogramCount =
+
+        const bool isHistogramCount =
+            (schema[i].InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::ValueHistogramIntCount) ||
             (schema[i].InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::ValueHistogramLongCount);
-        const bool isHistogramCount = isIntHistogramCount || isLongHistogramCount;
 
         if (isHistogramCount && (schema[i].Count == 1) && ((i + 1) < countSchemaItems) &&
             (schema[i + 1].InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::ValueHistogram))
         {
-            LikelyClassMethodHistogram h((INT_PTR*)(pInstrumentationData + schema[i + 1].Offset), schema[i + 1].Count,
-                                         isIntHistogramCount);
+            LikelyClassMethodHistogram h((INT_PTR*)(pInstrumentationData + schema[i + 1].Offset), schema[i + 1].Count);
             LikelyClassMethodHistogramEntry sortedEntries[HISTOGRAM_MAX_SIZE_COUNT];
 
             if (h.countHistogramElements == 0)

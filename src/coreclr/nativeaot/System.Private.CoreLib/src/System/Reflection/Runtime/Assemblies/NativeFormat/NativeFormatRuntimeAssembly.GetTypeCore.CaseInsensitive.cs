@@ -72,33 +72,36 @@ namespace System.Reflection.Runtime.Assemblies.NativeFormat
 
             LowLevelDictionary<string, QHandle> dict = new LowLevelDictionary<string, QHandle>();
 
-            MetadataReader reader = Scope.Reader;
-            ScopeDefinition scopeDefinition = Scope.ScopeDefinition;
-            IEnumerable<NamespaceDefinitionHandle> topLevelNamespaceHandles = new NamespaceDefinitionHandle[] { scopeDefinition.RootNamespaceDefinition };
-            IEnumerable<NamespaceDefinitionHandle> allNamespaceHandles = reader.GetTransitiveNamespaces(topLevelNamespaceHandles);
-            foreach (NamespaceDefinitionHandle namespaceHandle in allNamespaceHandles)
+            foreach (QScopeDefinition scope in AllScopes)
             {
-                string ns = namespaceHandle.ToNamespaceName(reader);
-                if (ns.Length != 0)
-                    ns += ".";
-                ns = ns.ToLowerInvariant();
-
-                NamespaceDefinition namespaceDefinition = namespaceHandle.GetNamespaceDefinition(reader);
-                foreach (TypeDefinitionHandle typeDefinitionHandle in namespaceDefinition.TypeDefinitions)
+                MetadataReader reader = scope.Reader;
+                ScopeDefinition scopeDefinition = scope.ScopeDefinition;
+                IEnumerable<NamespaceDefinitionHandle> topLevelNamespaceHandles = new NamespaceDefinitionHandle[] { scopeDefinition.RootNamespaceDefinition };
+                IEnumerable<NamespaceDefinitionHandle> allNamespaceHandles = reader.GetTransitiveNamespaces(topLevelNamespaceHandles);
+                foreach (NamespaceDefinitionHandle namespaceHandle in allNamespaceHandles)
                 {
-                    string fullName = ns + typeDefinitionHandle.GetTypeDefinition(reader).Name.GetString(reader).ToLowerInvariant();
-                    if (!dict.TryGetValue(fullName, out _))
+                    string ns = namespaceHandle.ToNamespaceName(reader);
+                    if (ns.Length != 0)
+                        ns += ".";
+                    ns = ns.ToLowerInvariant();
+
+                    NamespaceDefinition namespaceDefinition = namespaceHandle.GetNamespaceDefinition(reader);
+                    foreach (TypeDefinitionHandle typeDefinitionHandle in namespaceDefinition.TypeDefinitions)
                     {
-                        dict.Add(fullName, new QHandle(reader, typeDefinitionHandle));
+                        string fullName = ns + typeDefinitionHandle.GetTypeDefinition(reader).Name.GetString(reader).ToLowerInvariant();
+                        if (!dict.TryGetValue(fullName, out _))
+                        {
+                            dict.Add(fullName, new QHandle(reader, typeDefinitionHandle));
+                        }
                     }
-                }
 
-                foreach (TypeForwarderHandle typeForwarderHandle in namespaceDefinition.TypeForwarders)
-                {
-                    string fullName = ns + typeForwarderHandle.GetTypeForwarder(reader).Name.GetString(reader).ToLowerInvariant();
-                    if (!dict.TryGetValue(fullName, out _))
+                    foreach (TypeForwarderHandle typeForwarderHandle in namespaceDefinition.TypeForwarders)
                     {
-                        dict.Add(fullName, new QHandle(reader, typeForwarderHandle));
+                        string fullName = ns + typeForwarderHandle.GetTypeForwarder(reader).Name.GetString(reader).ToLowerInvariant();
+                        if (!dict.TryGetValue(fullName, out _))
+                        {
+                            dict.Add(fullName, new QHandle(reader, typeForwarderHandle));
+                        }
                     }
                 }
             }

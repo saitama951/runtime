@@ -17,8 +17,6 @@ add_executable_clr(corerun
   native.rc
 )
 
-target_link_libraries(corerun PRIVATE minipal)
-
 if(CLR_CMAKE_HOST_WIN32)
     target_link_libraries(corerun
         PRIVATE

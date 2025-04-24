@@ -34,6 +34,12 @@ namespace System.DirectoryServices.Protocols
         [UnsupportedOSPlatform("windows")]
         public void StartNewTlsSessionContext() => throw new PlatformNotSupportedException();
 
+        public int ProtocolVersion
+        {
+            get => GetIntValueHelper(LdapOption.LDAP_OPT_VERSION);
+            set => SetIntValueHelper(LdapOption.LDAP_OPT_VERSION, value);
+        }
+
         public ReferralChasingOptions ReferralChasing
         {
             get

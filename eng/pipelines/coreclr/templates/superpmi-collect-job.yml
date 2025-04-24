@@ -3,9 +3,7 @@ parameters:
   archType: ''
   osGroup: ''
   osSubgroup: ''
-  container: ''
   liveLibrariesBuildConfig: ''
-  crossBuild: ''
   variables: {}
   pool: ''
   runJobTemplate: '/eng/pipelines/coreclr/templates/run-superpmi-collect-job.yml'
@@ -26,8 +24,6 @@ jobs:
     archType: ${{ parameters.archType }}
     osGroup: ${{ parameters.osGroup }}
     osSubgroup: ${{ parameters.osSubgroup }}
-    container: ${{ parameters.container }}
-    crossBuild: ${{ parameters.crossBuild }}
     liveLibrariesBuildConfig: ${{ parameters.liveLibrariesBuildConfig }}
     collectionType: ${{ parameters.collectionType }}
     collectionName: ${{ parameters.collectionName }}
@@ -37,16 +33,7 @@ jobs:
      - ${{ if eq(parameters.collectionName, 'coreclr_tests') }}:
         - 'coreclr_common_test_build_p1_AnyOS_AnyCPU_${{parameters.buildConfig }}'
 
-    variables:
-
-    - name: crossArg
-      value: ''
-    - ${{ if eq(parameters.crossBuild, true) }}:
-      - name: crossArg
-        value: '-cross'
-
-    - ${{ each variable in parameters.variables }}:
-      - ${{insert}}: ${{ variable }}
+    variables: ${{ parameters.variables }}
 
     steps:
     # Extra steps that will be passed to the superpmi template and run before sending the job to helix (all of which is done in the template)
@@ -85,6 +72,6 @@ jobs:
           displayName: 'generic managed test artifacts'
 
     # Create Core_Root
-    - script: $(Build.SourcesDirectory)/src/tests/build$(scriptExt) $(buildConfig) $(archType) $(crossArg) generatelayoutonly $(librariesOverrideArg)
+    - script: $(Build.SourcesDirectory)/src/tests/build$(scriptExt) $(buildConfig) $(archType) generatelayoutonly $(librariesOverrideArg)
       displayName: Create Core_Root
       condition: succeeded()

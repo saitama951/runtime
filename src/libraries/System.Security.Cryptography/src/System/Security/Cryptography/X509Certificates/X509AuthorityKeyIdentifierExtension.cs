@@ -245,7 +245,22 @@ namespace System.Security.Cryptography.X509Certificates
                 writer.WriteOctetString(subjectKeyIdentifier, new Asn1Tag(TagClass.ContextSpecific, 0));
             }
 
-            return writer.Encode(static encoded => new X509AuthorityKeyIdentifierExtension(encoded));
+            // Most KeyIdentifier values are computed from SHA-1 (20 bytes), which produces a 24-byte
+            // value for this extension.
+            // Let's go ahead and be really generous before moving to redundant array allocation.
+            Span<byte> stackSpan = stackalloc byte[64];
+            scoped ReadOnlySpan<byte> encoded;
+
+            if (writer.TryEncode(stackSpan, out int written))
+            {
+                encoded = stackSpan.Slice(0, written);
+            }
+            else
+            {
+                encoded = writer.Encode();
+            }
+
+            return new X509AuthorityKeyIdentifierExtension(encoded);
         }
 
         /// <summary>
@@ -328,7 +343,7 @@ namespace System.Security.Cryptography.X509Certificates
                 }
             }
 
-            return writer.Encode(static encoded => new X509AuthorityKeyIdentifierExtension(encoded));
+            return new X509AuthorityKeyIdentifierExtension(writer.Encode());
         }
 
 
@@ -429,7 +444,7 @@ namespace System.Security.Cryptography.X509Certificates
                 }
             }
 
-            return writer.Encode(static encoded => new X509AuthorityKeyIdentifierExtension(encoded));
+            return new X509AuthorityKeyIdentifierExtension(writer.Encode());
         }
 
         /// <summary>

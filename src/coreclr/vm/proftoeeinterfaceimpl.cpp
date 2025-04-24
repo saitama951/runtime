@@ -2048,8 +2048,9 @@ HRESULT ProfToEEInterfaceImpl::GetFunctionFromIP2(LPCBYTE ip, FunctionID * pFunc
         // Yay!
         NOTHROW;
 
-        // Yay!
-        GC_NOTRIGGER;
+        // Grabbing the rejitid requires entering the rejit manager's hash table & lock,
+        // which can switch us to preemptive mode and trigger GCs
+        GC_TRIGGERS;
 
         // Yay!
         MODE_ANY;
@@ -2067,7 +2068,7 @@ HRESULT ProfToEEInterfaceImpl::GetFunctionFromIP2(LPCBYTE ip, FunctionID * pFunc
     PERMANENT_CONTRACT_VIOLATION(TakesLockViolation, ReasonProfilerAsyncCannotRetakeLock);
 
     PROFILER_TO_CLR_ENTRYPOINT_SYNC_EX(
-        kP2EEAllowableAfterAttach,
+        kP2EEAllowableAfterAttach | kP2EETriggers,
         (LF_CORPROF,
         LL_INFO1000,
         "**PROF: GetFunctionFromIP2 0x%p.\n",
@@ -2499,8 +2500,9 @@ HRESULT ProfToEEInterfaceImpl::GetCodeInfo3(FunctionID functionId,
         // Yay!
         NOTHROW;
 
-        // Yay!
-        GC_NOTRIGGER;
+        // We need to access the rejitmanager, which means taking locks, which means we
+        // may trigger a GC
+        GC_TRIGGERS;
 
         // Yay!
         MODE_ANY;
@@ -2508,9 +2510,9 @@ HRESULT ProfToEEInterfaceImpl::GetCodeInfo3(FunctionID functionId,
         // Yay!
         EE_THREAD_NOT_REQUIRED;
 
-        // We need to take the ExecutionManager reader lock to find the
-        // appropriate jit manager.
+        // We need to access the rejitmanager, which means taking locks
         CAN_TAKE_LOCK;
+
 
         PRECONDITION(CheckPointer(pcCodeInfos, NULL_OK));
         PRECONDITION(CheckPointer(codeInfos, NULL_OK));
@@ -2521,7 +2523,7 @@ HRESULT ProfToEEInterfaceImpl::GetCodeInfo3(FunctionID functionId,
     PERMANENT_CONTRACT_VIOLATION(TakesLockViolation, ReasonProfilerAsyncCannotRetakeLock);
 
     PROFILER_TO_CLR_ENTRYPOINT_SYNC_EX(
-        kP2EEAllowableAfterAttach,
+        kP2EEAllowableAfterAttach | kP2EETriggers,
         (LF_CORPROF,
         LL_INFO1000,
         "**PROF: GetCodeInfo3 0x%p 0x%p.\n",
@@ -2539,6 +2541,8 @@ HRESULT ProfToEEInterfaceImpl::GetCodeInfo3(FunctionID functionId,
             PCODE pCodeStart = (PCODE)NULL;
             CodeVersionManager* pCodeVersionManager = pMethodDesc->GetCodeVersionManager();
             {
+                CodeVersionManager::LockHolder codeVersioningLockHolder;
+
                 ILCodeVersion ilCodeVersion = pCodeVersionManager->GetILCodeVersion(pMethodDesc, reJitId);
 
                 NativeCodeVersionCollection nativeCodeVersions = ilCodeVersion.GetNativeCodeVersions(pMethodDesc);
@@ -3144,9 +3148,9 @@ HRESULT ProfToEEInterfaceImpl::GetAppDomainStaticAddress(ClassID classId,
         return E_INVALIDARG;
     }
 
-    // The system domain isn't an APP domain and thus doesn't contain any
+    // Some domains, like the system domain, aren't APP domains, and thus don't contain any
     // statics.  See if the profiler is trying to be naughty.
-    if (appDomainId == (AppDomainID)SystemDomain::System())
+    if (!((BaseDomain*) appDomainId)->IsAppDomain())
     {
         return E_INVALIDARG;
     }
@@ -3378,9 +3382,9 @@ HRESULT ProfToEEInterfaceImpl::GetThreadStaticAddress2(ClassID classId,
         return E_INVALIDARG;
     }
 
-    // The system domain isn't an APP domain and thus doesn't contain any
+    // Some domains, like the system domain, aren't APP domains, and thus don't contain any
     // statics.  See if the profiler is trying to be naughty.
-    if (appDomainId == (AppDomainID)SystemDomain::System())
+    if (!((BaseDomain*) appDomainId)->IsAppDomain())
     {
         return E_INVALIDARG;
     }
@@ -4924,6 +4928,8 @@ HRESULT ProfToEEInterfaceImpl::GetILToNativeMapping2(FunctionID functionId,
             CodeVersionManager *pCodeVersionManager = pMD->GetCodeVersionManager();
             ILCodeVersion ilCodeVersion = NULL;
             {
+                CodeVersionManager::LockHolder codeVersioningLockHolder;
+
                 pCodeVersionManager->GetILCodeVersion(pMD, reJitId);
 
                 NativeCodeVersionCollection nativeCodeVersions = ilCodeVersion.GetNativeCodeVersions(pMD);
@@ -5449,20 +5455,20 @@ HRESULT ProfToEEInterfaceImpl::GetAppDomainInfo(AppDomainID appDomainId,
         // Yay!
         NOTHROW;
 
-        // Yay!
-        GC_NOTRIGGER;
+        // AppDomain::GetFriendlyNameForDebugger triggers
+        GC_TRIGGERS;
 
         // Yay!
         MODE_ANY;
 
-        // Yay!
-        CANNOT_TAKE_LOCK;
+        // AppDomain::GetFriendlyNameForDebugger takes a lock
+        CAN_TAKE_LOCK;
 
     }
     CONTRACTL_END;
 
     PROFILER_TO_CLR_ENTRYPOINT_SYNC_EX(
-        kP2EEAllowableAfterAttach,
+        kP2EEAllowableAfterAttach | kP2EETriggers,
         (LF_CORPROF,
          LL_INFO1000,
          "**PROF: GetAppDomainInfo 0x%p.\n",
@@ -5473,7 +5479,24 @@ HRESULT ProfToEEInterfaceImpl::GetAppDomainInfo(AppDomainID appDomainId,
         return E_INVALIDARG;
     }
 
+    BaseDomain   *pDomain;            // Internal data structure.
     HRESULT     hr = S_OK;
+
+    // <TODO>@todo:
+    // Right now, this ID is not a true AppDomain, since we use the old
+    // AppDomain/SystemDomain model in the profiling API.  This means that
+    // the profiler exposes the SharedDomain and the SystemDomain to the
+    // outside world. It's not clear whether this is actually the right thing
+    // to do or not. - seantrow
+    //
+    // Postponed to V2.
+    // </TODO>
+
+    pDomain = (BaseDomain *) appDomainId;
+
+    // Make sure they've passed in a valid appDomainId
+    if (pDomain == NULL)
+        return (E_INVALIDARG);
 
     // Pick sensible defaults.
     if (pcchName)
@@ -5484,10 +5507,10 @@ HRESULT ProfToEEInterfaceImpl::GetAppDomainInfo(AppDomainID appDomainId,
         *pProcessId = 0;
 
     LPCWSTR szFriendlyName;
-    if (appDomainId == (AppDomainID)SystemDomain::System())
+    if (pDomain == SystemDomain::System())
         szFriendlyName = g_pwBaseLibrary;
     else
-        szFriendlyName = ((AppDomain*)appDomainId)->GetFriendlyName();
+        szFriendlyName = ((AppDomain*)pDomain)->GetFriendlyNameForDebugger();
 
     if (szFriendlyName != NULL)
     {
@@ -5983,11 +6006,11 @@ HRESULT ProfToEEInterfaceImpl::GetFunctionInfo2(FunctionID funcId,
     TypeHandle specificClass;
     MethodDesc* pActualMethod;
 
-    TypeHandle typeHandle(pMethDesc->GetMethodTable());
-    ClassID classId = TypeHandleToClassID(typeHandle);
+    ClassID classId = 0;
 
     if (pMethDesc->IsSharedByGenericInstantiations())
     {
+        BOOL exactMatch;
         OBJECTREF pThis = NULL;
 
         if (pFrameInfo != NULL)
@@ -6010,24 +6033,37 @@ HRESULT ProfToEEInterfaceImpl::GetFunctionInfo2(FunctionID funcId,
             }
         }
 
-        Generics::GetExactInstantiationsOfMethodAndItsClassFromCallInformation(
+        exactMatch = Generics::GetExactInstantiationsOfMethodAndItsClassFromCallInformation(
             pMethDesc,
             pThis,
             PTR_VOID((pFrameInfo != NULL) ? pFrameInfo->extraArg : NULL),
             &specificClass,
             &pActualMethod);
 
-        // When GetExactInstantiationsOfMethodAndItsClassFromCallInformation cannot determine
-        // the exact class match, the value is correct if the class is not a generic class
-        // or is instantiated with value types. Even if those conditions aren't met, the
-        // default returned value of the method's method table may still be helpful to callers.
-        if (specificClass != NULL)
+        if (exactMatch)
         {
             classId = TypeHandleToClassID(specificClass);
+        }
+        else if (!specificClass.HasInstantiation() || !specificClass.IsSharedByGenericInstantiations())
+        {
+            //
+            // In this case we could not get the type args for the method, but if the class
+            // is not a generic class or is instantiated with value types, this value is correct.
+            //
+            classId = TypeHandleToClassID(specificClass);
+        }
+        else
+        {
+            //
+            // We could not get any class information.
+            //
+            classId = 0;
         }
     }
     else
     {
+        TypeHandle typeHandle(pMethDesc->GetMethodTable());
+        classId = TypeHandleToClassID(typeHandle);
         pActualMethod = pMethDesc;
     }
 
@@ -6200,11 +6236,13 @@ HRESULT ProfToEEInterfaceImpl::GetFunctionFromIP3(LPCBYTE ip, FunctionID * pFunc
     {
         NOTHROW;
 
-        GC_NOTRIGGER;
+        // Grabbing the rejitid requires entering the rejit manager's hash table & lock,
+        // which can switch us to preemptive mode and trigger GCs
+        GC_TRIGGERS;
         MODE_ANY;
         EE_THREAD_NOT_REQUIRED;
 
-        // Calling GetFunctionFromIPInternal may take a reader lock
+        // Grabbing the rejitid requires entering the rejit manager's hash table & lock,
         CAN_TAKE_LOCK;
 
     }
@@ -6214,7 +6252,7 @@ HRESULT ProfToEEInterfaceImpl::GetFunctionFromIP3(LPCBYTE ip, FunctionID * pFunc
     PERMANENT_CONTRACT_VIOLATION(TakesLockViolation, ReasonProfilerAsyncCannotRetakeLock);
 
     PROFILER_TO_CLR_ENTRYPOINT_SYNC_EX(
-        kP2EEAllowableAfterAttach,
+        kP2EEAllowableAfterAttach | kP2EETriggers,
         (LF_CORPROF,
             LL_INFO1000,
             "**PROF: GetFunctionFromIP3 0x%p.\n",
@@ -6575,7 +6613,7 @@ HRESULT ProfToEEInterfaceImpl::GetCodeInfo4(UINT_PTR pNativeCodeStartAddress,
     CONTRACTL
     {
         NOTHROW;
-        GC_NOTRIGGER;
+        GC_TRIGGERS;
         MODE_ANY;
         EE_THREAD_NOT_REQUIRED;
         CAN_TAKE_LOCK;
@@ -6587,7 +6625,7 @@ HRESULT ProfToEEInterfaceImpl::GetCodeInfo4(UINT_PTR pNativeCodeStartAddress,
     CONTRACTL_END;
 
     PROFILER_TO_CLR_ENTRYPOINT_SYNC_EX(
-        kP2EEAllowableAfterAttach,
+        kP2EEAllowableAfterAttach | kP2EETriggers,
         (LF_CORPROF,
         LL_INFO1000,
         "**PROF: GetCodeInfo4 0x%p.\n",
@@ -8085,10 +8123,10 @@ StackWalkAction ProfilerStackWalkCallback(CrawlFrame *pCf, PROFILER_STACK_WALK_D
     }
 
 #ifdef FEATURE_EH_FUNCLETS
-    if (!pCf->IsFrameless() && InlinedCallFrame::FrameHasActiveCall(pCf->GetFrame()))
+    if (g_isNewExceptionHandlingEnabled && !pCf->IsFrameless() && InlinedCallFrame::FrameHasActiveCall(pCf->GetFrame()))
     {
         // Skip new exception handling helpers
-        InlinedCallFrame *pInlinedCallFrame = dac_cast<PTR_InlinedCallFrame>(pCf->GetFrame());
+        InlinedCallFrame *pInlinedCallFrame = (InlinedCallFrame *)pCf->GetFrame();
         PTR_NDirectMethodDesc pMD = pInlinedCallFrame->m_Datum;
         TADDR datum = dac_cast<TADDR>(pMD);
         if ((datum & (TADDR)InlinedCallFrameMarker::Mask) == (TADDR)InlinedCallFrameMarker::ExceptionHandlingHelper)
@@ -8199,13 +8237,13 @@ static BOOL EnsureFrameInitialized(Frame * pFrame)
         return TRUE;
     }
 
-    HelperMethodFrame * pHMF = dac_cast<PTR_HelperMethodFrame>(pFrame);
+    HelperMethodFrame * pHMF = (HelperMethodFrame *) pFrame;
 
-    if (pHMF->EnsureInit(
+    if (pHMF->InsureInit(
         NULL                        // unwindState
         ) != NULL)
     {
-        // EnsureInit() succeeded and found the return address
+        // InsureInit() succeeded and found the return address
         return TRUE;
     }
 
@@ -10733,7 +10771,6 @@ GCX_COOP_THREAD_EXISTS(GET_THREAD());
 HCIMPL_PROLOG(ProfileEnter)
 {
     FCALL_CONTRACT;
-    FC_GC_POLL_NOT_NEEDED();            // we pulse GC mode, so we are doing a poll
 
     if (GetThreadNULLOk() == NULL)
     {
@@ -10773,10 +10810,13 @@ HCIMPL_PROLOG(ProfileEnter)
     _ASSERTE(GetThread()->PreemptiveGCDisabled());
     _ASSERTE(platformSpecificHandle != NULL);
 
-    // This callback is called from the prolog of a method, without a valid ability to suspend the runtime/take a GC.
-    // This means that we cannot trigger a GC.
+    // Set up a frame
+    HELPER_METHOD_FRAME_BEGIN_ATTRIB_NOPOLL(Frame::FRAME_ATTR_CAPTURE_DEPTH_2);
+
+    // Our contract is FCALL_CONTRACT, which is considered triggers if you set up a
+    // frame, like we're about to do.
     SetCallbackStateFlagsHolder csf(
-        COR_PRF_CALLBACKSTATE_INCALLBACK);
+        COR_PRF_CALLBACKSTATE_INCALLBACK | COR_PRF_CALLBACKSTATE_IN_TRIGGERS_SCOPE);
 
     COR_PRF_ELT_INFO_INTERNAL eltInfo;
     eltInfo.platformSpecificHandle = platformSpecificHandle;
@@ -10903,6 +10943,8 @@ HCIMPL_PROLOG(ProfileEnter)
 LExit:
     ;
 
+    HELPER_METHOD_FRAME_END();      // Un-link the frame
+
 #endif // PROFILING_SUPPORTED
 }
 HCIMPLEND
@@ -10942,10 +10984,13 @@ HCIMPL_PROLOG(ProfileLeave)
     _ASSERTE(GetThread()->PreemptiveGCDisabled());
     _ASSERTE(platformSpecificHandle != NULL);
 
-    // This callback is called from the epilog of a method, without a valid ability to suspend the runtime/take a GC.
-    // This means that we cannot trigger a GC.
+    // Set up a frame
+    HELPER_METHOD_FRAME_BEGIN_ATTRIB_NOPOLL(Frame::FRAME_ATTR_CAPTURE_DEPTH_2);
+
+    // Our contract is FCALL_CONTRACT, which is considered triggers if you set up a
+    // frame, like we're about to do.
     SetCallbackStateFlagsHolder csf(
-        COR_PRF_CALLBACKSTATE_INCALLBACK);
+        COR_PRF_CALLBACKSTATE_INCALLBACK | COR_PRF_CALLBACKSTATE_IN_TRIGGERS_SCOPE);
 
     COR_PRF_ELT_INFO_INTERNAL eltInfo;
     eltInfo.platformSpecificHandle = platformSpecificHandle;
@@ -11032,6 +11077,8 @@ LExit:
 
     ;
 
+    HELPER_METHOD_FRAME_END();      // Un-link the frame
+
 #endif // PROFILING_SUPPORTED
 }
 HCIMPLEND
@@ -11069,10 +11116,13 @@ HCIMPL2(EXTERN_C void, ProfileTailcall, UINT_PTR clientData, void * platformSpec
     _ASSERTE(GetThread()->PreemptiveGCDisabled());
     _ASSERTE(platformSpecificHandle != NULL);
 
-    // This callback is called from the epilog of a method, without a valid ability to suspend the runtime/take a GC.
-    // This means that we cannot trigger a GC.
+    // Set up a frame
+    HELPER_METHOD_FRAME_BEGIN_ATTRIB_NOPOLL(Frame::FRAME_ATTR_CAPTURE_DEPTH_2);
+
+    // Our contract is FCALL_CONTRACT, which is considered triggers if you set up a
+    // frame, like we're about to do.
     SetCallbackStateFlagsHolder csf(
-        COR_PRF_CALLBACKSTATE_INCALLBACK);
+        COR_PRF_CALLBACKSTATE_INCALLBACK | COR_PRF_CALLBACKSTATE_IN_TRIGGERS_SCOPE);
 
     COR_PRF_ELT_INFO_INTERNAL eltInfo;
     eltInfo.platformSpecificHandle = platformSpecificHandle;
@@ -11154,6 +11204,8 @@ HCIMPL2(EXTERN_C void, ProfileTailcall, UINT_PTR clientData, void * platformSpec
 LExit:
 
     ;
+
+    HELPER_METHOD_FRAME_END();      // Un-link the frame
 
 #endif // PROFILING_SUPPORTED
 }

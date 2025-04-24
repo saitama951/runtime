@@ -1906,6 +1906,15 @@ namespace System
                     result.flags |= ParseFlags.HaveDate;
                     return true; // MD + Year
                 }
+#if TARGET_BROWSER
+                // if we are parsing the datetime string with custom format then the CultureInfo format `order`
+                // does not matter and DM + Year is also possible for NNY
+                if (GlobalizationMode.Hybrid && SetDateYDM(ref result, raw.year, n1, n2))
+                {
+                    result.flags |= ParseFlags.HaveDate;
+                    return true; // DM + Year
+                }
+#endif
             }
             else
             {
@@ -1914,6 +1923,13 @@ namespace System
                     result.flags |= ParseFlags.HaveDate;
                     return true; // DM + Year
                 }
+#if TARGET_BROWSER
+                if (GlobalizationMode.Hybrid && SetDateYMD(ref result, raw.year, n1, n2))
+                {
+                    result.flags |= ParseFlags.HaveDate;
+                    return true; // MD + Year
+                }
+#endif
             }
             result.SetBadDateTimeFailure();
             return false;
@@ -3792,13 +3808,22 @@ namespace System
 
         private static DateTime GetDateTimeNow(scoped ref DateTimeResult result, scoped ref DateTimeStyles styles)
         {
-            if ((result.flags & (ParseFlags.CaptureOffset | ParseFlags.TimeZoneUsed)) == (ParseFlags.CaptureOffset | ParseFlags.TimeZoneUsed))
+            if ((result.flags & ParseFlags.CaptureOffset) != 0)
             {
-                // use the supplied offset to calculate 'Now'
-                return new DateTime(DateTime.UtcNow.Ticks + result.timeZoneOffset.Ticks, DateTimeKind.Unspecified);
+                if ((result.flags & ParseFlags.TimeZoneUsed) != 0)
+                {
+                    // use the supplied offset to calculate 'Now'
+                    return new DateTime(DateTime.UtcNow.Ticks + result.timeZoneOffset.Ticks, DateTimeKind.Unspecified);
+                }
+                else if ((styles & DateTimeStyles.AssumeUniversal) != 0)
+                {
+                    // assume the offset is Utc
+                    return DateTime.UtcNow;
+                }
             }
 
-            return (styles & DateTimeStyles.AssumeUniversal) != 0 ? DateTime.UtcNow : DateTime.Now;
+            // assume the offset is Local
+            return DateTime.Now;
         }
 
         private static bool CheckDefaultDateTime(scoped ref DateTimeResult result, scoped ref Calendar cal, DateTimeStyles styles)

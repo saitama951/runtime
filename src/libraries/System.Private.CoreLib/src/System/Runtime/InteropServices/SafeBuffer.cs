@@ -187,18 +187,21 @@ namespace System.Runtime.InteropServices
             byte* ptr = (byte*)handle + byteOffset;
             SpaceCheck(ptr, sizeofT);
 
+            // return *(T*) (_ptr + byteOffset);
+            T value = default;
             bool mustCallRelease = false;
             try
             {
                 DangerousAddRef(ref mustCallRelease);
 
-                return Unsafe.ReadUnaligned<T>(ptr);
+                SpanHelpers.Memmove(ref Unsafe.As<T, byte>(ref value), ref *ptr, sizeofT);
             }
             finally
             {
                 if (mustCallRelease)
                     DangerousRelease();
             }
+            return value;
         }
 
         /// <summary>
@@ -245,9 +248,7 @@ namespace System.Runtime.InteropServices
 
                 ref T structure = ref MemoryMarshal.GetReference(buffer);
                 for (int i = 0; i < buffer.Length; i++)
-                {
-                    Unsafe.Add(ref structure, (nint)(uint)i) = Unsafe.ReadUnaligned<T>(ptr + alignedSizeofT * (uint)i);
-                }
+                    Buffer.Memmove(ref Unsafe.Add(ref structure, i), ref Unsafe.AsRef<T>(ptr + alignedSizeofT * i), 1);
             }
             finally
             {
@@ -274,12 +275,13 @@ namespace System.Runtime.InteropServices
             byte* ptr = (byte*)handle + byteOffset;
             SpaceCheck(ptr, sizeofT);
 
+            // *((T*) (_ptr + byteOffset)) = value;
             bool mustCallRelease = false;
             try
             {
                 DangerousAddRef(ref mustCallRelease);
 
-                Unsafe.WriteUnaligned(ptr, value);
+                SpanHelpers.Memmove(ref *ptr, ref Unsafe.As<T, byte>(ref value), sizeofT);
             }
             finally
             {
@@ -334,9 +336,7 @@ namespace System.Runtime.InteropServices
 
                 ref T structure = ref MemoryMarshal.GetReference(data);
                 for (int i = 0; i < data.Length; i++)
-                {
-                    Unsafe.WriteUnaligned(ptr + alignedSizeofT * (uint)i, Unsafe.Add(ref structure, (nint)(uint)i));
-                }
+                    Buffer.Memmove(ref Unsafe.AsRef<T>(ptr + alignedSizeofT * i), ref Unsafe.Add(ref structure, i), 1);
             }
             finally
             {

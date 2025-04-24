@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit;
 //***************************************************************************/
 //* Test:   FinalNStruct
 //* Coverage:   1. check if GC can collect NStruct memeory (externally_allocated
@@ -13,7 +12,7 @@ namespace NStruct {
     using System;
     using System.Runtime.CompilerServices;
 
-    public class FinalNStruct
+    internal class FinalNStruct
     {
 
         [MethodImplAttribute(MethodImplOptions.NoInlining)]
@@ -39,8 +38,7 @@ namespace NStruct {
             return ( FinalizeCount.icFinal == FinalizeCount.icCreat );
         }
 
-        [Fact]
-        public static int TestEntryPoint(){
+        public static int Main(){
             int iObj = 100;
 
             Console.WriteLine("Test should return with ExitCode 100 ...");

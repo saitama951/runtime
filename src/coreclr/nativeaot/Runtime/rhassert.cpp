@@ -7,8 +7,6 @@
 #include "PalRedhawk.h"
 #include "rhassert.h"
 
-#include <minipal/debugger.h>
-
 #ifdef _DEBUG
 
 void Assert(const char * expr, const char * file, uint32_t line_num, const char * message)
@@ -30,7 +28,7 @@ void Assert(const char * expr, const char * file, uint32_t line_num, const char 
     fflush(stdout);
 
     // If there's no debugger attached, we just FailFast
-    if (!minipal_is_native_debugger_present())
+    if (!PalIsDebuggerPresent())
         PalRaiseFailFastException(NULL, NULL, FAIL_FAST_GENERATE_EXCEPTION_ADDRESS);
 
     // If there is a debugger attached, we break and then allow continuation.

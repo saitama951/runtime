@@ -59,11 +59,10 @@ bool regMaskTP::IsRegNumInMask(regNumber reg, var_types type) const
 //
 // Parameters:
 //  gprRegs  - Register to check
-//  availableIntRegs - RBM_ALLINT passed in at runtime
 //
-void regMaskTP::AddGprRegs(SingleTypeRegSet gprRegs DEBUG_ARG(regMaskTP availableIntRegs))
+void regMaskTP::AddGprRegs(SingleTypeRegSet gprRegs)
 {
-    assert((gprRegs == RBM_NONE) || ((gprRegs & availableIntRegs) != RBM_NONE));
+    assert((gprRegs == RBM_NONE) || ((gprRegs & RBM_ALLINT) != RBM_NONE));
     low |= gprRegs;
 }
 

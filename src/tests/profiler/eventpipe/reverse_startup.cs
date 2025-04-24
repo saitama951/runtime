@@ -125,7 +125,7 @@ namespace ReverseStartupTests
             {
                 profilerName = "Profiler.dll";
             }
-            else if ((TestLibrary.Utilities.IsLinux) || (TestLibrary.Utilities.IsFreeBSD))
+            else if (TestLibrary.Utilities.IsLinux)
             {
                 profilerName = "libProfiler.so";
             }

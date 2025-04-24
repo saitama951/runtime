@@ -118,8 +118,6 @@ namespace Thunkerator
         {
             if (arch == "X64")
                 return "AMD64";
-            if (arch == "RiscV64")
-                return "RISCV64";
             return arch;
         }
 
@@ -547,7 +545,7 @@ namespace Internal.JitInterface
 
         public static InstructionSet ConvertToImpliedInstructionSetForVectorInstructionSets(TargetArchitecture architecture, InstructionSet input)
         {
-            switch (architecture)
+            switch(architecture)
             {
 ");
             foreach (string architecture in _architectures)
@@ -556,7 +554,7 @@ namespace Internal.JitInterface
                     continue;
 
                 tr.Write($@"            case TargetArchitecture.{architecture}:
-                switch (input)
+                switch(input)
                 {{
 ");
                 foreach (var vectorInstructionSet in _architectureVectorInstructionSetJitNames[architecture])
@@ -637,7 +635,7 @@ namespace Internal.JitInterface
             do
             {
                 oldflags = resultflags;
-                switch (architecture)
+                switch(architecture)
                 {
 ");
             foreach (string architecture in _architectures)
@@ -786,16 +784,19 @@ namespace Internal.JitInterface
             if (metadataType == null)
                 return InstructionSet.ILLEGAL;
 
-            string namespaceName = metadataType.Namespace;
+            string namespaceName;
             string typeName = metadataType.Name;
             string nestedTypeName = null;
-            while (metadataType.ContainingType != null)
+            if (metadataType.ContainingType != null)
             {
                 var enclosingType = (MetadataType)metadataType.ContainingType;
                 namespaceName = enclosingType.Namespace;
-                nestedTypeName = nestedTypeName is null ? metadataType.Name : $""{metadataType.Name}_{nestedTypeName}"";
+                nestedTypeName = metadataType.Name;
                 typeName = enclosingType.Name;
-                metadataType = enclosingType;
+            }
+            else
+            {
+                namespaceName = metadataType.Namespace;
             }
 
             string platformIntrinsicNamespace;
@@ -828,49 +829,51 @@ namespace Internal.JitInterface
                 switch (typeName)
                 {{
 ");
-                var archInstructionSets = _instructionSets.Where(isa => isa.Architecture == architecture && !string.IsNullOrEmpty(isa.ManagedName)).ToArray();
-                foreach (var instructionSet in archInstructionSets)
+                foreach (var instructionSet in _instructionSets)
                 {
-                    // Nested instructionSets are handled as part of their parent instruction set.
-                    // It's unlikely we'll ever have an implementing managed class with an underscore
-                    // in the public name, so we assume the underscore is a nested type name separator.
-                    if (instructionSet.ManagedName.Contains('_'))
+                    if (instructionSet.Architecture != architecture) continue;
+                    // VL instructionSets are handled as part of their master instruction set.
+                    if (instructionSet.ManagedName.EndsWith("_VL"))
                         continue;
 
-                    List<InstructionSetInfo> relatedInstructionSets = [instructionSet];
-                    foreach (var potentialNestedInstructionSet in archInstructionSets)
+                    // Instruction sets without a managed name are not handled here.
+                    if (string.IsNullOrEmpty(instructionSet.ManagedName))
+                        continue;
+
+                    InstructionSetInfo vlInstructionSet = null;
+                    foreach (var potentialVLinstructionSet in _instructionSets)
                     {
-                        string managedName = potentialNestedInstructionSet.ManagedName;
-                        if (managedName.Contains('_') && instructionSet.ManagedName == managedName[..managedName.IndexOf('_')])
+                        if (instructionSet.Architecture != architecture) continue;
+                        string managedName = potentialVLinstructionSet.ManagedName;
+                        if (managedName.EndsWith("_VL") && instructionSet.ManagedName == managedName.Substring(0, managedName.Length - 3))
                         {
-                            relatedInstructionSets.Add(potentialNestedInstructionSet);
+                            vlInstructionSet = potentialVLinstructionSet; break;
                         }
+                    }
+
+                    string hasSixtyFourBitInstructionSet = null;
+                    if (_64bitVariants[architecture].Contains(instructionSet.JitName) && _64BitArchitectures.Contains(architecture))
+                    {
+                        hasSixtyFourBitInstructionSet = ArchToManagedInstructionSetSuffixArch(architecture);
                     }
 
                     tr.Write(@$"
                     case ""{instructionSet.ManagedName}"":");
 
-                    foreach (var relatedInstructionSet in relatedInstructionSets)
+                    if (hasSixtyFourBitInstructionSet != null)
                     {
-                        string nestedTypeName = relatedInstructionSet == instructionSet ? null : relatedInstructionSet.ManagedName[(relatedInstructionSet.ManagedName.IndexOf('_') + 1)..];
-                        bool hasSixtyFourBitInstructionSet = _64bitVariants[architecture].Contains(relatedInstructionSet.JitName) && _64BitArchitectures.Contains(architecture);
-                        if (hasSixtyFourBitInstructionSet)
-                        {
-                            string sixtyFourBitInstructionSet = ArchToManagedInstructionSetSuffixArch(architecture);
-                            tr.Write($@"
-                        if (nestedTypeName == ""{(nestedTypeName is null ? sixtyFourBitInstructionSet : $"{nestedTypeName}_{sixtyFourBitInstructionSet}")}"")
-                        {{ return InstructionSet.{architecture}_{relatedInstructionSet.JitName}_{ArchToInstructionSetSuffixArch(architecture)}; }}
+                        tr.Write($@"
+                        if (nestedTypeName == ""{hasSixtyFourBitInstructionSet}"")
+                        {{ return InstructionSet.{architecture}_{instructionSet.JitName}_{ArchToInstructionSetSuffixArch(architecture)}; }}
                         else");
-                        }
-                        if (nestedTypeName != null)
-                        {
-                            tr.Write($@"
-                        if (nestedTypeName == ""{nestedTypeName}"")
-                        {{ return InstructionSet.{architecture}_{relatedInstructionSet.JitName}; }}
-                        else");
-                        }
                     }
-
+                    if (vlInstructionSet != null)
+                    {
+                        tr.Write($@"
+                        if (nestedTypeName == ""VL"")
+                        {{ return InstructionSet.{architecture}_{vlInstructionSet.JitName}; }}
+                        else");
+                    }
                     tr.Write($@"
                         {{ return InstructionSet.{architecture}_{instructionSet.JitName}; }}
 ");

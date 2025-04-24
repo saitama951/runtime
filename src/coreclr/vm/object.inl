@@ -3,7 +3,7 @@
 //
 // OBJECT.INL
 //
-// Definitions inline functions of a CLR Object
+// Definitions inline functions of a Com+ Object
 //
 
 
@@ -120,14 +120,14 @@ FORCEINLINE bool Object::TryEnterObjMonitorSpinHelper()
     }
 
     AwareLock::EnterHelperResult result = EnterObjMonitorHelper(pCurThread);
-    if (result == AwareLock::EnterHelperResult::Entered)
+    if (result == AwareLock::EnterHelperResult_Entered)
     {
         return true;
     }
-    if (result == AwareLock::EnterHelperResult::Contention)
+    if (result == AwareLock::EnterHelperResult_Contention)
     {
         result = EnterObjMonitorHelperSpin(pCurThread);
-        if (result == AwareLock::EnterHelperResult::Entered)
+        if (result == AwareLock::EnterHelperResult_Entered)
         {
             return true;
         }
@@ -213,6 +213,18 @@ __forceinline BOOL Nullable::IsNullableForType(TypeHandle type, MethodTable* par
     if (!type.AsMethodTable()->HasInstantiation())            // shortcut, if it is not generic it can't be Nullable<T>
         return FALSE;
     return Nullable::IsNullableForTypeHelper(type.AsMethodTable(), paramMT);
+}
+
+//===============================================================================
+// Returns true if this pMT is Nullable<T> for T == paramMT
+
+__forceinline BOOL Nullable::IsNullableForTypeNoGC(TypeHandle type, MethodTable* paramMT)
+{
+    if (type.IsTypeDesc())
+        return FALSE;
+    if (!type.AsMethodTable()->HasInstantiation())            // shortcut, if it is not generic it can't be Nullable<T>
+        return FALSE;
+    return Nullable::IsNullableForTypeHelperNoGC(type.AsMethodTable(), paramMT);
 }
 
 //===============================================================================

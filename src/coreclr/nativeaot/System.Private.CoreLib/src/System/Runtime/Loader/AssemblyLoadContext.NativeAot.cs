@@ -11,7 +11,7 @@ namespace System.Runtime.Loader
 {
     public partial class AssemblyLoadContext
     {
-        internal static Assembly[] GetLoadedAssemblies() => ReflectionAugments.GetLoadedAssemblies();
+        internal static Assembly[] GetLoadedAssemblies() => ReflectionAugments.ReflectionCoreCallbacks.GetLoadedAssemblies();
 
         public Assembly LoadFromAssemblyName(AssemblyName assemblyName)
         {
@@ -43,21 +43,18 @@ namespace System.Runtime.Loader
 
         private static Assembly InternalLoadFromPath(string? assemblyPath, string? nativeImagePath)
         {
-            ArgumentNullException.ThrowIfNull(assemblyPath);
-
-            throw new PlatformNotSupportedException();
+            // TODO: This is not passing down the AssemblyLoadContext,
+            // so it won't actually work properly when multiple assemblies with the same identity get loaded.
+            return ReflectionAugments.ReflectionCoreCallbacks.Load(assemblyPath);
         }
 #pragma warning restore IDE0060
 
-#pragma warning disable CA1822, IDE0060
-        internal Assembly InternalLoad(ReadOnlySpan<byte> rawAssembly, ReadOnlySpan<byte> rawSymbols)
+#pragma warning disable CA1822
+        internal Assembly InternalLoad(ReadOnlySpan<byte> arrAssembly, ReadOnlySpan<byte> arrSymbols)
         {
-            if (rawAssembly.IsEmpty)
-                throw new ArgumentNullException(nameof(rawAssembly));
-
-            throw new PlatformNotSupportedException();
+            return ReflectionAugments.ReflectionCoreCallbacks.Load(arrAssembly, arrSymbols);
         }
-#pragma warning restore CA1822, IDE0060
+#pragma warning restore CA1822
 
         private void ReferenceUnreferencedEvents()
         {

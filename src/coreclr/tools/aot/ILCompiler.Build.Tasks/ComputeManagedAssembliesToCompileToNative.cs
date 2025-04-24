@@ -120,8 +120,6 @@ namespace Build.Tasks
             {
                 // In the case of disk-based assemblies, this holds the file path
                 string itemSpec = taskItem.ItemSpec;
-                string assemblyFileName = Path.GetFileName(itemSpec);
-                bool isFromRuntimePack = taskItem.GetMetadata("NuGetPackageId")?.StartsWith("Microsoft.NETCore.App.Runtime.", StringComparison.OrdinalIgnoreCase) == true;
 
                 // Skip the native apphost (whose name ends up colliding with the native output binary) and supporting libraries
                 if (itemSpec.EndsWith(DotNetAppHostExecutableName, StringComparison.OrdinalIgnoreCase) || itemSpec.Contains(DotNetHostFxrLibraryName) || itemSpec.Contains(DotNetHostPolicyLibraryName))
@@ -130,10 +128,31 @@ namespace Build.Tasks
                     continue;
                 }
 
-                if (isFromRuntimePack && taskItem.GetMetadata("AssetType")?.Equals("native", StringComparison.OrdinalIgnoreCase) == true)
+                // Prototype aid - remove the native CoreCLR runtime pieces from the publish folder
+                if (itemSpec.IndexOf("microsoft.netcore.app", StringComparison.OrdinalIgnoreCase) != -1 && (itemSpec.Contains("\\native\\") || itemSpec.Contains("/native/")))
                 {
-                    // Skip the native components of the runtime pack, we don't need them for NativeAOT.
                     assembliesToSkipPublish.Add(taskItem);
+                    continue;
+                }
+
+                var assemblyFileName = Path.GetFileName(itemSpec);
+
+                if (assemblyFileName == "WindowsBase.dll")
+                {
+                    // There are two instances of WindowsBase.dll, one small one, in the NativeAOT framework
+                    // and real one in WindowsDesktop SDK. We want to make sure that if both are present,
+                    // we will use the one from WindowsDesktop SDK, and not from NativeAOT framework.
+                    foreach (ITaskItem taskItemToSkip in FrameworkAssemblies)
+                    {
+                        if (Path.GetFileName(taskItemToSkip.ItemSpec) == assemblyFileName)
+                        {
+                            assembliesToSkipPublish.Add(taskItemToSkip);
+                            break;
+                        }
+                    }
+
+                    assembliesToSkipPublish.Add(taskItem);
+                    list.Add(taskItem);
                     continue;
                 }
 
@@ -141,28 +160,23 @@ namespace Build.Tasks
                 // Currently that's System.Private.* SDK assemblies and a bunch of framework assemblies.
                 if (nativeAotFrameworkAssembliesToUse.TryGetValue(assemblyFileName, out ITaskItem frameworkItem))
                 {
-                    // If the assembly is part of the Microsoft.NETCore.App.Runtime runtime pack, we want to swap it with the corresponding package from the NativeAOT SDK.
-                    // Otherwise we want to use the assembly the user has referenced.
-                    if (!isFromRuntimePack)
+                    if (GetFileVersion(itemSpec).CompareTo(GetFileVersion(frameworkItem.ItemSpec)) > 0)
                     {
-                        // The assembly was overridden by an OOB package through standard .NET SDK conflict resolution.
-                        // Use that version instead of swapping to the NativeAOT one.
-                        list.Add(taskItem);
-                    }
-                    else if (assemblyFileName == "System.Private.CoreLib.dll" && GetFileVersion(itemSpec).CompareTo(GetFileVersion(frameworkItem.ItemSpec)) > 0)
-                    {
-                        // Validate that we aren't trying to use an older NativeAOT package against a newer non-NativeAOT runtime pack.
-                        // That's not supported.
-                        Log.LogError($"Overriding System.Private.CoreLib.dll with a newer version is not supported. Attempted to use {itemSpec} instead of {frameworkItem.ItemSpec}.");
+                        if (assemblyFileName == "System.Private.CoreLib.dll")
+                        {
+                            Log.LogError($"Overriding System.Private.CoreLib.dll with a newer version is not supported. Attempted to use {itemSpec} instead of {frameworkItem.ItemSpec}.");
+                        }
+                        else
+                        {
+                            // Allow OOB references with higher version to take precedence over the framework assemblies.
+                            list.Add(taskItem);
+                        }
                     }
 
                     assembliesToSkipPublish.Add(taskItem);
                     continue;
                 }
 
-                // For all other files, check if they are managed assemblies.
-                // If they're managed, skip publishing them and categorize them correctly as inputs to ILC.
-                // If they're not managed assemblies, then they're native dependencies. Allow them to be published.
                 try
                 {
                     using (FileStream moduleStream = File.OpenRead(itemSpec))

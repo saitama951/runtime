@@ -53,7 +53,7 @@ namespace System.Collections.Frozen
             if (Comparer is IAlternateEqualityComparer<TAlternateKey, TKey> &&
                 (typeof(TKey) != typeof(string) || typeof(TAlternateKey) == typeof(ReadOnlySpan<char>)))
             {
-                lookup = new AlternateLookup<TAlternateKey>(this, GetAlternateLookupDelegate<TAlternateKey>());
+                lookup = new AlternateLookup<TAlternateKey>(this);
                 return true;
             }
 
@@ -76,16 +76,12 @@ namespace System.Collections.Frozen
         /// <typeparam name="TAlternateKey">The alternate type of a key for performing lookups.</typeparam>
         public readonly struct AlternateLookup<TAlternateKey> where TAlternateKey : notnull, allows ref struct
         {
-            private readonly AlternateLookupDelegate<TAlternateKey> _alternateLookupDelegate;
-
             /// <summary>Initialize the instance. The dictionary must have already been verified to have a compatible comparer.</summary>
-            internal AlternateLookup(FrozenDictionary<TKey, TValue> dictionary, AlternateLookupDelegate<TAlternateKey> alternateLookupDelegate)
+            internal AlternateLookup(FrozenDictionary<TKey, TValue> dictionary)
             {
                 Debug.Assert(dictionary is not null);
                 Debug.Assert(dictionary.Comparer is IAlternateEqualityComparer<TAlternateKey, TKey>);
-                Debug.Assert(alternateLookupDelegate is not null);
                 Dictionary = dictionary;
-                _alternateLookupDelegate = alternateLookupDelegate;
             }
 
             /// <summary>Gets the <see cref="FrozenDictionary{TKey, TValue}"/> against which this instance performs operations.</summary>
@@ -103,7 +99,7 @@ namespace System.Collections.Frozen
             {
                 get
                 {
-                    ref readonly TValue valueRef = ref _alternateLookupDelegate(Dictionary, key);
+                    ref readonly TValue valueRef = ref Dictionary.GetValueRefOrNullRefCore(key);
                     if (Unsafe.IsNullRef(in valueRef))
                     {
                         ThrowHelper.ThrowKeyNotFoundException();
@@ -118,7 +114,7 @@ namespace System.Collections.Frozen
             /// <returns><see langword="true"/> if the key is in the dictionary; otherwise, <see langword="false"/>.</returns>
             /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
             public bool ContainsKey(TAlternateKey key) =>
-                !Unsafe.IsNullRef(in _alternateLookupDelegate(Dictionary, key));
+                !Unsafe.IsNullRef(in Dictionary.GetValueRefOrNullRefCore(key));
 
             /// <summary>Gets the value associated with the specified alternate key.</summary>
             /// <param name="key">The alternate key of the value to get.</param>
@@ -126,11 +122,10 @@ namespace System.Collections.Frozen
             /// When this method returns, contains the value associated with the specified key, if the key is found;
             /// otherwise, the default value for the type of the value parameter.
             /// </param>
-            /// <returns><see langword="true"/> if an entry was found; otherwise, <see langword="false"/>.</returns>
             /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
             public bool TryGetValue(TAlternateKey key, [MaybeNullWhen(false)] out TValue value)
             {
-                ref readonly TValue valueRef = ref _alternateLookupDelegate(Dictionary, key);
+                ref readonly TValue valueRef = ref Dictionary.GetValueRefOrNullRefCore(key);
 
                 if (!Unsafe.IsNullRef(in valueRef))
                 {

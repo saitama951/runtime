@@ -50,20 +50,14 @@ namespace Internal.IL.Stubs
                 FieldDesc functionPointerField = delegateType.GetKnownField("_functionPointer");
                 ILCodeStream codeStream = emit.NewCodeStream();
 
-                // Store the function pointer into local variable to avoid unnecessary register usage by JIT
-                ILLocalVariable functionPointer = emit.NewLocal(context.GetWellKnownType(WellKnownType.IntPtr));
-
-                codeStream.EmitLdArg(0);
-                codeStream.Emit(ILOpcode.ldfld, emit.NewToken(functionPointerField.InstantiateAsOpen()));
-                codeStream.EmitStLoc(functionPointer);
-
                 codeStream.EmitLdArg(0);
                 codeStream.Emit(ILOpcode.ldfld, emit.NewToken(firstParameterField.InstantiateAsOpen()));
                 for (int i = 0; i < method.Signature.Length; i++)
                 {
                     codeStream.EmitLdArg(i + 1);
                 }
-                codeStream.EmitLdLoc(functionPointer);
+                codeStream.EmitLdArg(0);
+                codeStream.Emit(ILOpcode.ldfld, emit.NewToken(functionPointerField.InstantiateAsOpen()));
 
                 MethodSignature signature = method.Signature;
                 if (method.OwningType.HasInstantiation)

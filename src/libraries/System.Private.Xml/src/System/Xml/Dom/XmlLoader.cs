@@ -82,8 +82,7 @@ namespace System.Xml
             }
             if (reader.ReadState == ReadState.Interactive)
             {
-                XmlNode? n = LoadNode(true);
-                Debug.Assert(n != null);
+                XmlNode n = LoadNode(true)!;
 
                 // Move to the next node
                 if (n.NodeType != XmlNodeType.Attribute)

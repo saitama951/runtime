@@ -142,7 +142,7 @@ namespace System
             return ret;
         }
 
-        [DynamicallyAccessedMembers(GetAllMembers)]
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         public virtual MemberInfo[] FindMembers(MemberTypes memberType, BindingFlags bindingAttr, MemberFilter? filter, object? filterCriteria)
         {
             // Define the work arrays

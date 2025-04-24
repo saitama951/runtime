@@ -177,7 +177,7 @@ namespace System
         {
             get
             {
-                if (Debugger.IsNativeDebuggerAttached())
+                if (Interop.Kernel32.IsDebuggerPresent())
                     return false;
 
                 if (s_once == 1 || Interlocked.Exchange(ref s_once, 1) == 1)

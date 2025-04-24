@@ -505,17 +505,11 @@ namespace System.Buffers.Text
                 {
                     t1 = Sse2.MultiplyHigh(t0.AsUInt16(), shiftAC);
                 }
-                else if (AdvSimd.Arm64.IsSupported)
+                else
                 {
                     Vector128<ushort> odd = Vector128.ShiftRightLogical(AdvSimd.Arm64.UnzipOdd(t0.AsUInt16(), t0.AsUInt16()), 6);
                     Vector128<ushort> even = Vector128.ShiftRightLogical(AdvSimd.Arm64.UnzipEven(t0.AsUInt16(), t0.AsUInt16()), 10);
                     t1 = AdvSimd.Arm64.ZipLow(even, odd);
-                }
-                else
-                {
-                    // We explicitly recheck each IsSupported query to ensure that the trimmer can see which paths are live/dead
-                    ThrowUnreachableException();
-                    t1 = default;
                 }
                 // 00000000 00kkkkLL 00000000 00JJJJJJ
                 // 00000000 00hhhhII 00000000 00GGGGGG
@@ -551,15 +545,9 @@ namespace System.Buffers.Text
                 {
                     indices = Sse2.SubtractSaturate(str.AsByte(), const51);
                 }
-                else if (AdvSimd.IsSupported)
-                {
-                    indices = AdvSimd.SubtractSaturate(str.AsByte(), const51);
-                }
                 else
                 {
-                    // We explicitly recheck each IsSupported query to ensure that the trimmer can see which paths are live/dead
-                    ThrowUnreachableException();
-                    indices = default;
+                    indices = AdvSimd.SubtractSaturate(str.AsByte(), const51);
                 }
 
                 // mask is 0xFF (-1) for range #[1..4] and 0x00 for range #0:

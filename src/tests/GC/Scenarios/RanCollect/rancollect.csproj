@@ -1,11 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Needed for GCStressIncompatible -->
-    <RequiresProcessIsolation>true</RequiresProcessIsolation>
-
-    <!-- Test needs explicit Main as it uses command-line parameters -->
-    <ReferenceXUnitWrapperGenerator>false</ReferenceXUnitWrapperGenerator>
-
+    <OutputType>Exe</OutputType>
     <GCStressIncompatible>true</GCStressIncompatible>
     <CLRTestExecutionArguments>7 40 4 77</CLRTestExecutionArguments>
   </PropertyGroup>

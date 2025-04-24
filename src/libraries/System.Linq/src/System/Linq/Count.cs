@@ -20,10 +20,12 @@ namespace System.Linq
                 return collectionoft.Count;
             }
 
-            if (!IsSizeOptimized && source is Iterator<TSource> iterator)
+#if !OPTIMIZE_FOR_SIZE
+            if (source is Iterator<TSource> iterator)
             {
                 return iterator.GetCount(onlyIfCheap: false);
             }
+#endif
 
             if (source is ICollection collection)
             {
@@ -31,12 +33,14 @@ namespace System.Linq
             }
 
             int count = 0;
-            using IEnumerator<TSource> e = source.GetEnumerator();
-            checked
+            using (IEnumerator<TSource> e = source.GetEnumerator())
             {
-                while (e.MoveNext())
+                checked
                 {
-                    count++;
+                    while (e.MoveNext())
+                    {
+                        count++;
+                    }
                 }
             }
 
@@ -113,7 +117,8 @@ namespace System.Linq
                 return true;
             }
 
-            if (!IsSizeOptimized && source is Iterator<TSource> iterator)
+#if !OPTIMIZE_FOR_SIZE
+            if (source is Iterator<TSource> iterator)
             {
                 int c = iterator.GetCount(onlyIfCheap: true);
                 if (c >= 0)
@@ -122,6 +127,7 @@ namespace System.Linq
                     return true;
                 }
             }
+#endif
 
             if (source is ICollection collection)
             {
@@ -144,10 +150,12 @@ namespace System.Linq
             // the source can't possibly be something from which we can extract a span.
 
             long count = 0;
-            using IEnumerator<TSource> e = source.GetEnumerator();
-            while (e.MoveNext())
+            using (IEnumerator<TSource> e = source.GetEnumerator())
             {
-                checked { count++; }
+                while (e.MoveNext())
+                {
+                    checked { count++; }
+                }
             }
 
             return count;

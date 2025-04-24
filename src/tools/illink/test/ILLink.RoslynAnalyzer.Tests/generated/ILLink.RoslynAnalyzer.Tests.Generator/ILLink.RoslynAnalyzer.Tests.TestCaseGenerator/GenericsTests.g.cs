@@ -7,6 +7,8 @@ namespace ILLink.RoslynAnalyzer.Tests
 	public sealed partial class GenericsTests : LinkerTestBase
 	{
 
+		protected override string TestSuiteName => "Generics";
+
 		[Fact]
 		public Task ArrayVariantCasting ()
 		{

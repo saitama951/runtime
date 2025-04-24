@@ -216,6 +216,8 @@ namespace Internal.Runtime.TypeLoader
                 if (state.ThreadDataSize != 0)
                     dynamicTypeFlags |= DynamicTypeFlags.HasThreadStatics;
 
+                // Note: The number of vtable slots on the MethodTable to create is not necessary equal to the number of
+                // vtable slots on the template type for universal generics (see ComputeVTableLayout)
                 ushort numVtableSlots = state.NumVTableSlots;
 
                 // Compute the MethodTable size and allocate it

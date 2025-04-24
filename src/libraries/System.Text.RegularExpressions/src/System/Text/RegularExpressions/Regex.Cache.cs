@@ -248,12 +248,9 @@ namespace System.Text.RegularExpressions
                         }
                     }
 
-                    // Remove the key found to have the smallest access stamp. List ordering isn't important, so rather than
-                    // just removing the element at minListIndex, which would result in an O(N) shift down, we copy the last
-                    // element to minListIndex, and then remove the last. (If minListIndex is the last, this is a no-op.)
+                    // Remove the key found to have the smallest access stamp.
                     s_cacheDictionary.TryRemove(s_cacheList[minListIndex].Key, out _);
-                    s_cacheList[minListIndex] = s_cacheList[^1];
-                    s_cacheList.RemoveAt(s_cacheList.Count - 1);
+                    s_cacheList.RemoveAt(minListIndex);
                 }
 
                 // Finally add the regex.

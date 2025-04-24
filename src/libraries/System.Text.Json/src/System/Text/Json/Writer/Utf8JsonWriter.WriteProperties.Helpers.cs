@@ -3,7 +3,6 @@
 
 using System.Buffers;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -37,10 +36,10 @@ namespace System.Text.Json
         {
             if (!_options.SkipValidation)
             {
-                if (_enclosingContainer != EnclosingContainerType.Object || _tokenType == JsonTokenType.PropertyName)
+                if (!_inObject || _tokenType == JsonTokenType.PropertyName)
                 {
                     Debug.Assert(_tokenType != JsonTokenType.StartObject);
-                    OnValidateWritingPropertyFailed();
+                    ThrowHelper.ThrowInvalidOperationException(ExceptionResource.CannotWritePropertyWithinArray, currentDepth: default, maxDepth: _options.MaxDepth, token: default, _tokenType);
                 }
             }
         }
@@ -50,26 +49,13 @@ namespace System.Text.Json
         {
             if (!_options.SkipValidation)
             {
-                if (_enclosingContainer != EnclosingContainerType.Object || _tokenType == JsonTokenType.PropertyName)
+                if (!_inObject || _tokenType == JsonTokenType.PropertyName)
                 {
                     Debug.Assert(_tokenType != JsonTokenType.StartObject);
-                    OnValidateWritingPropertyFailed();
+                    ThrowHelper.ThrowInvalidOperationException(ExceptionResource.CannotWritePropertyWithinArray, currentDepth: default, maxDepth: _options.MaxDepth, token: default, _tokenType);
                 }
                 UpdateBitStackOnStart(token);
             }
-        }
-
-        [DoesNotReturn]
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private void OnValidateWritingPropertyFailed()
-        {
-            if (IsWritingPartialString)
-            {
-                ThrowInvalidOperationException(ExceptionResource.CannotWriteWithinString);
-            }
-
-            Debug.Assert(_enclosingContainer != EnclosingContainerType.Object || _tokenType == JsonTokenType.PropertyName);
-            ThrowInvalidOperationException(ExceptionResource.CannotWritePropertyWithinArray);
         }
 
         private void WritePropertyNameMinimized(ReadOnlySpan<byte> escapedPropertyName, byte token)

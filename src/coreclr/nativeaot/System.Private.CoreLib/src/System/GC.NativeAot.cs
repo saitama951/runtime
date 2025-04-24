@@ -305,7 +305,7 @@ namespace System
             public bool scheduled;
             public bool abandoned;
 
-            public GCHandle<Action> action;
+            public GCHandle action;
         }
 
         public static unsafe void RegisterNoGCRegionCallback(long totalSize, Action callback)
@@ -317,7 +317,7 @@ namespace System
             try
             {
                 pWorkItem = (NoGCRegionCallbackFinalizerWorkItem*)NativeMemory.AllocZeroed((nuint)sizeof(NoGCRegionCallbackFinalizerWorkItem));
-                pWorkItem->action = new GCHandle<Action>(callback);
+                pWorkItem->action = GCHandle.Alloc(callback);
                 pWorkItem->callback = &Callback;
 
                 EnableNoGCRegionCallbackStatus status = (EnableNoGCRegionCallbackStatus)RuntimeImports.RhEnableNoGCRegionCallback(pWorkItem, totalSize);
@@ -347,13 +347,14 @@ namespace System
             {
                 Debug.Assert(pWorkItem->scheduled);
                 if (!pWorkItem->abandoned)
-                    pWorkItem->action.Target();
+                    ((Action)(pWorkItem->action.Target!))();
                 Free(pWorkItem);
             }
 
             static void Free(NoGCRegionCallbackFinalizerWorkItem* pWorkItem)
             {
-                pWorkItem->action.Dispose();
+                if (pWorkItem->action.IsAllocated)
+                    pWorkItem->action.Free();
                 NativeMemory.Free(pWorkItem);
             }
         }

@@ -14,6 +14,7 @@ using System.Runtime.CompilerServices;
 
 namespace Internal.Metadata.NativeFormat
 {
+    // Internal clone of System.Reflection.AssemblyFlags from System.Reflection.Metadata
     [Flags]
 #if SYSTEM_PRIVATE_CORELIB
     [CLSCompliant(false)]
@@ -28,8 +29,10 @@ namespace Internal.Metadata.NativeFormat
 
         /// Content type mask. Masked bits correspond to values of System.Reflection.AssemblyContentType
         ContentTypeMask = 0x00000e00,
+
     } // AssemblyFlags
 
+    // Internal clone of System.Reflection.AssemblyHashAlgorithm from System.Reflection.Metadata
 #if SYSTEM_PRIVATE_CORELIB
     [CLSCompliant(false)]
 #endif

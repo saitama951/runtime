@@ -4,12 +4,14 @@
 using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Internal.Runtime.CompilerHelpers
 {
     [StackTraceHidden]
     [DebuggerStepThrough]
-    internal static partial class ThrowHelpers
+    internal static unsafe partial class ThrowHelpers
     {
         [DoesNotReturn]
         [DebuggerHidden]

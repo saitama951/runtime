@@ -4,7 +4,6 @@
 using System;
 using System.Runtime;
 using System.Threading;
-using Xunit;
 
 public class Test
 {
@@ -220,8 +219,7 @@ public class Test
         }
     }
 
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         int test = 0;
         try

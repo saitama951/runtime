@@ -35,7 +35,6 @@ steps:
     condition: ${{ parameters.condition }}
     shouldContinueOnError: ${{ parameters.continueOnError }}
     environment:
-      _Creator: ${{ parameters.Creator }}
       TargetOS: ${{ parameters.osGroup }}
       TargetArchitecture: ${{ parameters.archType }}
       MchFileTag: $(MchFileTag)
@@ -57,4 +56,5 @@ steps:
       DotNetCliVersion: ${{ parameters.DotNetCliVersion }}
       EnableXUnitReporter: ${{ parameters.EnableXUnitReporter }}
       WaitForWorkItemCompletion: ${{ parameters.WaitForWorkItemCompletion }}
+      Creator: ${{ parameters.Creator }}
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)

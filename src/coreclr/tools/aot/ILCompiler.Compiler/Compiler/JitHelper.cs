@@ -66,7 +66,6 @@ namespace ILCompiler
                     {
                         TargetArchitecture.ARM64 => "RhpAssignRefArm64",
                         TargetArchitecture.LoongArch64 => "RhpAssignRefLoongArch64",
-                        TargetArchitecture.RiscV64 => "RhpAssignRefRiscV64",
                         _ => "RhpAssignRef"
                     };
                     break;
@@ -74,7 +73,7 @@ namespace ILCompiler
                     mangledName = context.Target.Architecture == TargetArchitecture.ARM64 ? "RhpCheckedAssignRefArm64" : "RhpCheckedAssignRef";
                     break;
                 case ReadyToRunHelper.BulkWriteBarrier:
-                    methodDesc = context.GetCoreLibEntryPoint("System", "Buffer", "BulkMoveWithWriteBarrier", null);
+                    mangledName = "RhBuffer_BulkMoveWithWriteBarrier";
                     break;
                 case ReadyToRunHelper.ByRefWriteBarrier:
                     mangledName = context.Target.Architecture == TargetArchitecture.ARM64 ? "RhpByRefAssignRefArm64" : "RhpByRefAssignRef";
@@ -117,16 +116,16 @@ namespace ILCompiler
                     break;
                 case ReadyToRunHelper.Box:
                 case ReadyToRunHelper.Box_Nullable:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "RuntimeExports", "RhBox", null);
+                    mangledName = "RhBox";
                     break;
                 case ReadyToRunHelper.Unbox:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "RuntimeExports", "RhUnbox2", null);
+                    mangledName = "RhUnbox2";
                     break;
                 case ReadyToRunHelper.Unbox_Nullable:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "RuntimeExports", "RhUnboxNullable", null);
+                    mangledName = "RhUnboxNullable";
                     break;
                 case ReadyToRunHelper.Unbox_TypeTest:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "RuntimeExports", "RhUnboxTypeTest", null);
+                    mangledName = "RhUnboxTypeTest";
                     break;
 
                 case ReadyToRunHelper.NewMultiDimArr:
@@ -144,20 +143,20 @@ namespace ILCompiler
                     break;
 
                 case ReadyToRunHelper.Stelem_Ref:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "TypeCast", "StelemRef", null);
+                    mangledName = "RhpStelemRef";
                     break;
                 case ReadyToRunHelper.Ldelema_Ref:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "TypeCast", "LdelemaRef", null);
+                    mangledName = "RhpLdelemaRef";
                     break;
 
                 case ReadyToRunHelper.MemCpy:
-                    methodDesc = context.GetCoreLibEntryPoint("System", "SpanHelpers", "Memmove", null);
+                    mangledName = "RhSpanHelpers_MemCopy";
                     break;
                 case ReadyToRunHelper.MemSet:
-                    methodDesc = context.GetCoreLibEntryPoint("System", "SpanHelpers", "Fill", null);
+                    mangledName = "RhSpanHelpers_MemSet";
                     break;
                 case ReadyToRunHelper.MemZero:
-                    methodDesc = context.GetCoreLibEntryPoint("System", "SpanHelpers", "ClearWithoutReferences", null);
+                    mangledName = "RhSpanHelpers_MemZero";
                     break;
                 case ReadyToRunHelper.NativeMemSet:
                     mangledName = "memset";
@@ -285,29 +284,29 @@ namespace ILCompiler
                     break;
 
                 case ReadyToRunHelper.CheckCastAny:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "TypeCast", "CheckCastAny", null);
+                    mangledName = "RhTypeCast_CheckCastAny";
                     break;
                 case ReadyToRunHelper.CheckCastInterface:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "TypeCast", "CheckCastInterface", null);
+                    mangledName = "RhTypeCast_CheckCastInterface";
                     break;
                 case ReadyToRunHelper.CheckCastClass:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "TypeCast", "CheckCastClass", null);
+                    mangledName = "RhTypeCast_CheckCastClass";
                     break;
                 case ReadyToRunHelper.CheckCastClassSpecial:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "TypeCast", "CheckCastClassSpecial", null);
+                    mangledName = "RhTypeCast_CheckCastClassSpecial";
                     break;
 
                 case ReadyToRunHelper.CheckInstanceAny:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "TypeCast", "IsInstanceOfAny", null);
+                    mangledName = "RhTypeCast_IsInstanceOfAny";
                     break;
                 case ReadyToRunHelper.CheckInstanceInterface:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "TypeCast", "IsInstanceOfInterface", null);
+                    mangledName = "RhTypeCast_IsInstanceOfInterface";
                     break;
                 case ReadyToRunHelper.CheckInstanceClass:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "TypeCast", "IsInstanceOfClass", null);
+                    mangledName = "RhTypeCast_IsInstanceOfClass";
                     break;
                 case ReadyToRunHelper.IsInstanceOfException:
-                    methodDesc = context.GetCoreLibEntryPoint("System.Runtime", "TypeCast", "IsInstanceOfException", null);
+                    mangledName = "RhTypeCast_IsInstanceOfException";
                     break;
 
                 case ReadyToRunHelper.MonitorEnter:
@@ -315,6 +314,12 @@ namespace ILCompiler
                     break;
                 case ReadyToRunHelper.MonitorExit:
                     methodDesc = context.GetHelperEntryPoint("SynchronizedMethodHelpers", "MonitorExit");
+                    break;
+                case ReadyToRunHelper.MonitorEnterStatic:
+                    methodDesc = context.GetHelperEntryPoint("SynchronizedMethodHelpers", "MonitorEnterStatic");
+                    break;
+                case ReadyToRunHelper.MonitorExitStatic:
+                    methodDesc = context.GetHelperEntryPoint("SynchronizedMethodHelpers", "MonitorExitStatic");
                     break;
 
                 case ReadyToRunHelper.GVMLookupForSlot:

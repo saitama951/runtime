@@ -7,7 +7,7 @@
 #include "config.h"
 #include "daccess.h"
 #include "regdisplay.h"
-#include "NativeContext.h"
+#include "UnixContext.h"
 #include "HardwareExceptions.h"
 #include "UnixSignals.h"
 #include "PalCreateDump.h"

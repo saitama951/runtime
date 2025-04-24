@@ -143,18 +143,11 @@ namespace System.Text.Json.Serialization
 
             switch (options.ReferenceHandlingStrategy)
             {
-                case JsonKnownReferenceHandler.IgnoreCycles:
+                case ReferenceHandlingStrategy.IgnoreCycles:
                     ReferenceResolver resolver = state.ReferenceResolver;
                     if (resolver.ContainsReferenceForCycleDetection(value))
                     {
                         writer.WriteNullValue();
-
-                        if (polymorphicConverter is not null)
-                        {
-                            // Clear out any polymorphic state.
-                            state.PolymorphicTypeDiscriminator = null;
-                            state.PolymorphicTypeResolver = null;
-                        }
                         return true;
                     }
 
@@ -165,7 +158,7 @@ namespace System.Text.Json.Serialization
                     state.Current.IsPushedReferenceForCycleDetection = state.CurrentDepth > 0;
                     break;
 
-                case JsonKnownReferenceHandler.Preserve:
+                case ReferenceHandlingStrategy.Preserve:
                     bool canHaveIdMetadata = polymorphicConverter?.CanHaveMetadata ?? CanHaveMetadata;
                     if (canHaveIdMetadata && JsonSerializer.TryGetReferenceForValue(value, ref state, writer))
                     {

@@ -21,66 +21,33 @@ void JitHost::freeMemory(void* block)
     delete [] (BYTE*)block;
 }
 
-int JitHost::getIntConfigValue(const char* name, int defaultValue)
+int JitHost::getIntConfigValue(const WCHAR* name, int defaultValue)
 {
     WRAPPER_NO_CONTRACT;
 
-    StackSString str;
-    SString(SString::Utf8Literal, name).ConvertToUnicode(str);
-
     // Translate JIT call into runtime configuration query
-    CLRConfig::ConfigDWORDInfo info{ str.GetUnicode(), (DWORD)defaultValue, CLRConfig::LookupOptions::Default };
+    CLRConfig::ConfigDWORDInfo info{ name, (DWORD)defaultValue, CLRConfig::LookupOptions::Default };
 
     // Perform a CLRConfig look up on behalf of the JIT.
     return CLRConfig::GetConfigValue(info);
 }
 
-const char* JitHost::getStringConfigValue(const char* name)
+const WCHAR* JitHost::getStringConfigValue(const WCHAR* name)
 {
     WRAPPER_NO_CONTRACT;
-
-    StackSString str;
-    SString(SString::Utf8Literal, name).ConvertToUnicode(str);
 
     // Translate JIT call into runtime configuration query
-    CLRConfig::ConfigStringInfo info{ str.GetUnicode(), CLRConfig::LookupOptions::Default };
+    CLRConfig::ConfigStringInfo info{ name, CLRConfig::LookupOptions::Default };
 
     // Perform a CLRConfig look up on behalf of the JIT.
-    LPWSTR allocatedStr = CLRConfig::GetConfigValue(info);
-
-    if (allocatedStr == nullptr)
-    {
-        return nullptr;
-    }
-
-    bool allAscii;
-    DWORD length;
-    HRESULT hr = FString::Unicode_Utf8_Length(allocatedStr, &allAscii, &length);
-    if (FAILED(hr))
-    {
-        CLRConfig::FreeConfigString(allocatedStr);
-        return nullptr;
-    }
-
-    NewArrayHolder<char> utf8Result = new char[length + 1];
-    hr = FString::Unicode_Utf8(allocatedStr, allAscii, utf8Result, length);
-    utf8Result[length] = '\0';
-
-    CLRConfig::FreeConfigString(allocatedStr);
-
-    if (FAILED(hr))
-    {
-        return nullptr;
-    }
-
-    return utf8Result.Extract();
+    return CLRConfig::GetConfigValue(info);
 }
 
-void JitHost::freeStringConfigValue(const char* value)
+void JitHost::freeStringConfigValue(const WCHAR* value)
 {
     WRAPPER_NO_CONTRACT;
 
-    delete[] value;
+    CLRConfig::FreeConfigString(const_cast<WCHAR*>(value));
 }
 
 //

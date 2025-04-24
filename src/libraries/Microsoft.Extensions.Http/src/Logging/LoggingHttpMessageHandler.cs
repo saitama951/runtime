@@ -59,25 +59,16 @@ namespace Microsoft.Extensions.Http.Logging
                 // not really anything to surround.
                 _logger.LogRequestStart(request, shouldRedactHeaderValue);
                 var stopwatch = ValueStopwatch.StartNew();
-
-                try
-                {
-                    HttpResponseMessage response = useAsync
-                        ? await base.SendAsync(request, cancellationToken).ConfigureAwait(false)
+                HttpResponseMessage response = useAsync
+                    ? await base.SendAsync(request, cancellationToken).ConfigureAwait(false)
 #if NET
-                        : base.Send(request, cancellationToken);
+                    : base.Send(request, cancellationToken);
 #else
-                        : throw new NotImplementedException("Unreachable code");
+                    : throw new NotImplementedException("Unreachable code");
 #endif
-                    _logger.LogRequestEnd(response, stopwatch.GetElapsedTime(), shouldRedactHeaderValue);
+                _logger.LogRequestEnd(response, stopwatch.GetElapsedTime(), shouldRedactHeaderValue);
 
-                    return response;
-                }
-                catch (HttpRequestException ex)
-                {
-                    _logger.LogRequestFailed(stopwatch.GetElapsedTime(), ex);
-                    throw;
-                }
+                return response;
             }
         }
 

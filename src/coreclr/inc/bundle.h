@@ -19,15 +19,15 @@ struct BundleFileLocation
 {
     INT64 Size;
     INT64 Offset;
-    INT64 UncompressedSize;
+    INT64 UncompresedSize;
 
     BundleFileLocation()
-    {
+    { 
         LIMITED_METHOD_CONTRACT;
 
         Size = 0;
-        Offset = 0;
-        UncompressedSize = 0;
+        Offset = 0; 
+        UncompresedSize = 0;
     }
 
     static BundleFileLocation Invalid() { LIMITED_METHOD_CONTRACT; return BundleFileLocation(); }
@@ -51,6 +51,7 @@ public:
     static BundleFileLocation ProbeAppBundle(const SString& path, bool pathIsBundleRelative = false);
 
 private:
+
     SString m_path; // The path to single-file executable
     BundleProbeFn *m_probe;
 

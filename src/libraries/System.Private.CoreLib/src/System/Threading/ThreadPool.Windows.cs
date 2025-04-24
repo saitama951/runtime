@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -11,7 +10,6 @@ namespace System.Threading
 {
     public static partial class ThreadPool
     {
-        [FeatureSwitchDefinition("System.Threading.ThreadPool.UseWindowsThreadPool")]
         internal static bool UseWindowsThreadPool { get; } =
             AppContextConfigHelper.GetBooleanConfig("System.Threading.ThreadPool.UseWindowsThreadPool", "DOTNET_ThreadPool_UseWindowsThreadPool");
 
@@ -55,6 +53,10 @@ namespace System.Threading
             ThreadPool.UseWindowsThreadPool ?
             WindowsThreadPool.BindHandle(osHandle) :
             BindHandlePortableCore(osHandle);
+
+#if !CORECLR
+        internal static bool EnsureConfigInitialized() => true;
+#endif
 
         internal static void InitializeForThreadPoolThread()
         {
@@ -157,7 +159,7 @@ namespace System.Threading
         /// <summary>
         /// This method is called to request a new thread pool worker to handle pending work.
         /// </summary>
-        internal static void RequestWorkerThread()
+        internal static unsafe void RequestWorkerThread()
         {
             if (ThreadPool.UseWindowsThreadPool)
             {

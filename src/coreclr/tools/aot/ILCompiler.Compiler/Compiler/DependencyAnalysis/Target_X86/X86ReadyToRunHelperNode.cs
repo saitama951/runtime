@@ -23,17 +23,22 @@ namespace ILCompiler.DependencyAnalysis
                     {
                         MetadataType target = (MetadataType)Target;
                         bool hasLazyStaticConstructor = factory.PreinitializationManager.HasLazyStaticConstructor(target);
+                        encoder.EmitMOV(encoder.TargetRegister.Result, factory.TypeNonGCStaticsSymbol(target));
 
                         if (!hasLazyStaticConstructor)
                         {
-                            encoder.EmitMOV(encoder.TargetRegister.Result, factory.TypeNonGCStaticsSymbol(target));
                             encoder.EmitRET();
                         }
                         else
                         {
-                            // The fast path check is not necessary. It is always expanded by RyuJIT.
-                            encoder.EmitMOV(encoder.TargetRegister.Arg1, factory.TypeNonGCStaticsSymbol(target));
+                            // We need to trigger the cctor before returning the base. It is stored at the beginning of the non-GC statics region.
                             encoder.EmitMOV(encoder.TargetRegister.Arg0, factory.TypeNonGCStaticsSymbol(target), -NonGCStaticsNode.GetClassConstructorContextSize(factory.Target));
+
+                            AddrMode initialized = new AddrMode(encoder.TargetRegister.Arg0, null, 0, 0, AddrModeSize.Int32);
+                            encoder.EmitCMP(ref initialized, 0);
+                            encoder.EmitRETIfEqual();
+
+                            encoder.EmitMOV(encoder.TargetRegister.Arg1, encoder.TargetRegister.Result);
                             encoder.EmitJMP(factory.HelperEntrypoint(HelperEntrypoint.EnsureClassConstructorRunAndReturnNonGCStaticBase));
                         }
                     }
@@ -90,19 +95,23 @@ namespace ILCompiler.DependencyAnalysis
                         MetadataType target = (MetadataType)Target;
                         bool hasLazyStaticConstructor = factory.PreinitializationManager.HasLazyStaticConstructor(target);
                         encoder.EmitMOV(encoder.TargetRegister.Result, factory.TypeGCStaticsSymbol(target));
+                        AddrMode loadFromEax = new AddrMode(encoder.TargetRegister.Result, null, 0, 0, AddrModeSize.Int32);
+                        encoder.EmitMOV(encoder.TargetRegister.Result, ref loadFromEax);
 
                         if (!hasLazyStaticConstructor)
                         {
-                            AddrMode loadFromEax = new AddrMode(encoder.TargetRegister.Result, null, 0, 0, AddrModeSize.Int32);
-                            encoder.EmitMOV(encoder.TargetRegister.Result, ref loadFromEax);
                             encoder.EmitRET();
                         }
                         else
                         {
-                            // The fast path check is not necessary. It is always expanded by RyuJIT.
-                            AddrMode loadFromEax = new AddrMode(encoder.TargetRegister.Result, null, 0, 0, AddrModeSize.Int32);
-                            encoder.EmitMOV(encoder.TargetRegister.Arg1, ref loadFromEax);
+                            // We need to trigger the cctor before returning the base. It is stored at the beginning of the non-GC statics region.
                             encoder.EmitMOV(encoder.TargetRegister.Arg0, factory.TypeNonGCStaticsSymbol(target), -NonGCStaticsNode.GetClassConstructorContextSize(factory.Target));
+
+                            AddrMode initialized = new AddrMode(encoder.TargetRegister.Arg0, null, 0, 0, AddrModeSize.Int32);
+                            encoder.EmitCMP(ref initialized, 0);
+                            encoder.EmitRETIfEqual();
+
+                            encoder.EmitMOV(encoder.TargetRegister.Arg1, encoder.TargetRegister.Result);
                             encoder.EmitJMP(factory.HelperEntrypoint(HelperEntrypoint.EnsureClassConstructorRunAndReturnGCStaticBase));
                         }
                     }

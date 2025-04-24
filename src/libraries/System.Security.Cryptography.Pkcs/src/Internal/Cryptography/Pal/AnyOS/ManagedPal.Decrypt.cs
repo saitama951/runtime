@@ -89,7 +89,7 @@ namespace Internal.Cryptography.Pal.AnyOS
                 }
             }
 
-            public static ContentInfo? TryDecryptCore(
+            public static unsafe ContentInfo? TryDecryptCore(
                 byte[] cek,
                 string contentType,
                 ReadOnlyMemory<byte>? content,

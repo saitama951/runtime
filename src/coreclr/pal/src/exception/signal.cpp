@@ -44,13 +44,11 @@ SET_DEFAULT_DEBUG_CHANNEL(EXCEPT); // some headers have code with asserts, so do
 #include "pal/utils.h"
 
 #include <string.h>
+#include <sys/ucontext.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 #include <sys/mman.h>
 
-#if HAVE_SYS_UCONTEXT_H
-#include <sys/ucontext.h>
-#endif // HAVE_SYS_UCONTEXT_H
 
 #endif // !HAVE_MACH_EXCEPTIONS
 #include "pal/context.h"
@@ -192,13 +190,8 @@ BOOL SEHInitializeSignals(CorUnix::CPalThread *pthrCurrent, DWORD flags)
         handle_signal(SIGSEGV, sigsegv_handler, &g_previous_sigsegv);
 #else
         handle_signal(SIGTRAP, sigtrap_handler, &g_previous_sigtrap);
-        int additionalFlagsForSigSegv = 0;
-#ifndef TARGET_SUNOS
-        // On platforms that support signal handlers that don't return,
         // SIGSEGV handler runs on a separate stack so that we can handle stack overflow
-        additionalFlagsForSigSegv |= SA_ONSTACK;
-#endif
-        handle_signal(SIGSEGV, sigsegv_handler, &g_previous_sigsegv, additionalFlagsForSigSegv);
+        handle_signal(SIGSEGV, sigsegv_handler, &g_previous_sigsegv, SA_ONSTACK);
 
         if (!pthrCurrent->EnsureSignalAlternateStack())
         {
@@ -206,7 +199,7 @@ BOOL SEHInitializeSignals(CorUnix::CPalThread *pthrCurrent, DWORD flags)
         }
 
         // Allocate the minimal stack necessary for handling stack overflow
-        int stackOverflowStackSize = ALIGN_UP(sizeof(SignalHandlerWorkerReturnPoint), 16) + 8 * 4096;
+        int stackOverflowStackSize = ALIGN_UP(sizeof(SignalHandlerWorkerReturnPoint), 16) + 7 * 4096;
         // Align the size to virtual page size and add one virtual page as a stack guard
         stackOverflowStackSize = ALIGN_UP(stackOverflowStackSize, GetVirtualPageSize()) + GetVirtualPageSize();
         int flags = MAP_ANONYMOUS | MAP_PRIVATE;
@@ -351,7 +344,7 @@ Return :
 --*/
 bool IsRunningOnAlternateStack(void *context)
 {
-#if HAVE_MACH_EXCEPTIONS || defined(TARGET_SUNOS)
+#if HAVE_MACH_EXCEPTIONS
     return false;
 #else
     bool isRunningOnAlternateStack;
@@ -581,13 +574,7 @@ Parameters :
          If sp == 0, execute it on the original stack where the signal has occurred.
 Return :
     The return value from the signal handler
-
-Note:
-    This function is marked as noinline to reduce the stack frame space of the caller, the
-    sigsegv_handler. The sigsegv_handler is running on an alternate stack and we want to
-    avoid running out of stack space in case there are multiple PALs in the process.
 --*/
-__attribute__((noinline))
 static bool SwitchStackAndExecuteHandler(int code, siginfo_t *siginfo, void *context, size_t sp)
 {
     // Establish a return point in case the common_signal_handler returns
@@ -611,12 +598,6 @@ static bool SwitchStackAndExecuteHandler(int code, siginfo_t *siginfo, void *con
 }
 
 #endif // !HAVE_MACH_EXCEPTIONS
-
-// Temporary locals to debug issue https://github.com/dotnet/runtime/issues/110173
-static SIZE_T stackOverflowThreadId = -1;
-static const char StackOverflowOnTheSameThreadMessage[] = "Stack overflow occurred on the same thread again!\n";
-static const char StackOverflowHandlerReturnedMessage[] = "Stack overflow handler has returned, invoking previous action!\n";
-//
 
 /*++
 Function :
@@ -650,60 +631,44 @@ static void sigsegv_handler(int code, siginfo_t *siginfo, void *context)
                     // We have only one stack for handling stack overflow preallocated. We let only the first thread that hits stack overflow to
                     // run the exception handling code on that stack (which ends up just dumping the stack trace and aborting the process).
                     // Other threads are held spinning and sleeping here until the process exits.
-
-                    // Temporary check to debug issue https://github.com/dotnet/runtime/issues/110173
-                    if (stackOverflowThreadId == THREADSilentGetCurrentThreadId())
-                    {
-                        (void)!write(STDERR_FILENO, StackOverflowOnTheSameThreadMessage, sizeof(StackOverflowOnTheSameThreadMessage) - 1);
-                    }
-
                     while (true)
                     {
                         sleep(1);
                     }
-                }
-                else
-                {
-                    stackOverflowThreadId = THREADSilentGetCurrentThreadId();
                 }
 
                 if (SwitchStackAndExecuteHandler(code | StackOverflowFlag, siginfo, context, (size_t)handlerStackTop))
                 {
                     PROCAbort(SIGSEGV, siginfo);
                 }
-                (void)!write(STDERR_FILENO, StackOverflowHandlerReturnedMessage, sizeof(StackOverflowHandlerReturnedMessage) - 1);
             }
             else
             {
                 (void)!write(STDERR_FILENO, StackOverflowMessage, sizeof(StackOverflowMessage) - 1);
+                PROCAbort(SIGSEGV, siginfo);
             }
+        }
 
-            // The current executable (shared library) doesn't have hardware exception handler installed or opted to not to
-            // handle it. So this handler will invoke the previously installed handler at the end of this function.
+        // Now that we know the SIGSEGV didn't happen due to a stack overflow, execute the common
+        // hardware signal handler on the original stack.
+
+        if (GetCurrentPalThread() && IsRunningOnAlternateStack(context))
+        {
+            if (SwitchStackAndExecuteHandler(code, siginfo, context, 0 /* sp */)) // sp == 0 indicates execution on the original stack
+            {
+                return;
+            }
         }
         else
         {
-            // Now that we know the SIGSEGV didn't happen due to a stack overflow, execute the common
-            // hardware signal handler on the original stack.
-
-            if (GetCurrentPalThread() && IsRunningOnAlternateStack(context))
+            // The code flow gets here when the signal handler is not running on an alternate stack or when it wasn't created
+            // by coreclr. In both cases, we execute the common_signal_handler directly.
+            // If thread isn't created by coreclr and has alternate signal stack GetCurrentPalThread() will return NULL too.
+            // But since in this case we don't handle hardware exceptions (IsSafeToHandleHardwareException returns false)
+            // we can call common_signal_handler on the alternate stack.
+            if (common_signal_handler(code, siginfo, context, 2, (size_t)0, (size_t)siginfo->si_addr))
             {
-                if (SwitchStackAndExecuteHandler(code, siginfo, context, 0 /* sp */)) // sp == 0 indicates execution on the original stack
-                {
-                    return;
-                }
-            }
-            else
-            {
-                // The code flow gets here when the signal handler is not running on an alternate stack or when it wasn't created
-                // by coreclr. In both cases, we execute the common_signal_handler directly.
-                // If thread isn't created by coreclr and has alternate signal stack GetCurrentPalThread() will return NULL too.
-                // But since in this case we don't handle hardware exceptions (IsSafeToHandleHardwareException returns false)
-                // we can call common_signal_handler on the alternate stack.
-                if (common_signal_handler(code, siginfo, context, 2, (size_t)0, (size_t)siginfo->si_addr))
-                {
-                    return;
-                }
+                return;
             }
         }
     }

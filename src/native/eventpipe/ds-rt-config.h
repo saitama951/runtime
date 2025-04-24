@@ -11,9 +11,6 @@
 #define DS_INCLUDE_SOURCE_FILES
 #endif
 
-#ifdef ENABLE_PERFTRACING_PAL_WS
-#define DS_IPC_PAL_WS
-#else
 #ifdef ENABLE_PERFTRACING_PAL_TCP
 #define DS_IPC_PAL_TCP
 #else
@@ -21,7 +18,6 @@
 #define DS_IPC_PAL_UDS
 #else
 #define DS_IPC_PAL_NAMEDPIPES
-#endif
 #endif
 #endif
 

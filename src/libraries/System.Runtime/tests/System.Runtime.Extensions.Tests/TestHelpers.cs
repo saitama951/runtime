@@ -14,7 +14,7 @@ namespace System
             foreach (var item in first)
                 data.Add(item);
             foreach (var item in second)
-                data.Add(item);
+                data.Add((T)item[0]);
             return data;
         }
 
@@ -22,9 +22,9 @@ namespace System
         {
             TheoryData<T> data = new TheoryData<T>();
             foreach (var item in first)
-                data.Add(item);
+                data.Add((T)item[0]);
             foreach (var item in second)
-                data.Add(item);
+                data.Add((T)item[0]);
             return data;
         }
     }

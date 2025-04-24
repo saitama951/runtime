@@ -136,7 +136,7 @@ namespace System
         }
 
         // Gets the type of the current arg, does NOT advance the iterator
-        public RuntimeTypeHandle GetNextArgType()
+        public unsafe RuntimeTypeHandle GetNextArgType()
         {
             return RuntimeTypeHandle.FromIntPtr(GetNextArgType(ThisPtr));
         }

@@ -19,7 +19,7 @@ namespace Microsoft.Extensions.DependencyModel.Resolution
         }
 
         public PackageCompilationAssemblyResolver(string nugetPackageDirectory)
-            : this(FileSystemWrapper.Default, [nugetPackageDirectory])
+            : this(FileSystemWrapper.Default, new string[] { nugetPackageDirectory })
         {
         }
 
@@ -46,24 +46,32 @@ namespace Microsoft.Extensions.DependencyModel.Resolution
 
             if (!string.IsNullOrEmpty(listOfDirectories))
             {
-                return listOfDirectories.Split([Path.PathSeparator], StringSplitOptions.RemoveEmptyEntries);
+                return listOfDirectories.Split(new char[] { Path.PathSeparator }, StringSplitOptions.RemoveEmptyEntries);
             }
 
             string? packageDirectory = environment.GetEnvironmentVariable("NUGET_PACKAGES");
 
             if (!string.IsNullOrEmpty(packageDirectory))
             {
-                return [packageDirectory];
+                return new string[] { packageDirectory };
             }
 
-            string basePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string? basePath;
+            if (environment.IsWindows())
+            {
+                basePath = environment.GetEnvironmentVariable("USERPROFILE");
+            }
+            else
+            {
+                basePath = environment.GetEnvironmentVariable("HOME");
+            }
 
             if (string.IsNullOrEmpty(basePath))
             {
-                return [string.Empty];
+                return new string[] { string.Empty };
             }
 
-            return [Path.Combine(basePath, ".nuget", "packages")];
+            return new string[] { Path.Combine(basePath, ".nuget", "packages") };
         }
 
         public bool TryResolveAssemblyPaths(CompilationLibrary library, List<string>? assemblies)
@@ -94,7 +102,7 @@ namespace Microsoft.Extensions.DependencyModel.Resolution
 
         private static bool TryResolveFromPackagePath(IFileSystem fileSystem, CompilationLibrary library, string basePath, [MaybeNullWhen(false)] out IEnumerable<string> results)
         {
-            List<string> paths = [];
+            var paths = new List<string>();
 
             foreach (string assembly in library.Assemblies)
             {

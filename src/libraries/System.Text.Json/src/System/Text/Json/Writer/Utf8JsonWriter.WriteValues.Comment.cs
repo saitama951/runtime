@@ -61,13 +61,6 @@ namespace System.Text.Json
 
         private void WriteCommentByOptions(ReadOnlySpan<char> value)
         {
-            if (!_options.SkipValidation)
-            {
-                // Comments generally can be placed anywhere in JSON, but not after a non-final
-                // string segment.
-                ValidateNotWithinUnfinalizedString();
-            }
-
             if (_options.Indented)
             {
                 WriteCommentIndented(value);

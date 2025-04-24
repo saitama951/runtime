@@ -47,9 +47,7 @@ namespace ILCompiler.Reflection.ReadyToRun.Amd64
         }
 
         private const int MIN_GCINFO_VERSION_WITH_RETURN_KIND = 2;
-        private const int MAX_GCINFO_VERSION_WITH_RETURN_KIND = 3;
         private const int MIN_GCINFO_VERSION_WITH_REV_PINVOKE_FRAME = 2;
-        private const int MIN_GCINFO_VERSION_WITH_NORMALIZED_CODE_OFFSETS = 3;
 
         private bool _slimHeader;
         private bool _hasSecurityObject;
@@ -90,9 +88,7 @@ namespace ILCompiler.Reflection.ReadyToRun.Amd64
         public GcInfo(byte[] image, int offset, Machine machine, ushort majorVersion, ushort minorVersion)
         {
             Offset = offset;
-            Version = ReadyToRunVersionToGcInfoVersion(majorVersion, minorVersion);
-            bool denormalizeCodeOffsets = Version > MIN_GCINFO_VERSION_WITH_NORMALIZED_CODE_OFFSETS;
-            _gcInfoTypes = new GcInfoTypes(machine, denormalizeCodeOffsets);
+            _gcInfoTypes = new GcInfoTypes(machine);
             _machine = machine;
 
             SecurityObjectStackSlot = -1;
@@ -104,11 +100,12 @@ namespace ILCompiler.Reflection.ReadyToRun.Amd64
             SizeOfEditAndContinuePreservedArea = 0xffffffff;
             ReversePInvokeFrameStackSlot = -1;
 
+            Version = ReadyToRunVersionToGcInfoVersion(majorVersion, minorVersion);
             int bitOffset = offset * 8;
 
             ParseHeaderFlags(image, ref bitOffset);
 
-            if (Version >= MIN_GCINFO_VERSION_WITH_RETURN_KIND && Version <= MAX_GCINFO_VERSION_WITH_RETURN_KIND) // IsReturnKindAvailable
+            if (Version >= MIN_GCINFO_VERSION_WITH_RETURN_KIND) // IsReturnKindAvailable
             {
                 int returnKindBits = (_slimHeader) ? _gcInfoTypes.SIZE_OF_RETURN_KIND_SLIM : _gcInfoTypes.SIZE_OF_RETURN_KIND_FAT;
                 ReturnKind = (ReturnKinds)NativeReader.ReadBits(image, returnKindBits, ref bitOffset);
@@ -121,13 +118,12 @@ namespace ILCompiler.Reflection.ReadyToRun.Amd64
                 uint normPrologSize = NativeReader.DecodeVarLengthUnsigned(image, _gcInfoTypes.NORM_PROLOG_SIZE_ENCBASE, ref bitOffset) + 1;
                 uint normEpilogSize = NativeReader.DecodeVarLengthUnsigned(image, _gcInfoTypes.NORM_EPILOG_SIZE_ENCBASE, ref bitOffset);
 
-                ValidRangeStart = _gcInfoTypes.DenormalizeCodeOffset(normPrologSize);
-                ValidRangeEnd = (uint)CodeLength - _gcInfoTypes.DenormalizeCodeOffset(normEpilogSize);
+                ValidRangeStart = normPrologSize;
+                ValidRangeEnd = (uint)CodeLength - normEpilogSize;
             }
             else if (_hasSecurityObject || _hasGenericsInstContext)
             {
-                uint normValidRangeStart = NativeReader.DecodeVarLengthUnsigned(image, _gcInfoTypes.NORM_PROLOG_SIZE_ENCBASE, ref bitOffset) + 1;
-                ValidRangeStart = _gcInfoTypes.DenormalizeCodeOffset(normValidRangeStart);
+                ValidRangeStart = NativeReader.DecodeVarLengthUnsigned(image, _gcInfoTypes.NORM_PROLOG_SIZE_ENCBASE, ref bitOffset) + 1;
                 ValidRangeEnd = ValidRangeStart + 1;
             }
 
@@ -356,11 +352,11 @@ namespace ILCompiler.Reflection.ReadyToRun.Amd64
         private List<SafePointOffset> EnumerateSafePoints(byte[] image, ref int bitOffset)
         {
             List<SafePointOffset> safePoints = new List<SafePointOffset>();
-            uint numBitsPerOffset = GcInfoTypes.CeilOfLog2((int)_gcInfoTypes.NormalizeCodeOffset((uint)CodeLength));
+            uint numBitsPerOffset = GcInfoTypes.CeilOfLog2(CodeLength);
             for (int i = 0; i < NumSafePoints; i++)
             {
                 uint normOffset = (uint)NativeReader.ReadBits(image, (int)numBitsPerOffset, ref bitOffset);
-                safePoints.Add(new SafePointOffset(i, _gcInfoTypes.DenormalizeCodeOffset(normOffset)));
+                safePoints.Add(new SafePointOffset(i, normOffset));
             }
             return safePoints;
         }
@@ -371,21 +367,18 @@ namespace ILCompiler.Reflection.ReadyToRun.Amd64
         private List<InterruptibleRange> EnumerateInterruptibleRanges(byte[] image, int interruptibleRangeDelta1EncBase, int interruptibleRangeDelta2EncBase, ref int bitOffset)
         {
             List<InterruptibleRange> ranges = new List<InterruptibleRange>();
-            uint normLastinterruptibleRangeStopOffset = 0;
+            uint lastinterruptibleRangeStopOffset = 0;
 
             for (uint i = 0; i < NumInterruptibleRanges; i++)
             {
                 uint normStartDelta = NativeReader.DecodeVarLengthUnsigned(image, interruptibleRangeDelta1EncBase, ref bitOffset);
                 uint normStopDelta = NativeReader.DecodeVarLengthUnsigned(image, interruptibleRangeDelta2EncBase, ref bitOffset) + 1;
 
-                uint normRangeStartOffset = normLastinterruptibleRangeStopOffset + normStartDelta;
-                uint normRangeStopOffset = normRangeStartOffset + normStopDelta;
-
-                uint rangeStartOffset = _gcInfoTypes.DenormalizeCodeOffset(normRangeStartOffset);
-                uint rangeStopOffset = _gcInfoTypes.DenormalizeCodeOffset(normRangeStopOffset);
+                uint rangeStartOffset = lastinterruptibleRangeStopOffset + normStartDelta;
+                uint rangeStopOffset = rangeStartOffset + normStopDelta;
                 ranges.Add(new InterruptibleRange(i, rangeStartOffset, rangeStopOffset));
 
-                normLastinterruptibleRangeStopOffset = normRangeStopOffset;
+                lastinterruptibleRangeStopOffset = rangeStopOffset;
             }
             return ranges;
         }
@@ -404,11 +397,7 @@ namespace ILCompiler.Reflection.ReadyToRun.Amd64
             if (readyToRunMajorVersion < 9 || (readyToRunMajorVersion == 9 && readyToRunMinorVersion < 2))
                 return 2;
 
-            // R2R 11.0+ uses GCInfo v4
-            if (readyToRunMajorVersion < 11)
-                return 3;
-
-            return 4;
+            return 3;
         }
 
         private List<List<BaseGcSlot>> GetLiveSlotsAtSafepoints(byte[] image, ref int bitOffset)
@@ -525,20 +514,15 @@ namespace ILCompiler.Reflection.ReadyToRun.Amd64
             int totalInterruptibleLength = 0;
             if (NumInterruptibleRanges == 0)
             {
-                totalInterruptibleLength = _gcInfoTypes.NormalizeCodeLength(CodeLength);
+                totalInterruptibleLength = CodeLength;
             }
             else
             {
                 foreach (InterruptibleRange range in InterruptibleRanges)
                 {
-                    uint normStart = _gcInfoTypes.NormalizeCodeOffset(range.StartOffset);
-                    uint normStop  = _gcInfoTypes.NormalizeCodeOffset(range.StopOffset);
-                    totalInterruptibleLength += (int)(normStop - normStart);
+                    totalInterruptibleLength += (int)(range.StopOffset - range.StartOffset);
                 }
             }
-
-            if (SlotTable.NumTracked == 0)
-                return new Dictionary<int, List<BaseGcTransition>>();
 
             int numChunks = (totalInterruptibleLength + _gcInfoTypes.NUM_NORM_CODE_OFFSETS_PER_CHUNK - 1) / _gcInfoTypes.NUM_NORM_CODE_OFFSETS_PER_CHUNK;
             int numBitsPerPointer = (int)NativeReader.DecodeVarLengthUnsigned(image, _gcInfoTypes.POINTER_SIZE_ENCBASE, ref bitOffset);
@@ -634,7 +618,6 @@ namespace ILCompiler.Reflection.ReadyToRun.Amd64
                     fSkip = !fSkip;
                     fReport = !fReport;
                 }
-                Debug.Assert(readSlots == numTracked);
             }
             else
             {
@@ -648,7 +631,6 @@ namespace ILCompiler.Reflection.ReadyToRun.Amd64
                         numCouldBeLiveSlots++;
                 }
             }
-            Debug.Assert(numCouldBeLiveSlots > 0);
             return numCouldBeLiveSlots;
         }
 

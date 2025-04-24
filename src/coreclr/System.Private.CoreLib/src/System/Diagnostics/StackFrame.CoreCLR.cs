@@ -30,9 +30,9 @@ namespace System.Diagnostics
 
         private void BuildStackFrame(int skipFrames, bool needFileInfo)
         {
-            StackFrameHelper StackF = new StackFrameHelper();
+            StackFrameHelper StackF = new StackFrameHelper(null);
 
-            StackF.InitializeSourceInfo(needFileInfo, null);
+            StackF.InitializeSourceInfo(0, needFileInfo, null);
 
             int iNumOfFrames = StackF.GetNumberOfFrames();
 

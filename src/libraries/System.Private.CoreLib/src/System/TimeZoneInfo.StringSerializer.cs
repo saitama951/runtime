@@ -535,7 +535,8 @@ namespace System
 
                 TransitionTime transition;
 
-                DateTime timeOfDay = TimeOnly.FromDateTime(GetNextDateTimeValue(TimeOfDayFormat)).ToDateTime();
+                DateTime timeOfDay = GetNextDateTimeValue(TimeOfDayFormat);
+                timeOfDay = new DateTime(1, 1, 1, timeOfDay.Hour, timeOfDay.Minute, timeOfDay.Second, timeOfDay.Millisecond);
 
                 int month = GetNextInt32Value();
 

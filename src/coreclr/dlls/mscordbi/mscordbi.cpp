@@ -3,7 +3,7 @@
 //*****************************************************************************
 // MSCorDBI.cpp
 //
-// CLR Debugging Services -- Debugger Interface DLL
+// COM+ Debugging Services -- Debugger Interface DLL
 //
 // Dll* routines for entry points, and support for COM framework.
 //

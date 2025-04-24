@@ -1361,11 +1361,6 @@ namespace Internal.TypeSystem.Ecma
         {
             return 0;
         }
-
-        public override ReadOnlySpan<byte> GetSourceLinkData()
-        {
-            return ReadOnlySpan<byte>.Empty;
-        }
     }
 #endif
 }

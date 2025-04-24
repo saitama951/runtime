@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using Xunit;
 
 public class ArrayOOM
 {
@@ -45,8 +44,7 @@ public class ArrayOOM
 
 public class ByteArrayOOM
 {
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         ArrayOOM byteTest = new ArrayOOM();
         if (byteTest.RunTest())

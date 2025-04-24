@@ -35,8 +35,13 @@ public class WasmAppBuilder : WasmAppBuilderBaseTask
     public bool IsAot { get; set; }
     public bool IsMultiThreaded { get; set; }
 
-    [Required]
-    public string ConfigFileName { get; set; } = default!;
+    private static readonly JsonSerializerOptions s_jsonOptions = new JsonSerializerOptions
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        WriteIndented = true
+    };
+
 
     // <summary>
     // Extra json elements to add to _framework/blazor.boot.json
@@ -51,11 +56,6 @@ public class WasmAppBuilder : WasmAppBuilderBaseTask
     //       <WasmExtraConfig Include="string_with_json" Value="&quot;{ &quot;abc&quot;: 4 }&quot;" />
     // </summary>
     public ITaskItem[]? ExtraConfig { get; set; }
-
-    /// <summary>
-    /// Environment variables to set in the boot.json file.
-    /// </summary>
-    public ITaskItem[]? EnvVariables { get; set; }
 
     protected override bool ValidateArguments()
     {
@@ -83,6 +83,10 @@ public class WasmAppBuilder : WasmAppBuilderBaseTask
         // If user provided a path to a custom ICU data file, use it
         if (!string.IsNullOrEmpty(WasmIcuDataFileName))
             return GlobalizationMode.Custom;
+
+        // Hybrid mode
+        if (HybridGlobalization)
+            return GlobalizationMode.Hybrid;
 
         // If user requested to include full ICU data, use it
         if (WasmIncludeFullIcuData)
@@ -169,7 +173,10 @@ public class WasmAppBuilder : WasmAppBuilderBaseTask
             if (!IncludeThreadsWorker && name == "dotnet.native.worker.mjs")
                 continue;
 
-            if (name == "dotnet.runtime.js.map" || name == "dotnet.js.map" || name == "dotnet.diagnostics.js.map")
+            if (!HybridGlobalization && name == "dotnet.globalization.js")
+                continue;
+
+            if (name == "dotnet.runtime.js.map" || name == "dotnet.js.map")
             {
                 Log.LogMessage(MessageImportance.Low, $"Skipping {item.ItemSpec} from boot config");
                 continue;
@@ -388,12 +395,7 @@ public class WasmAppBuilder : WasmAppBuilderBaseTask
 
             if (string.Equals(name, nameof(BootJsonData.environmentVariables), StringComparison.OrdinalIgnoreCase))
             {
-                bootConfig.environmentVariables ??= new();
-                var envs = (JsonElement)valueObject!;
-                foreach (var env in envs.EnumerateObject())
-                {
-                    bootConfig.environmentVariables[env.Name] = env.Value.GetString();
-                }
+                bootConfig.environmentVariables = valueObject;
             }
             else if (string.Equals(name, nameof(BootJsonData.diagnosticTracing), StringComparison.OrdinalIgnoreCase))
             {
@@ -408,13 +410,6 @@ public class WasmAppBuilder : WasmAppBuilderBaseTask
             }
         }
 
-        foreach (ITaskItem env in EnvVariables ?? Enumerable.Empty<ITaskItem>())
-        {
-            bootConfig.environmentVariables ??= new();
-            string name = env.ItemSpec;
-            bootConfig.environmentVariables[name] = env.GetMetadata("Value");
-        }
-
         if (extraConfiguration.Count > 0)
         {
             bootConfig.extensions = new()
@@ -423,14 +418,17 @@ public class WasmAppBuilder : WasmAppBuilderBaseTask
             };
         }
 
-        using TempFileName tmpConfigPath = new();
+        using TempFileName tmpMonoConfigPath = new();
+        using (var sw = File.CreateText(tmpMonoConfigPath.Path))
         {
             helper.ComputeResourcesHash(bootConfig);
-            helper.WriteConfigToFile(bootConfig, tmpConfigPath.Path, Path.GetExtension(ConfigFileName));
+
+            var json = JsonSerializer.Serialize(bootConfig, s_jsonOptions);
+            sw.Write(json);
         }
 
-        string monoConfigPath = Path.Combine(runtimeAssetsPath, ConfigFileName);
-        Utils.CopyIfDifferent(tmpConfigPath.Path, monoConfigPath, useHash: false);
+        string monoConfigPath = Path.Combine(runtimeAssetsPath, "blazor.boot.json"); // TODO: Unify with Wasm SDK
+        Utils.CopyIfDifferent(tmpMonoConfigPath.Path, monoConfigPath, useHash: false);
         _fileWrites.Add(monoConfigPath);
 
         foreach (ITaskItem item in ExtraFilesToDeploy!)

@@ -47,7 +47,6 @@ namespace System.Xml.Serialization
         }
 
         [RequiresUnreferencedCode("calls GenerateRefEmitAssembly")]
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         internal TempAssembly(XmlMapping[] xmlMappings, Type?[] types, string? defaultNamespace, string? location)
         {
             bool containsSoapMapping = false;
@@ -434,7 +433,6 @@ namespace System.Xml.Serialization
         }
 
         [RequiresUnreferencedCode("calls GenerateElement")]
-        [RequiresDynamicCode(XmlSerializer.AotSerializationWarning)]
         internal static Assembly GenerateRefEmitAssembly(XmlMapping[] xmlMappings, Type?[] types)
         {
             var mainType = (types.Length > 0) ? types[0] : null;

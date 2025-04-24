@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections;
-using Xunit;
 
 public class Test_keepalivefinalize {
 	
@@ -30,8 +29,7 @@ public class Test_keepalivefinalize {
 		}
 	}
 
-	[Fact]
-	public static int TestEntryPoint() {
+	public static int Main() {
 
         int returnValue = 0;
 		Dummy1 obj = new Dummy1();

@@ -19,19 +19,31 @@ public class WasiLibraryModeTests : BuildTestBase
     {
     }
 
-    [Theory]
-    [InlineData("Microsoft.NET.Sdk", false)]
-    [InlineData("Microsoft.NET.Sdk.WebAssembly", true)]
-    public void LibraryModeBuild(string sdk, bool hasWasmAppBundle)
+    [Fact]
+    public void ConsoleBuildLibraryMode()
     {
         string config = "Release";
         string id = $"{config}_{GetRandomId()}";
         string projectFile = CreateWasmTemplateProject(id, "wasiconsole");
-        string csprojCode =
-                $"""
-                <Project Sdk="{sdk}">
+        string code =
+                """
+                using System;
+                using System.Runtime.InteropServices;
+                public unsafe class Test
+                {
+                    [UnmanagedCallersOnly(EntryPoint = "MyCallback")]
+                    public static int MyCallback()
+                    {
+                        Console.WriteLine("WASM Library MyCallback is called");
+                        return 100;
+                    }
+                }
+                """;
+        string csprojCode = 
+                """
+                <Project Sdk="Microsoft.NET.Sdk.WebAssembly">
                     <PropertyGroup>
-                        <TargetFramework>{DefaultTargetFramework}</TargetFramework>
+                        <TargetFramework>net9.0</TargetFramework>
                         <RuntimeIdentifier>wasi-wasm</RuntimeIdentifier>
                         <WasmSingleFileBundle>true</WasmSingleFileBundle>
                         <OutputType>Library</OutputType>
@@ -39,7 +51,6 @@ public class WasiLibraryModeTests : BuildTestBase
                     </PropertyGroup>
                 </Project>
                 """;
-        string code = File.ReadAllText(Path.Combine(BuildEnvironment.TestAssetsPath, "LibraryMode.cs"));
         File.WriteAllText(Path.Combine(_projectDir!, "Program.cs"), code);
         File.WriteAllText(Path.Combine(_projectDir!, $"{id}.csproj"), csprojCode);
         string projectName = Path.GetFileNameWithoutExtension(projectFile);
@@ -51,8 +62,9 @@ public class WasiLibraryModeTests : BuildTestBase
                         DotnetWasmFromRuntimePack: false,
                         CreateProject: false,
                         Publish: false,
-                        AssertAppBundle: hasWasmAppBundle,
                         TargetFramework: BuildTestBase.DefaultTargetFramework
                         ));
+
+        Assert.Contains("Build succeeded.", output);
     }
 }

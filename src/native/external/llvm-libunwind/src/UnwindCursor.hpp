@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/syscall.h>
+#include <sys/uio.h>
 #include <unistd.h>
 #define _LIBUNWIND_CHECK_LINUX_SIGRETURN 1
 #endif
@@ -230,8 +231,8 @@ void DwarfFDECache<A>::iterateCacheEntries(void (*func)(
 }
 #endif // defined(_LIBUNWIND_SUPPORT_DWARF_UNWIND)
 
-#define arrayoffsetof(type, index, field)                                      \
-  (sizeof(type) * (index) + offsetof(type, field))
+
+#define arrayoffsetof(type, index, field) ((size_t)(&((type *)0)[index].field))
 
 #if defined(_LIBUNWIND_SUPPORT_COMPACT_UNWIND)
 template <typename A> class UnwindSectionHeader {
@@ -474,7 +475,7 @@ public:
   }
 #endif
 
-#if defined(_LIBUNWIND_USE_CET) || defined(_LIBUNWIND_USE_GCS)
+#if defined(_LIBUNWIND_USE_CET)
   virtual void *get_registers() {
     _LIBUNWIND_ABORT("get_registers not implemented");
   }
@@ -959,7 +960,7 @@ public:
   virtual uintptr_t getDataRelBase();
 #endif
 
-#if defined(_LIBUNWIND_USE_CET) || defined(_LIBUNWIND_USE_GCS)
+#if defined(_LIBUNWIND_USE_CET)
   virtual void *get_registers() { return &_registers; }
 #endif
 
@@ -1016,9 +1017,6 @@ public:
   template <typename Registers> int stepThroughSigReturn(Registers &) {
     return UNW_STEP_END;
   }
-#elif defined(_LIBUNWIND_TARGET_HAIKU)
-  bool setInfoForSigReturn();
-  int stepThroughSigReturn();
 #endif
 
 #if defined(_LIBUNWIND_SUPPORT_DWARF_UNWIND)
@@ -1324,8 +1322,7 @@ public:
   unw_proc_info_t  _info;
   bool             _unwindInfoMissing;
   bool             _isSignalFrame;
-#if defined(_LIBUNWIND_CHECK_LINUX_SIGRETURN) ||                               \
-    defined(_LIBUNWIND_TARGET_HAIKU)
+#if defined(_LIBUNWIND_CHECK_LINUX_SIGRETURN)
   bool             _isSigReturn = false;
 #endif
 };
@@ -2062,6 +2059,7 @@ typedef _Unwind_Reason_Code __xlcxx_personality_v0_t(int, _Unwind_Action,
                                                      uint64_t,
                                                      _Unwind_Exception *,
                                                      struct _Unwind_Context *);
+__attribute__((__weak__)) __xlcxx_personality_v0_t __xlcxx_personality_v0;
 }
 
 static __xlcxx_personality_v0_t *xlcPersonalityV0;
@@ -2154,35 +2152,42 @@ bool UnwindCursor<A, R>::getInfoFromTBTable(pint_t pc, R &registers) {
     // function __xlcxx_personality_v0(), which is the personality for the state
     // table and is exported from libc++abi, is directly assigned as the
     // handler here. When a legacy XLC++ frame is encountered, the symbol
-    // is resolved dynamically using dlopen() to avoid a hard dependency of
-    // libunwind on libc++abi in cases such as non-C++ applications.
+    // is resolved dynamically using dlopen() to avoid hard dependency from
+    // libunwind on libc++abi.
 
     // Resolve the function pointer to the state table personality if it has
-    // not already been done.
+    // not already.
     if (xlcPersonalityV0 == NULL) {
       xlcPersonalityV0InitLock.lock();
       if (xlcPersonalityV0 == NULL) {
-        // Resolve __xlcxx_personality_v0 using dlopen().
-        const char *libcxxabi = "libc++abi.a(libc++abi.so.1)";
-        void *libHandle;
-        // The AIX dlopen() sets errno to 0 when it is successful, which
-        // clobbers the value of errno from the user code. This is an AIX
-        // bug because according to POSIX it should not set errno to 0. To
-        // workaround before AIX fixes the bug, errno is saved and restored.
-        int saveErrno = errno;
-        libHandle = dlopen(libcxxabi, RTLD_MEMBER | RTLD_NOW);
-        if (libHandle == NULL) {
-          _LIBUNWIND_TRACE_UNWINDING("dlopen() failed with errno=%d\n", errno);
-          assert(0 && "dlopen() failed");
-        }
-        xlcPersonalityV0 = reinterpret_cast<__xlcxx_personality_v0_t *>(
-            dlsym(libHandle, "__xlcxx_personality_v0"));
+        // If libc++abi is statically linked in, symbol __xlcxx_personality_v0
+        // has been resolved at the link time.
+        xlcPersonalityV0 = &__xlcxx_personality_v0;
         if (xlcPersonalityV0 == NULL) {
-          _LIBUNWIND_TRACE_UNWINDING("dlsym() failed with errno=%d\n", errno);
+          // libc++abi is dynamically linked. Resolve __xlcxx_personality_v0
+          // using dlopen().
+          const char libcxxabi[] = "libc++abi.a(libc++abi.so.1)";
+          void *libHandle;
+          // The AIX dlopen() sets errno to 0 when it is successful, which
+          // clobbers the value of errno from the user code. This is an AIX
+          // bug because according to POSIX it should not set errno to 0. To
+          // workaround before AIX fixes the bug, errno is saved and restored.
+          int saveErrno = errno;
+          libHandle = dlopen(libcxxabi, RTLD_MEMBER | RTLD_NOW);
+          if (libHandle == NULL) {
+            _LIBUNWIND_TRACE_UNWINDING("dlopen() failed with errno=%d\n",
+                                       errno);
+            assert(0 && "dlopen() failed");
+          }
+          xlcPersonalityV0 = reinterpret_cast<__xlcxx_personality_v0_t *>(
+              dlsym(libHandle, "__xlcxx_personality_v0"));
+          if (xlcPersonalityV0 == NULL) {
+            _LIBUNWIND_TRACE_UNWINDING("dlsym() failed with errno=%d\n", errno);
+            assert(0 && "dlsym() failed");
+          }
           dlclose(libHandle);
-          assert(0 && "dlsym() failed");
+          errno = saveErrno;
         }
-        errno = saveErrno;
       }
       xlcPersonalityV0InitLock.unlock();
     }
@@ -2436,7 +2441,7 @@ int UnwindCursor<A, R>::stepWithTBTable(pint_t pc, tbtable *TBTable,
     }
 
     // Reset LR in the current context.
-    newRegisters.setLR(static_cast<uintptr_t>(NULL));
+    newRegisters.setLR(NULL);
 
     _LIBUNWIND_TRACE_UNWINDING(
         "Extract info from lastStack=%p, returnAddress=%p",
@@ -2578,8 +2583,7 @@ int UnwindCursor<A, R>::stepWithTBTable(pint_t pc, tbtable *TBTable,
 
 template <typename A, typename R>
 void UnwindCursor<A, R>::setInfoBasedOnIPRegister(bool isReturnAddress) {
-#if defined(_LIBUNWIND_CHECK_LINUX_SIGRETURN) ||                               \
-    defined(_LIBUNWIND_TARGET_HAIKU)
+#if defined(_LIBUNWIND_CHECK_LINUX_SIGRETURN)
   _isSigReturn = false;
 #endif
 
@@ -2609,15 +2613,6 @@ void UnwindCursor<A, R>::setInfoBasedOnIPRegister(bool isReturnAddress) {
     pc -= 4;
 #else
     --pc;
-#endif
-
-#if !(defined(_LIBUNWIND_SUPPORT_SEH_UNWIND) && defined(_WIN32)) &&            \
-    !defined(_LIBUNWIND_SUPPORT_TBTAB_UNWIND)
-  // In case of this is frame of signal handler, the IP saved in the signal
-  // handler points to first non-executed instruction, while FDE/CIE expects IP
-  // to be after the first non-executed instruction.
-  if (_isSignalFrame)
-    ++pc;
 #endif
 
   // Ask address space object to find unwind sections for this pc.
@@ -2703,8 +2698,7 @@ void UnwindCursor<A, R>::setInfoBasedOnIPRegister(bool isReturnAddress) {
   }
 #endif // #if defined(_LIBUNWIND_SUPPORT_DWARF_UNWIND)
 
-#if defined(_LIBUNWIND_CHECK_LINUX_SIGRETURN) ||                               \
-    defined(_LIBUNWIND_TARGET_HAIKU)
+#if defined(_LIBUNWIND_CHECK_LINUX_SIGRETURN)
   if (setInfoForSigReturn())
     return;
 #endif
@@ -2780,63 +2774,6 @@ int UnwindCursor<A, R>::stepThroughSigReturn(Registers_arm64 &) {
   _isSignalFrame = true;
   return UNW_STEP_SUCCESS;
 }
-
-#elif defined(_LIBUNWIND_TARGET_HAIKU) && defined(_LIBUNWIND_TARGET_X86_64)
-#include <commpage_defs.h>
-#include <signal.h>
-
-extern "C" {
-extern void *__gCommPageAddress;
-}
-
-template <typename A, typename R>
-bool UnwindCursor<A, R>::setInfoForSigReturn() {
-#if defined(_LIBUNWIND_TARGET_X86_64)
-  addr_t signal_handler =
-      (((addr_t *)__gCommPageAddress)[COMMPAGE_ENTRY_X86_SIGNAL_HANDLER] +
-       (addr_t)__gCommPageAddress);
-  addr_t signal_handler_ret = signal_handler + 45;
-#endif
-  pint_t pc = static_cast<pint_t>(this->getReg(UNW_REG_IP));
-  if (pc == signal_handler_ret) {
-    _info = {};
-    _info.start_ip = signal_handler;
-    _info.end_ip = signal_handler_ret;
-    _isSigReturn = true;
-    return true;
-  }
-  return false;
-}
-
-template <typename A, typename R>
-int UnwindCursor<A, R>::stepThroughSigReturn() {
-  _isSignalFrame = true;
-  pint_t sp = _registers.getSP();
-#if defined(_LIBUNWIND_TARGET_X86_64)
-  vregs *regs = (vregs *)(sp + 0x70);
-
-  _registers.setRegister(UNW_REG_IP, regs->rip);
-  _registers.setRegister(UNW_REG_SP, regs->rsp);
-  _registers.setRegister(UNW_X86_64_RAX, regs->rax);
-  _registers.setRegister(UNW_X86_64_RDX, regs->rdx);
-  _registers.setRegister(UNW_X86_64_RCX, regs->rcx);
-  _registers.setRegister(UNW_X86_64_RBX, regs->rbx);
-  _registers.setRegister(UNW_X86_64_RSI, regs->rsi);
-  _registers.setRegister(UNW_X86_64_RDI, regs->rdi);
-  _registers.setRegister(UNW_X86_64_RBP, regs->rbp);
-  _registers.setRegister(UNW_X86_64_R8, regs->r8);
-  _registers.setRegister(UNW_X86_64_R9, regs->r9);
-  _registers.setRegister(UNW_X86_64_R10, regs->r10);
-  _registers.setRegister(UNW_X86_64_R11, regs->r11);
-  _registers.setRegister(UNW_X86_64_R12, regs->r12);
-  _registers.setRegister(UNW_X86_64_R13, regs->r13);
-  _registers.setRegister(UNW_X86_64_R14, regs->r14);
-  _registers.setRegister(UNW_X86_64_R15, regs->r15);
-  // TODO: XMM
-#endif
-
-  return UNW_STEP_SUCCESS;
-}
 #endif // defined(_LIBUNWIND_CHECK_LINUX_SIGRETURN) &&
        // defined(_LIBUNWIND_TARGET_AARCH64)
 
@@ -2882,10 +2819,10 @@ int UnwindCursor<A, R>::stepThroughSigReturn(Registers_riscv &) {
   const pint_t kOffsetSpToSigcontext = 128 + 8 + 8 + 24 + 8 + 128;
 
   const pint_t sigctx = _registers.getSP() + kOffsetSpToSigcontext;
-  _registers.setIP(_addressSpace.get64(sigctx), 0);
+  _registers.setIP(_addressSpace.get64(sigctx));
   for (int i = UNW_RISCV_X1; i <= UNW_RISCV_X31; ++i) {
     uint64_t value = _addressSpace.get64(sigctx + static_cast<pint_t>(i * 8));
-    _registers.setRegister(i, value, 0);
+    _registers.setRegister(i, value);
   }
   _isSignalFrame = true;
   return UNW_STEP_SUCCESS;
@@ -3005,8 +2942,7 @@ template <typename A, typename R> int UnwindCursor<A, R>::step(bool stage2) {
 
   // Use unwinding info to modify register set as if function returned.
   int result;
-#if defined(_LIBUNWIND_CHECK_LINUX_SIGRETURN) ||                               \
-    defined(_LIBUNWIND_TARGET_HAIKU)
+#if defined(_LIBUNWIND_CHECK_LINUX_SIGRETURN)
   if (_isSigReturn) {
     result = this->stepThroughSigReturn();
   } else
@@ -3086,7 +3022,7 @@ bool UnwindCursor<A, R>::isReadableAddr(const pint_t addr) const {
 }
 #endif
 
-#if defined(_LIBUNWIND_USE_CET) || defined(_LIBUNWIND_USE_GCS)
+#if defined(_LIBUNWIND_USE_CET)
 extern "C" void *__libunwind_cet_get_registers(unw_cursor_t *cursor) {
   AbstractUnwindCursor *co = (AbstractUnwindCursor *)cursor;
   return co->get_registers();

@@ -293,8 +293,15 @@ struct GenericsDictInfo
 
     // Number of type parameters (NOT including those of superclasses).
     WORD   m_wNumTyPars;
+    template<typename T> friend struct ::cdac_data;
 };  // struct GenericsDictInfo
 typedef DPTR(GenericsDictInfo) PTR_GenericsDictInfo;
+
+template<>
+struct cdac_data<GenericsDictInfo>
+{
+    static constexpr size_t NumTypeArgs = offsetof(GenericsDictInfo, m_wNumTyPars);
+};
 
 // These various statics structures exist directly before the MethodTableAuxiliaryData
 
@@ -326,23 +333,30 @@ struct MethodTableAuxiliaryData
         // TO BE UPDATED IN ORDER TO ENSURE THAT METHODTABLES DUPLICATED FOR GENERIC INSTANTIATIONS
         // CARRY THE CORRECT INITIAL FLAGS.
 
-        enum_flag_Initialized               = 0x0001,
-        enum_flag_HasCheckedCanCompareBitsOrUseFastGetHashCode  = 0x0002,  // Whether we have checked the overridden Equals or GetHashCode
-        enum_flag_CanCompareBitsOrUseFastGetHashCode    = 0x0004,     // Is any field type or sub field type overridden Equals or GetHashCode
-        enum_flag_IsTlsIndexAllocated       = 0x0008,
+        enum_flag_Initialized             = 0x0001,
+        enum_flag_HasCheckedCanCompareBitsOrUseFastGetHashCode   = 0x0002,  // Whether we have checked the overridden Equals or GetHashCode
+        enum_flag_CanCompareBitsOrUseFastGetHashCode       = 0x0004,     // Is any field type or sub field type overridden Equals or GetHashCode
+
         enum_flag_HasApproxParent           = 0x0010,
-        enum_flag_MayHaveOpenInterfaceInInterfaceMap    = 0x0020,
+#ifdef _DEBUG
+        // The MethodTable is in the right state to be published, and will be inevitably.
+        // Currently DEBUG only as it does not affect behavior in any way in a release build
+        enum_flag_IsPublished               = 0x0020,
+#endif
         enum_flag_IsNotFullyLoaded          = 0x0040,
         enum_flag_DependenciesLoaded        = 0x0080,     // class and all dependencies loaded up to CLASS_LOADED_BUT_NOT_VERIFIED
 
         enum_flag_IsInitError               = 0x0100,
         enum_flag_IsStaticDataAllocated     = 0x0200,     // When this is set, if the class can be marked as initialized without any further code execution it will be.
-        enum_flag_HasCheckedStreamOverride  = 0x0400,
-        enum_flag_StreamOverriddenRead      = 0x0800,
-        enum_flag_StreamOverriddenWrite     = 0x1000,
-        enum_flag_EnsuredInstanceActive     = 0x2000,
-        // unused enum                      = 0x4000,
-        // unused enum                      = 0x8000,
+        // unum_unused                      = 0x0400,
+        enum_flag_IsTlsIndexAllocated       = 0x0800,
+        enum_flag_MayHaveOpenInterfaceInInterfaceMap = 0x1000,
+        // enum_unused                      = 0x2000,
+
+#ifdef _DEBUG
+        enum_flag_ParentMethodTablePointerValid =  0x4000,
+        enum_flag_HasInjectedInterfaceDuplicates = 0x8000,
+#endif
     };
     union
     {
@@ -362,16 +376,6 @@ struct MethodTableAuxiliaryData
     RUNTIMETYPEHANDLE m_hExposedClassObject;
 
 #ifdef _DEBUG
-    enum
-    {
-        // The MethodTable is in the right state to be published, and will be inevitably.
-        // Currently DEBUG only as it does not affect behavior in any way in a release build
-        enum_flagDebug_IsPublished                    = 0x2000,
-        enum_flagDebug_ParentMethodTablePointerValid  = 0x4000,
-        enum_flagDebug_HasInjectedInterfaceDuplicates = 0x8000,
-    };
-    DWORD m_dwFlagsDebug;
-
     // to avoid verify same method table too many times when it's not changing, we cache the GC count
     // on which the method table is verified. When fast GC STRESS is turned on, we only verify the MT if
     // current GC count is bigger than the number. Note most thing which will invalidate a MT will require a
@@ -406,13 +410,13 @@ public:
     {
         LIMITED_METHOD_DAC_CONTRACT;
 
-        return (m_dwFlagsDebug & enum_flagDebug_ParentMethodTablePointerValid);
+        return (m_dwFlags & enum_flag_ParentMethodTablePointerValid);
     }
     inline void SetParentMethodTablePointerValid()
     {
         LIMITED_METHOD_CONTRACT;
 
-        m_dwFlagsDebug |= enum_flagDebug_ParentMethodTablePointerValid;
+        m_dwFlags |= enum_flag_ParentMethodTablePointerValid;
     }
 #endif
 
@@ -457,12 +461,6 @@ public:
         return VolatileLoad(&m_dwFlags) & enum_flag_Initialized;
     }
 
-    inline BOOL IsEnsuredInstanceActive() const
-    {
-        LIMITED_METHOD_DAC_CONTRACT;
-        return VolatileLoad(&m_dwFlags) & enum_flag_EnsuredInstanceActive;
-    }
-
     inline bool IsClassInitedOrPreinitedDecided(bool *initResult) const
     {
         LIMITED_METHOD_DAC_CONTRACT;
@@ -477,12 +475,6 @@ public:
     {
         LIMITED_METHOD_CONTRACT;
         InterlockedOr((LONG*)&m_dwFlags, (LONG)enum_flag_Initialized);
-    }
-
-    inline void SetEnsuredInstanceActive()
-    {
-        LIMITED_METHOD_CONTRACT;
-        InterlockedOr((LONG*)&m_dwFlags, (LONG)enum_flag_EnsuredInstanceActive);
     }
 #endif
 
@@ -499,15 +491,6 @@ public:
         InterlockedOr((LONG*)&m_dwFlags, markAsInitedToo ? (LONG)(enum_flag_IsStaticDataAllocated|enum_flag_Initialized) : (LONG)enum_flag_IsStaticDataAllocated);
     }
 #endif
-
-    inline void SetStreamOverrideState(BOOL read, BOOL write)
-    {
-        LONG streamOverride =
-            enum_flag_HasCheckedStreamOverride
-            | (read ? enum_flag_StreamOverriddenRead : 0)
-            | (write ? enum_flag_StreamOverriddenWrite : 0);
-        InterlockedOr((LONG*)&m_dwFlags, streamOverride);
-    }
 
     inline RUNTIMETYPEHANDLE GetExposedClassObjectHandle() const
     {
@@ -539,7 +522,7 @@ public:
     void SetIsPublished()
     {
         LIMITED_METHOD_CONTRACT;
-        m_dwFlagsDebug |= (MethodTableAuxiliaryData::enum_flagDebug_IsPublished);
+        m_dwFlags |= (MethodTableAuxiliaryData::enum_flag_IsPublished);
     }
 #endif
 
@@ -548,7 +531,7 @@ public:
     bool IsPublished() const
     {
         LIMITED_METHOD_CONTRACT;
-        return (VolatileLoad(&m_dwFlagsDebug) & enum_flagDebug_IsPublished);
+        return (VolatileLoad(&m_dwFlags) & enum_flag_IsPublished);
     }
 #endif // _DEBUG
 
@@ -589,6 +572,7 @@ public:
 // find the normal (non-thread) static variables of the type.
 struct DynamicStaticsInfo
 {
+private:
     // The detail of whether or not the class has been initialized is stored in the statics pointers as well as in
     // its normal flag location. This is done so that when getting the statics base for a class, we can get the statics
     // base address and check to see if it is initialized without needing a barrier between reading the flag and reading
@@ -596,7 +580,6 @@ struct DynamicStaticsInfo
     static constexpr TADDR ISCLASSNOTINITED = 1;
     static constexpr TADDR ISCLASSNOTINITEDMASK = ISCLASSNOTINITED;
     static constexpr TADDR STATICSPOINTERMASK = ~ISCLASSNOTINITEDMASK;
-private:
 
     void InterlockedSetClassInited(bool isGC)
     {
@@ -754,7 +737,6 @@ SystemVClassificationType CorInfoType2UnixAmd64Classification(CorElementType eeT
         SystemVClassificationTypeUnknown,               // ELEMENT_TYPE_CMOD_REQD
         SystemVClassificationTypeUnknown,               // ELEMENT_TYPE_CMOD_OPT
         SystemVClassificationTypeUnknown,               // ELEMENT_TYPE_INTERNAL
-        SystemVClassificationTypeUnknown,               // ELEMENT_TYPE_CMOD_INTERNAL
     };
 
     _ASSERTE(sizeof(toSystemVAmd64ClassificationTypeMap) == ELEMENT_TYPE_MAX);
@@ -1049,6 +1031,12 @@ public:
     // mark the class type as COM object class
     void SetComObjectType();
 
+#ifdef FEATURE_ICASTABLE
+    void SetICastable();
+#endif
+
+    BOOL IsICastable(); // This type implements ICastable interface
+
     void SetIDynamicInterfaceCastable();
     BOOL IsIDynamicInterfaceCastable();
 
@@ -1090,12 +1078,9 @@ public:
     {
         LIMITED_METHOD_DAC_CONTRACT;
 
-        // All ComObjects except for __ComObject
-        // have dynamic Interface maps
-        return GetNumInterfaces() > 0
-            && IsComObjectType()
-            && !ParentEquals(g_pObjectClass)
-            && this != g_pBaseCOMObject;
+        // currently all ComObjects except
+        // for __ComObject have dynamic Interface maps
+        return GetNumInterfaces() > 0 && IsComObjectType() && !ParentEquals(g_pObjectClass);
     }
 #endif // FEATURE_COMINTEROP
 
@@ -1391,6 +1376,18 @@ public:
     Instantiation GetClassOrArrayInstantiation();
     Instantiation GetArrayInstantiation();
 
+    // Does this method table require that additional modules be loaded?
+    inline BOOL HasModuleDependencies()
+    {
+        LIMITED_METHOD_CONTRACT;
+        return GetFlag(enum_flag_HasModuleDependencies);
+    }
+
+    inline void SetHasModuleDependencies()
+    {
+        SetFlag(enum_flag_HasModuleDependencies);
+    }
+
     inline BOOL IsIntrinsicType()
     {
         LIMITED_METHOD_DAC_CONTRACT;;
@@ -1486,6 +1483,9 @@ public:
         LIMITED_METHOD_CONTRACT;
         SetFlag(enum_flag_IsByRefLike);
     }
+
+    // class is a com object class
+    Module* GetDefiningModuleForOpenType();
 
     inline BOOL IsTypicalTypeDefinition()
     {
@@ -1625,11 +1625,9 @@ public:
     typedef DPTR(VTableIndir2_t) VTableIndir_t;
 
     static DWORD GetIndexOfVtableIndirection(DWORD slotNum);
-
     static DWORD GetStartSlotForVtableIndirection(UINT32 indirectionIndex, DWORD wNumVirtuals);
     static DWORD GetEndSlotForVtableIndirection(UINT32 indirectionIndex, DWORD wNumVirtuals);
     static UINT32 GetIndexAfterVtableIndirection(UINT32 slotNum);
-    static UINT32 IndexAfterVtableIndirectionToSlot(UINT32 slotNum);
     static DWORD GetNumVtableIndirections(DWORD wNumVirtuals);
     DPTR(VTableIndir_t) GetVtableIndirections();
     DWORD GetNumVtableIndirections();
@@ -1869,20 +1867,10 @@ public:
     // the information within MethodTable, and so less code manipulates EEClass
     // objects directly, because doing so can lead to bugs related to generics.
     //
+    // <TODO> Use m_wBaseSize whenever this is identical to GetNumInstanceFieldBytes.
+    // We would need to reserve a flag for this. </TODO>
+    //
     inline DWORD GetNumInstanceFieldBytes();
-
-    // Returns the size of the instance fields for a value type, in bytes when
-    // the type is known to contain GC pointers. This takes advantage of the detail
-    // that if the type contains GC pointers, the size of the instance fields is aligned
-    // to pointer sized boundaries. This is only faster if we already have some reason
-    // to have checked for ContainsGCPointers.
-    inline DWORD GetNumInstanceFieldBytesIfContainsGCPointers()
-    {
-        LIMITED_METHOD_DAC_CONTRACT;
-        _ASSERTE(ContainsGCPointers());
-        _ASSERTE(GetBaseSize() - (DWORD)(2 * sizeof(TADDR)) == GetNumInstanceFieldBytes());
-        return GetBaseSize() - (DWORD)(2 * sizeof(TADDR));
-    }
 
     int GetFieldAlignmentRequirement();
 
@@ -2681,13 +2669,14 @@ public:
     // This flavor of Allocate is more efficient, but can only be used
     // if CheckInstanceActivated(), IsClassInited() are known to be true.
     // A sufficient condition is that another instance of the exact same type already
-    // exists in the same ALC. It's currently called only from Delegate.Combine
-    // via RuntimeTypeHandle_InternalAllocNoChecks.
+    // exists in the same appdomain. It's currently called only from Delegate.Combine
+    // via COMDelegate::InternalAllocLike.
     OBJECTREF AllocateNoChecks();
 
     OBJECTREF Box(void* data);
     OBJECTREF FastBox(void** data);
 #ifndef DACCESS_COMPILE
+    BOOL UnBoxInto(void *dest, OBJECTREF src);
     void UnBoxIntoUnchecked(void *dest, OBJECTREF src);
 #endif
 
@@ -2701,6 +2690,15 @@ public:
     void DebugRecursivelyDumpInstanceFields(LPCUTF8 pszClassName, BOOL debug);
     void DebugDumpGCDesc(LPCUTF8 pszClassName, BOOL debug);
 #endif //_DEBUG
+
+    inline BOOL IsAgileAndFinalizable()
+    {
+        LIMITED_METHOD_CONTRACT;
+        // Right now, System.Thread is the only cases of this.
+        // Things should stay this way - please don't change without talking to EE team.
+        return this == g_pThreadClass;
+    }
+
 
     //-------------------------------------------------------------------
     // ENUMS, DELEGATES, VALUE TYPES, ARRAYS
@@ -2777,7 +2775,7 @@ public:
     }
 
     // Returns true if this type is Nullable<T> for some T.
-    inline BOOL IsNullable() const
+    inline BOOL IsNullable()
     {
         LIMITED_METHOD_DAC_CONTRACT;
         return GetFlag(enum_flag_Category_Mask) == enum_flag_Category_Nullable;
@@ -2791,11 +2789,7 @@ public:
     }
 
     // The following methods are only valid for the method tables for array types.
-    CorElementType GetArrayElementType()
-    {
-        return GetArrayElementTypeHandle().GetSignatureCorElementType();
-    }
-
+    CorElementType GetArrayElementType();
     DWORD GetRank();
 
     TypeHandle GetArrayElementTypeHandle()
@@ -2993,37 +2987,6 @@ public:
     OBJECTREF GetManagedClassObject();
     OBJECTREF GetManagedClassObjectIfExists();
 
-    // ------------------------------------------------------------------
-    // Details about Nullable<T> MethodTables
-    // ------------------------------------------------------------------
-    UINT32 GetNullableValueAddrOffset() const
-    {
-        LIMITED_METHOD_DAC_CONTRACT;
-        _ASSERTE(IsNullable());
-#ifndef TARGET_64BIT
-        return *(BYTE*)&m_encodedNullableUnboxData;
-#else
-        return *(UINT32*)&m_encodedNullableUnboxData;
-#endif
-    }
-
-    UINT32 GetNullableValueSize() const
-    {
-        LIMITED_METHOD_DAC_CONTRACT;
-        _ASSERTE(IsNullable());
-#ifndef TARGET_64BIT
-        return (UINT32)(m_encodedNullableUnboxData >> 8);
-#else
-        return (UINT32)(m_encodedNullableUnboxData >> 32);
-#endif
-    }
-
-    UINT32 GetNullableNumInstanceFieldBytes() const
-    {
-        LIMITED_METHOD_DAC_CONTRACT;
-        _ASSERTE(IsNullable());
-        return GetNullableValueAddrOffset() + GetNullableValueSize();
-    }
 
     // ------------------------------------------------------------------
     // Private part of MethodTable
@@ -3071,6 +3034,9 @@ public :
     SString &_GetFullyQualifiedNameForClass(SString &ssBuf);
     LPCUTF8 GetFullyQualifiedNameInfo(LPCUTF8 *ppszNamespace);
 
+private:
+    template<typename RedirectFunctor> SString &_GetFullyQualifiedNameForClassNestedAwareInternal(SString &ssBuf);
+
 public :
     //-------------------------------------------------------------------
     // Debug Info
@@ -3094,12 +3060,12 @@ public :
     inline BOOL Debug_HasInjectedInterfaceDuplicates() const
     {
         LIMITED_METHOD_CONTRACT;
-        return (GetAuxiliaryData()->m_dwFlagsDebug & MethodTableAuxiliaryData::enum_flagDebug_HasInjectedInterfaceDuplicates) != 0;
+        return (GetAuxiliaryData()->m_dwFlags & MethodTableAuxiliaryData::enum_flag_HasInjectedInterfaceDuplicates) != 0;
     }
     inline void Debug_SetHasInjectedInterfaceDuplicates()
     {
         LIMITED_METHOD_CONTRACT;
-        GetAuxiliaryDataForWrite()->m_dwFlagsDebug |= MethodTableAuxiliaryData::enum_flagDebug_HasInjectedInterfaceDuplicates;
+        GetAuxiliaryDataForWrite()->m_dwFlags |= MethodTableAuxiliaryData::enum_flag_HasInjectedInterfaceDuplicates;
     }
 #endif // _DEBUG
 
@@ -3731,7 +3697,7 @@ private:
 
         enum_flag_HasFinalizer                = 0x00100000, // instances require finalization. GC depends on this bit.
         enum_flag_Collectible                 = 0x00200000, // GC depends on this bit.
-        // enum_flag_unused                   = 0x00400000,
+        enum_flag_ICastable                   = 0x00400000, // class implements ICastable interface
 
 #ifdef FEATURE_64BIT_ALIGNMENT
         enum_flag_RequiresAlign8              = 0x00800000, // Type requires 8-byte alignment (only set on platforms that require this and don't get it implicitly)
@@ -3751,6 +3717,7 @@ private:
         // Types that require non-trivial interface cast have this bit set in the category
         enum_flag_NonTrivialInterfaceCast   =  enum_flag_Category_Array
                                              | enum_flag_ComObject
+                                             | enum_flag_ICastable
                                              | enum_flag_IDynamicInterfaceCastable
                                              | enum_flag_Category_ValueType
 
@@ -3774,7 +3741,7 @@ private:
         enum_flag_HasDispatchMapSlot        = 0x0004,
 
         enum_flag_wflags2_unused_2          = 0x0008,
-        //unused                            = 0x0010,
+        enum_flag_HasModuleDependencies     = 0x0010,
         enum_flag_IsIntrinsicType           = 0x0020,
         enum_flag_HasCctor                  = 0x0040,
         enum_flag_HasVirtualStaticMethods   = 0x0080,
@@ -3841,33 +3808,6 @@ private:
         return (m_dwFlags2 & (DWORD)mask) == (DWORD)flag;
     }
 
-#ifndef DACCESS_COMPILE
-    void SetNullableDetails(UINT16 offsetToValueField, UINT32 sizeOfValueField)
-    {
-        STANDARD_VM_CONTRACT;
-        _ASSERTE(IsNullable());
-#ifndef TARGET_64BIT
-        if (sizeOfValueField > 0xFFFFFF)
-        {
-            // We can't encode the size of the value field in the Nullable<T> MethodTable
-            // because it's too large. This is a limitation of the encoding. It is not expected
-            // to impact any real customers, as Nullable<T> should only be used on the stack
-            // where having a 16MB local would always be a significant problem. Especially oh
-            // a 32-bit machine.
-            ThrowHR(COR_E_TYPELOAD);
-        }
-        if (offsetToValueField > 255)
-        {
-            // If we get here something completely unexpected has happened. We don't expect alignment greater than 128
-            ThrowHR(COR_E_TYPELOAD);
-        }
-        m_encodedNullableUnboxData = ((TADDR)sizeOfValueField << 8) | (TADDR)offsetToValueField;
-#else
-        m_encodedNullableUnboxData = ((TADDR)sizeOfValueField << 32) | (TADDR)offsetToValueField;
-#endif
-    }
-#endif // DACCESS_COMPILE
-
 private:
     // Low WORD is component size for array and string types (HasComponentSize() returns true).
     // Used for flags otherwise.
@@ -3920,17 +3860,13 @@ private:
     // JITed code and JIT helpers. The space used by m_pPerInstInfo is used to represent the array
     // element type handle for array MethodTables.
 
-    public:
     union
     {
         PerInstInfo_t m_pPerInstInfo;
         TADDR         m_ElementTypeHnd;
     };
-    union
-    {
-        PTR_InterfaceInfo   m_pInterfaceMap;
-        TADDR               m_encodedNullableUnboxData; // Used for Nullable<T> to represent the offset to the value field, and the size of the value field
-    };
+    public:
+    PTR_InterfaceInfo   m_pInterfaceMap;
 
     // VTable slots go here
 
@@ -4053,7 +3989,7 @@ public:
 
     static void GetStaticsOffsets(StaticsOffsetType staticsOffsetType, bool fGenericsStatics, uint32_t *dwGCOffset, uint32_t *dwNonGCOffset);
 
-    friend struct ::cdac_data<MethodTable>;
+    template<typename T> friend struct ::cdac_data;
 };  // class MethodTable
 
 template<> struct cdac_data<MethodTable>
@@ -4090,10 +4026,5 @@ void ThrowAmbiguousResolutionException(
     MethodTable* pTargetClass,
     MethodTable* pInterfaceMT,
     MethodDesc* pInterfaceMD);
-
-
-#ifndef DACCESS_COMPILE
-void DoNotRecordTheResultOfEnsureLoadLevel();
-#endif
 
 #endif // !_METHODTABLE_H_

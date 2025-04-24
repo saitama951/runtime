@@ -11,7 +11,6 @@ EXPORTS
     BrotliEncoderCreateInstance
     BrotliEncoderDestroyInstance
     BrotliEncoderHasMoreOutput
-    BrotliEncoderMaxCompressedSize
     BrotliEncoderSetParameter
     CompressionNative_Crc32
     CompressionNative_Deflate

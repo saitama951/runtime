@@ -7,7 +7,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Xunit;
 
 public class Test_Normal {
 
@@ -35,8 +34,7 @@ public class Test_Normal {
     }    
 
 
-	[Fact]
-	public static int TestEntryPoint() {
+	public static int Main() {
         GCHandle handle = RunTest();
 
 		GC.Collect();

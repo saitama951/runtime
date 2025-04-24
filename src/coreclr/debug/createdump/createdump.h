@@ -51,7 +51,6 @@ typedef int T_CONTEXT;
 #include <arrayholder.h>
 #include <releaseholder.h>
 #ifdef HOST_UNIX
-#include <minipal/strings.h>
 #include <minipal/utf8.h>
 #include <dn-u16.h>
 #include <dumpcommon.h>

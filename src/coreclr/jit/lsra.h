@@ -741,16 +741,15 @@ public:
     void updateMaxSpill(RefPosition* refPosition);
     void recordMaxSpill();
 
-private:
     // max simultaneous spill locations used of every type
     unsigned int maxSpill[TYP_COUNT];
     unsigned int currentSpill[TYP_COUNT];
     bool         needFloatTmpForFPCall;
     bool         needDoubleTmpForFPCall;
     bool         needNonIntegerRegisters;
-    bool         needToKillFloatRegs;
 
 #ifdef DEBUG
+private:
     //------------------------------------------------------------------------
     // Should we stress lsra? This uses the DOTNET_JitStressRegs variable.
     //
@@ -772,8 +771,7 @@ private:
         LSRA_LIMIT_SMALL_SET = 0x3,
 #if defined(TARGET_AMD64)
         LSRA_LIMIT_UPPER_SIMD_SET = 0x2000,
-        LSRA_LIMIT_EXT_GPR_SET    = 0x4000,
-        LSRA_LIMIT_MASK           = 0x6003
+        LSRA_LIMIT_MASK           = 0x2003
 #else
         LSRA_LIMIT_MASK = 0x3
 #endif
@@ -816,6 +814,32 @@ private:
     bool doSelectNearest()
     {
         return ((lsraStressMask & LSRA_SELECT_NEAREST) != 0);
+    }
+
+    // This controls the order in which basic blocks are visited during allocation
+    enum LsraTraversalOrder
+    {
+        LSRA_TRAVERSE_LAYOUT     = 0x20,
+        LSRA_TRAVERSE_PRED_FIRST = 0x40,
+        LSRA_TRAVERSE_RANDOM     = 0x60, // NYI
+        LSRA_TRAVERSE_DEFAULT    = LSRA_TRAVERSE_PRED_FIRST,
+        LSRA_TRAVERSE_MASK       = 0x60
+    };
+    LsraTraversalOrder getLsraTraversalOrder()
+    {
+        if ((lsraStressMask & LSRA_TRAVERSE_MASK) == 0)
+        {
+            return LSRA_TRAVERSE_DEFAULT;
+        }
+        return (LsraTraversalOrder)(lsraStressMask & LSRA_TRAVERSE_MASK);
+    }
+    bool isTraversalLayoutOrder()
+    {
+        return getLsraTraversalOrder() == LSRA_TRAVERSE_LAYOUT;
+    }
+    bool isTraversalPredFirstOrder()
+    {
+        return getLsraTraversalOrder() == LSRA_TRAVERSE_PRED_FIRST;
     }
 
     // This controls whether lifetimes should be extended to the entire method.
@@ -1005,10 +1029,8 @@ private:
 
     // Record variable locations at start/end of block
     void processBlockStartLocations(BasicBlock* current);
-
-    FORCEINLINE void handleDeadCandidates(SingleTypeRegSet deadCandidates, int regBase, VarToRegMap inVarToRegMap);
-    void             processBlockEndLocations(BasicBlock* current);
-    void             resetAllRegistersState();
+    void processBlockEndLocations(BasicBlock* current);
+    void resetAllRegistersState();
 
 #ifdef TARGET_ARM
     bool       isSecondHalfReg(RegRecord* regRec, Interval* interval);
@@ -1041,6 +1063,20 @@ private:
     void buildUpperVectorRestoreRefPosition(
         Interval* lclVarInterval, LsraLocation currentLoc, GenTree* node, bool isUse, unsigned multiRegIdx);
 #endif // FEATURE_PARTIAL_SIMD_CALLEE_SAVE
+
+#if defined(UNIX_AMD64_ABI) || defined(TARGET_LOONGARCH64) || defined(TARGET_RISCV64)
+    // For AMD64 on SystemV machines. This method
+    // is called as replacement for raUpdateRegStateForArg
+    // that is used on Windows. On System V systems a struct can be passed
+    // partially using registers from the 2 register files.
+    //
+    // For LoongArch64's ABI, a struct can be passed
+    // partially using registers from the 2 register files.
+    void UpdateRegStateForStructArg(LclVarDsc* argDsc);
+#endif // defined(UNIX_AMD64_ABI) || defined(TARGET_LOONGARCH64) || defined(TARGET_RISCV64)
+
+    // Update reg state for an incoming register argument
+    void updateRegStateForArg(LclVarDsc* argDsc);
 
     inline bool isCandidateLocalRef(GenTree* tree)
     {
@@ -1081,10 +1117,9 @@ private:
     SingleTypeRegSet lowSIMDRegs();
     SingleTypeRegSet internalFloatRegCandidates();
 
-    void             makeRegisterInactive(RegRecord* physRegRecord);
-    void             freeRegister(RegRecord* physRegRecord);
-    void             freeRegisters(regMaskTP regsToFree);
-    FORCEINLINE void freeRegistersSingleType(SingleTypeRegSet regsToFree, int regBase);
+    void makeRegisterInactive(RegRecord* physRegRecord);
+    void freeRegister(RegRecord* physRegRecord);
+    void freeRegisters(regMaskTP regsToFree);
 
     // Get the type that this tree defines.
     var_types getDefType(GenTree* tree)
@@ -1196,12 +1231,7 @@ private:
     void spillInterval(Interval* interval, RefPosition* fromRefPosition DEBUGARG(RefPosition* toRefPosition));
 
     void processKills(RefPosition* killRefPosition);
-    template <bool isLow>
-    FORCEINLINE void freeKilledRegs(RefPosition*     killRefPosition,
-                                    SingleTypeRegSet killedRegs,
-                                    RefPosition*     nextKill,
-                                    int              regBase);
-    void             spillGCRefs(RefPosition* killRefPosition);
+    void spillGCRefs(RefPosition* killRefPosition);
 
     /*****************************************************************************
      * Register selection
@@ -1343,13 +1373,6 @@ private:
         FORCEINLINE void calculateUnassignedSets();
         FORCEINLINE void reset(Interval* interval, RefPosition* refPosition);
         FORCEINLINE void resetMinimal(Interval* interval, RefPosition* refPosition);
-#if defined(TARGET_AMD64)
-        regMaskTP             rbmAllInt;
-        FORCEINLINE regMaskTP get_RBM_ALLINT() const
-        {
-            return this->rbmAllInt;
-        }
-#endif // TARGET_AMD64
 
 #define REG_SEL_DEF(stat, value, shortname, orderSeqId)      FORCEINLINE void try_##stat();
 #define BUSY_REG_SEL_DEF(stat, value, shortname, orderSeqId) REG_SEL_DEF(stat, value, shortname, orderSeqId)
@@ -1421,12 +1444,7 @@ private:
         return nextConsecutiveRefPositionMap;
     }
     FORCEINLINE RefPosition* getNextConsecutiveRefPosition(RefPosition* refPosition);
-    SingleTypeRegSet         getOperandCandidates(GenTreeHWIntrinsic* intrinsicTree, HWIntrinsic intrin, size_t opNum);
-    GenTree*                 getDelayFreeOperand(GenTreeHWIntrinsic* intrinsicTree, bool embedded = false);
-    GenTree*                 getVectorAddrOperand(GenTreeHWIntrinsic* intrinsicTree);
-    GenTree*                 getConsecutiveRegistersOperand(const HWIntrinsic intrin, bool* destIsConsecutive);
-    GenTreeHWIntrinsic*      getEmbeddedMaskOperand(const HWIntrinsic intrin);
-    GenTreeHWIntrinsic*      getContainedCselOperand(GenTreeHWIntrinsic* intrinsicTree);
+    void getLowVectorOperandAndCandidates(HWIntrinsic intrin, size_t* operandNum, SingleTypeRegSet* candidates);
 #endif
 
 #ifdef DEBUG
@@ -1615,19 +1633,18 @@ private:
     Interval** localVarIntervals;
 
     // Set of blocks that have been visited.
-    BitVecTraits* traits;
-    BitVec        bbVisitedSet;
-    void          markBlockVisited(BasicBlock* block)
+    BlockSet bbVisitedSet;
+    void     markBlockVisited(BasicBlock* block)
     {
-        BitVecOps::AddElemD(traits, bbVisitedSet, block->bbPostorderNum);
+        BlockSetOps::AddElemD(compiler, bbVisitedSet, block->bbNum);
     }
     void clearVisitedBlocks()
     {
-        BitVecOps::ClearD(traits, bbVisitedSet);
+        BlockSetOps::ClearD(compiler, bbVisitedSet);
     }
     bool isBlockVisited(BasicBlock* block)
     {
-        return BitVecOps::IsMember(traits, bbVisitedSet, block->bbPostorderNum);
+        return BlockSetOps::IsMember(compiler, bbVisitedSet, block->bbNum);
     }
 
 #if DOUBLE_ALIGN
@@ -1642,8 +1659,20 @@ private:
     // The order in which the blocks will be allocated.
     // This is any array of BasicBlock*, in the order in which they should be traversed.
     BasicBlock** blockSequence;
-    void         setBlockSequence();
-    bool         blockSequencingDone;
+    // The verifiedAllBBs flag indicates whether we have verified that all BBs have been
+    // included in the blockSeuqence above, during setBlockSequence().
+    bool            verifiedAllBBs;
+    void            setBlockSequence();
+    int             compareBlocksForSequencing(BasicBlock* block1, BasicBlock* block2, bool useBlockWeights);
+    BasicBlockList* blockSequenceWorkList;
+    bool            blockSequencingDone;
+#ifdef DEBUG
+    // LSRA must not change number of blocks and blockEpoch that it initializes at start.
+    unsigned blockEpoch;
+#endif // DEBUG
+    void        addToBlockSequenceWorkList(BlockSet sequencedBlockSet, BasicBlock* block, BlockSet& predSet);
+    void        removeFromBlockSequenceWorkList(BasicBlockList* listNode, BasicBlockList* prevNode);
+    BasicBlock* getNextCandidateFromWorkList();
 
     // Indicates whether the allocation pass has been completed.
     bool allocationPassComplete;
@@ -1823,28 +1852,9 @@ private:
     }
     SingleTypeRegSet getMatchingConstants(SingleTypeRegSet mask, Interval* currentInterval, RefPosition* refPosition);
 
-    SingleTypeRegSet fixedRegsLow;
-#ifdef HAS_MORE_THAN_64_REGISTERS
-    SingleTypeRegSet fixedRegsHigh;
-#endif
+    regMaskTP    fixedRegs;
     LsraLocation nextFixedRef[REG_COUNT];
-    template <bool isLow>
-    void updateNextFixedRef(RegRecord* regRecord, RefPosition* nextRefPosition, RefPosition* nextKill);
-    void updateNextFixedRefDispatch(RegRecord* regRecord, RefPosition* nextRefPosition, RefPosition* nextKill)
-    {
-#ifdef HAS_MORE_THAN_64_REGISTERS
-        if (regRecord->regNum < 64)
-        {
-            updateNextFixedRef<true>(regRecord, nextRefPosition, nextKill);
-        }
-        else
-        {
-            updateNextFixedRef<false>(regRecord, nextRefPosition, nextKill);
-        }
-#else
-        updateNextFixedRef<true>(regRecord, nextRefPosition, nextKill);
-#endif
-    }
+    void         updateNextFixedRef(RegRecord* regRecord, RefPosition* nextRefPosition, RefPosition* nextKill);
     LsraLocation getNextFixedRef(regNumber regNum, var_types regType)
     {
         LsraLocation loc = nextFixedRef[regNum];
@@ -1963,13 +1973,8 @@ private:
     int          BuildBinaryUses(GenTreeOp* node, SingleTypeRegSet candidates = RBM_NONE);
     int          BuildCastUses(GenTreeCast* cast, SingleTypeRegSet candidates);
 #ifdef TARGET_XARCH
-    int BuildRMWUses(
-        GenTree* node, GenTree* op1, GenTree* op2, SingleTypeRegSet op1Candidates, SingleTypeRegSet op2Candidates);
+    int BuildRMWUses(GenTree* node, GenTree* op1, GenTree* op2, SingleTypeRegSet candidates = RBM_NONE);
     inline SingleTypeRegSet BuildEvexIncompatibleMask(GenTree* tree);
-    inline SingleTypeRegSet BuildApxIncompatibleGPRMask(GenTree*         tree,
-                                                        SingleTypeRegSet candidates = RBM_NONE,
-                                                        bool             isGPR      = false);
-    inline bool             DoesThisUseGPR(GenTree* op);
 #endif // !TARGET_XARCH
     int BuildSelect(GenTreeOp* select);
     // This is the main entry point for building the RefPositions for a node.
@@ -2060,11 +2065,6 @@ private:
 #ifdef TARGET_ARM64
     int  BuildConsecutiveRegistersForUse(GenTree* treeNode, GenTree* rmwNode = nullptr);
     void BuildConsecutiveRegistersForDef(GenTree* treeNode, int fieldCount);
-    void BuildHWIntrinsicImmediate(GenTreeHWIntrinsic* intrinsicTree, const HWIntrinsic intrin);
-    int  BuildEmbeddedOperandUses(GenTreeHWIntrinsic* embeddedOpNode, GenTree* embeddedDelayFreeOp);
-    int  BuildContainedCselUses(GenTreeHWIntrinsic* containedCselOpNode,
-                                GenTree*            delayFreeOp,
-                                SingleTypeRegSet    candidates);
 #endif // TARGET_ARM64
 #endif // FEATURE_HW_INTRINSICS
 
@@ -2081,10 +2081,6 @@ private:
 #if defined(TARGET_AMD64)
     regMaskTP rbmAllFloat;
     regMaskTP rbmFltCalleeTrash;
-    regMaskTP rbmAllInt;
-    regMaskTP rbmIntCalleeTrash;
-    regNumber regIntLast;
-    bool      isApxSupported;
 
     FORCEINLINE regMaskTP get_RBM_ALLFLOAT() const
     {
@@ -2094,33 +2090,11 @@ private:
     {
         return this->rbmFltCalleeTrash;
     }
-    FORCEINLINE regMaskTP get_RBM_ALLINT() const
-    {
-        return this->rbmAllInt;
-    }
-    FORCEINLINE regMaskTP get_RBM_INT_CALLEE_TRASH() const
-    {
-        return this->rbmIntCalleeTrash;
-    }
-    FORCEINLINE regNumber get_REG_INT_LAST() const
-    {
-        return this->regIntLast;
-    }
-    FORCEINLINE bool getIsApxSupported() const
-    {
-        return this->isApxSupported;
-    }
-#else
-    FORCEINLINE regNumber get_REG_INT_LAST() const
-    {
-        return REG_INT_LAST;
-    }
 #endif // TARGET_AMD64
 
 #if defined(TARGET_XARCH)
-    regMaskTP        rbmAllMask;
-    regMaskTP        rbmMskCalleeTrash;
-    SingleTypeRegSet lowGprRegs;
+    regMaskTP rbmAllMask;
+    regMaskTP rbmMskCalleeTrash;
 
     FORCEINLINE regMaskTP get_RBM_ALLMASK() const
     {

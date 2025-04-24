@@ -19,7 +19,6 @@ namespace System.Reflection
         protected abstract override bool IsArrayImpl();
         protected abstract override bool IsByRefImpl();
         public sealed override bool IsByRefLike => false;
-        public sealed override bool IsEnum => false;
         protected abstract override bool IsPointerImpl();
         public abstract override bool IsSZArray { get; }
         public abstract override bool IsVariableBoundArray { get; }
@@ -28,7 +27,6 @@ namespace System.Reflection
         public sealed override bool IsGenericTypeParameter => false;
         public sealed override bool IsGenericMethodParameter => false;
         public sealed override bool ContainsGenericParameters => _elementType.ContainsGenericParameters;
-        protected sealed override bool IsValueTypeImpl() => false;
 
         internal sealed override SignatureType? ElementType => _elementType;
         public abstract override int GetArrayRank();

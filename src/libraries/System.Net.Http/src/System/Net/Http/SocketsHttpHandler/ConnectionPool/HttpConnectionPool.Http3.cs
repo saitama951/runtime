@@ -127,7 +127,7 @@ namespace System.Net.Http
                 }
                 finally
                 {
-                    http3ConnectionWaiter?.SetTimeoutToPendingConnectionAttempt(this, cancellationToken.IsCancellationRequested);
+                    http3ConnectionWaiter?.CancelIfNecessary(this, cancellationToken.IsCancellationRequested);
                 }
             }
         }
@@ -527,7 +527,7 @@ namespace System.Net.Http
         [SupportedOSPlatform("windows")]
         [SupportedOSPlatform("linux")]
         [SupportedOSPlatform("macos")]
-        public void InvalidateHttp3Connection(Http3Connection connection, bool dispose = true)
+        public void InvalidateHttp3Connection(Http3Connection connection)
         {
             Debug.Assert(IsHttp3Supported());
 
@@ -554,7 +554,7 @@ namespace System.Net.Http
 
             // If we found the connection in the available list, then dispose it now.
             // Otherwise, when we try to put it back in the pool, we will see it is shut down and dispose it (and adjust connection counts).
-            if (found && dispose)
+            if (found)
             {
                 connection.Dispose();
             }

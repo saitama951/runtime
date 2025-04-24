@@ -16,20 +16,20 @@ namespace Microsoft.Extensions.DependencyModel.Tests
     {
         public static JsonAssertions Should(this JToken jToken)
         {
-            return new JsonAssertions(jToken, AssertionChain.GetOrCreate());
+            return new JsonAssertions(jToken);
         }
     }
 
     public class JsonAssertions: ReferenceTypeAssertions<JToken, JsonAssertions>
     {
-        public JsonAssertions(JToken token, AssertionChain assertionChain) : base(token, assertionChain) { }
+        public JsonAssertions(JToken token) : base(token) { }
 
         protected override string Identifier => nameof(JToken);
 
         public AndWhichConstraint<JsonAssertions, JToken> HaveProperty(string expected)
         {
             var token = Subject[expected];
-            CurrentAssertionChain
+            Execute.Assertion
                 .ForCondition(token != null)
                 .FailWith("Expected {0} to have property '{1}'", Subject, expected);
 
@@ -39,7 +39,7 @@ namespace Microsoft.Extensions.DependencyModel.Tests
         public AndConstraint<JsonAssertions> NotHaveProperty(string expected)
         {
             var token = Subject[expected];
-            CurrentAssertionChain
+            Execute.Assertion
                 .ForCondition(token == null)
                 .FailWith("Expected {0} to have property '{1}'", Subject, expected);
 

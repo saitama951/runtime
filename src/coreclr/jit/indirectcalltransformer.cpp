@@ -223,20 +223,15 @@ private:
         // and insert in into the basic block list.
         //
         // Arguments:
-        //    jumpKind    - jump kind for the new basic block
+        //    jumpKind - jump kind for the new basic block
         //    insertAfter - basic block, after which compiler has to insert the new one.
-        //    flagsSource - basic block to copy BBF_SPLIT_GAINED flags from
         //
         // Return Value:
         //    new basic block.
-        BasicBlock* CreateAndInsertBasicBlock(BBKinds jumpKind, BasicBlock* insertAfter, BasicBlock* flagsSource)
+        BasicBlock* CreateAndInsertBasicBlock(BBKinds jumpKind, BasicBlock* insertAfter)
         {
             BasicBlock* block = compiler->fgNewBBafter(jumpKind, insertAfter, true);
             block->SetFlags(BBF_IMPORTED);
-            if (flagsSource != nullptr)
-            {
-                block->CopyFlags(flagsSource, BBF_SPLIT_GAINED);
-            }
             return block;
         }
 
@@ -385,7 +380,7 @@ private:
         {
             assert(checkIdx == 0);
 
-            checkBlock                 = CreateAndInsertBasicBlock(BBJ_ALWAYS, currBlock, currBlock);
+            checkBlock                 = CreateAndInsertBasicBlock(BBJ_ALWAYS, currBlock);
             GenTree*   fatPointerMask  = new (compiler, GT_CNS_INT) GenTreeIntCon(TYP_I_IMPL, FAT_POINTER_MASK);
             GenTree*   fptrAddressCopy = compiler->gtCloneExpr(fptrAddress);
             GenTree*   fatPointerAnd   = compiler->gtNewOperNode(GT_AND, TYP_I_IMPL, fptrAddressCopy, fatPointerMask);
@@ -403,7 +398,7 @@ private:
         virtual void CreateThen(uint8_t checkIdx)
         {
             assert(remainderBlock != nullptr);
-            thenBlock                     = CreateAndInsertBasicBlock(BBJ_ALWAYS, checkBlock, currBlock);
+            thenBlock                     = CreateAndInsertBasicBlock(BBJ_ALWAYS, checkBlock);
             Statement* copyOfOriginalStmt = compiler->gtCloneStmt(stmt);
             compiler->fgInsertStmtAtEnd(thenBlock, copyOfOriginalStmt);
         }
@@ -413,7 +408,7 @@ private:
         //
         virtual void CreateElse()
         {
-            elseBlock = CreateAndInsertBasicBlock(BBJ_ALWAYS, thenBlock, currBlock);
+            elseBlock = CreateAndInsertBasicBlock(BBJ_ALWAYS, thenBlock);
 
             GenTree* fixedFptrAddress  = GetFixedFptrAddress();
             GenTree* actualCallAddress = compiler->gtNewIndir(pointerType, fixedFptrAddress);
@@ -610,7 +605,7 @@ private:
                 // In case of multiple checks, append to the previous thenBlock block
                 // (Set jump target of new checkBlock in CreateThen())
                 BasicBlock* prevCheckBlock = checkBlock;
-                checkBlock                 = CreateAndInsertBasicBlock(BBJ_ALWAYS, thenBlock, currBlock);
+                checkBlock                 = CreateAndInsertBasicBlock(BBJ_ALWAYS, thenBlock);
                 checkFallsThrough          = false;
 
                 // We computed the "then" likelihood in CreateThen, so we
@@ -754,21 +749,8 @@ private:
         //
         void SpillArgToTempBeforeGuard(CallArg* arg)
         {
-            unsigned       tmpNum  = compiler->lvaGrabTemp(true DEBUGARG("guarded devirt arg temp"));
-            GenTree* const argNode = arg->GetNode();
-            GenTree*       store   = compiler->gtNewTempStore(tmpNum, argNode);
-
-            if (argNode->TypeIs(TYP_REF))
-            {
-                bool                 isExact   = false;
-                bool                 isNonNull = false;
-                CORINFO_CLASS_HANDLE cls       = compiler->gtGetClassHandle(argNode, &isExact, &isNonNull);
-                if (cls != NO_CLASS_HANDLE)
-                {
-                    compiler->lvaSetClass(tmpNum, cls, isExact);
-                }
-            }
-
+            unsigned   tmpNum    = compiler->lvaGrabTemp(true DEBUGARG("guarded devirt arg temp"));
+            GenTree*   store     = compiler->gtNewTempStore(tmpNum, arg->GetNode());
             Statement* storeStmt = compiler->fgNewStmtFromTree(store, stmt->GetDebugInfo());
             compiler->fgInsertStmtAtEnd(checkBlock, storeStmt);
 
@@ -827,16 +809,6 @@ private:
                 {
                     returnTemp = compiler->lvaGrabTemp(false DEBUGARG("guarded devirt return temp"));
                     JITDUMP("Reworking call(s) to return value via a new temp V%02u\n", returnTemp);
-
-                    // Keep the information about small typedness to avoid
-                    // inserting unnecessary casts for normalization, which can
-                    // make tailcall invariants unhappy. This is the same logic
-                    // that impImportCall uses when it introduces call temps.
-                    if (varTypeIsSmall(origCall->gtReturnType))
-                    {
-                        assert(origCall->NormalizesSmallTypesOnReturn());
-                        compiler->lvaGetDesc(returnTemp)->lvType = origCall->gtReturnType;
-                    }
                 }
 
                 if (varTypeIsStruct(origCall))
@@ -917,39 +889,14 @@ private:
             GenTreeCall* call = compiler->gtCloneCandidateCall(origCall);
             call->gtArgs.GetThisArg()->SetEarlyNode(compiler->gtNewLclvNode(thisTemp, TYP_REF));
 
-            // If the original call was flagged as one that might inspire enumerator de-abstraction
-            // cloning, move the flag to the devirtualized call.
-            //
-            if (compiler->hasImpEnumeratorGdvLocalMap())
-            {
-                Compiler::NodeToUnsignedMap* const map           = compiler->getImpEnumeratorGdvLocalMap();
-                unsigned                           enumeratorLcl = BAD_VAR_NUM;
-                if (map->Lookup(origCall, &enumeratorLcl))
-                {
-                    JITDUMP("Flagging [%06u] for enumerator cloning via V%02u\n", compiler->dspTreeID(call),
-                            enumeratorLcl);
-                    map->Remove(origCall);
-                    map->Set(call, enumeratorLcl);
-                }
-            }
-
             INDEBUG(call->SetIsGuarded());
 
             JITDUMP("Direct call [%06u] in block " FMT_BB "\n", compiler->dspTreeID(call), block->bbNum);
 
             CORINFO_METHOD_HANDLE  methodHnd = inlineInfo->guardedMethodHandle;
-            CORINFO_CONTEXT_HANDLE context   = inlineInfo->exactContextHandle;
+            CORINFO_CONTEXT_HANDLE context   = inlineInfo->exactContextHnd;
             if (clsHnd != NO_CLASS_HANDLE)
             {
-                // If we devirtualized an array interface call,
-                // pass the original method handle and original context handle to the devirtualizer.
-                //
-                if (inlineInfo->arrayInterface)
-                {
-                    methodHnd = call->gtCallMethHnd;
-                    context   = inlineInfo->originalContextHandle;
-                }
-
                 // Then invoke impDevirtualizeCall to actually transform the call for us,
                 // given the original (base) method and the exact guarded class. It should succeed.
                 //
@@ -1043,7 +990,7 @@ private:
                 //
                 GenTreeRetExpr* oldRetExpr       = inlineInfo->retExpr;
                 inlineInfo->clsHandle            = compiler->info.compCompHnd->getMethodClass(methodHnd);
-                inlineInfo->exactContextHandle   = context;
+                inlineInfo->exactContextHnd      = context;
                 inlineInfo->preexistingSpillTemp = returnTemp;
                 call->SetSingleInlineCandidateInfo(inlineInfo);
 
@@ -1112,7 +1059,8 @@ private:
 
             // thenBlock always jumps to remainderBlock
             //
-            thenBlock = CreateAndInsertBasicBlock(BBJ_ALWAYS, checkBlock, currBlock);
+            thenBlock = CreateAndInsertBasicBlock(BBJ_ALWAYS, checkBlock);
+            thenBlock->CopyFlags(currBlock, BBF_SPLIT_GAINED);
             thenBlock->inheritWeight(checkBlock);
             thenBlock->scaleBBWeight(adjustedThenLikelihood);
             FlowEdge* const thenRemainderEdge = compiler->fgAddRefPred(remainderBlock, thenBlock);
@@ -1143,7 +1091,8 @@ private:
         //
         virtual void CreateElse()
         {
-            elseBlock = CreateAndInsertBasicBlock(BBJ_ALWAYS, thenBlock, currBlock);
+            elseBlock = CreateAndInsertBasicBlock(BBJ_ALWAYS, thenBlock);
+            elseBlock->CopyFlags(currBlock, BBF_SPLIT_GAINED);
 
             // We computed the "then" likelihood in CreateThen, so we
             // just use that to figure out the "else" likelihood.

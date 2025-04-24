@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit;
 /*****************************************************************************/
 /* Test:    NStructResur
 /* Coverage:    NStruct objects' finalize can be called and the objects can be
@@ -13,7 +12,7 @@ namespace NStruct {
     using System;
     using System.Collections.Generic;
 
-    public class NStructResur
+    internal class NStructResur
     {
         internal static List<STRMAP> alstrmap;
 
@@ -47,8 +46,7 @@ namespace NStruct {
             return ( FinalizeCount.icFinal == FinalizeCount.icCreat );
         }
 
-        [Fact]
-        public static int TestEntryPoint()
+        public static int Main()
         {
             CreateObj(100);
             if (RunTest())

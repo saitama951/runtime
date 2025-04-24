@@ -52,6 +52,7 @@ class EEStringData;
 class MethodDescChunk;
 class SigTypeContext;
 class Assembly;
+class BaseDomain;
 class AppDomain;
 class SystemDomain;
 class Module;
@@ -90,7 +91,7 @@ struct DynamicMetadata
 {
     uint32_t Size;
     BYTE Data[0];
-    friend struct ::cdac_data<DynamicMetadata>;
+    template<typename T> friend struct ::cdac_data;
 };
 
 template<>
@@ -465,7 +466,7 @@ protected:
     // The vtable needs to match between DAC and non-DAC, but we don't want any use of IsSigInIL in the DAC
     virtual BOOL IsSigInILImpl(PCCOR_SIGNATURE signature) { return FALSE; } // ModuleBase doesn't have a PE image to examine
     // The vtable needs to match between DAC and non-DAC, but we don't want any use of LoadAssembly in the DAC
-    virtual Assembly * LoadAssemblyImpl(mdAssemblyRef kAssemblyRef) = 0;
+    virtual DomainAssembly * LoadAssemblyImpl(mdAssemblyRef kAssemblyRef) = 0;
 
     // The vtable needs to match between DAC and non-DAC, but we don't want any use of ThrowTypeLoadException in the DAC
     virtual void DECLSPEC_NORETURN ThrowTypeLoadExceptionImpl(IMDInternalImport *pInternalImport,
@@ -551,6 +552,7 @@ public:
     virtual Assembly * GetAssemblyIfLoaded(
             mdAssemblyRef       kAssemblyRef,
             IMDInternalImport * pMDImportOverride = NULL,
+            BOOL                fDoNotUtilizeExtraChecks = FALSE,
             AssemblyBinder      *pBinderForLoadedAssembly = NULL
             )
     {
@@ -571,14 +573,14 @@ public:
 
     // The vtable needs to match between DAC and non-DAC, but we don't want any use of IsSigInIL in the DAC
     BOOL IsSigInIL(PCCOR_SIGNATURE signature) { return IsSigInILImpl(signature); }
-    Assembly * LoadAssembly(mdAssemblyRef kAssemblyRef)
+    DomainAssembly * LoadAssembly(mdAssemblyRef kAssemblyRef)
     {
         WRAPPER_NO_CONTRACT;
         return LoadAssemblyImpl(kAssemblyRef);
     }
 
     // Resolving
-    STRINGREF* ResolveStringRef(DWORD Token, void** ppPinnedString = nullptr);
+    OBJECTHANDLE ResolveStringRef(DWORD Token, void** ppPinnedString = nullptr);
 private:
     // string helper
     void InitializeStringData(DWORD token, EEStringData *pstrData, CQuickBytes *pqb);
@@ -608,9 +610,8 @@ class Module : public ModuleBase
     VPTR_VTABLE_CLASS(Module, ModuleBase)
 
 private:
-    PTR_CUTF8               m_pSimpleName;  // Cached simple name for better performance and easier diagnostics
-    const WCHAR*            m_path;         // Cached path for easier diagnostics
-    const WCHAR*            m_fileName;     // Cached file name for easier diagnostics
+    PTR_CUTF8               m_pSimpleName; // Cached simple name for better performance and easier diagnostics
+    const WCHAR*            m_path;        // Cached path for easier diagnostics
 
     PTR_PEAssembly          m_pPEAssembly;
     PTR_VOID                m_baseAddress; // Cached base address for easier diagnostics
@@ -947,6 +948,7 @@ public:
 
 #ifndef DACCESS_COMPILE
     VOID EnsureActive();
+    VOID EnsureAllocated();
 #endif
 
     CHECK CheckActivated();
@@ -1128,6 +1130,7 @@ public:
     Assembly * GetAssemblyIfLoaded(
             mdAssemblyRef       kAssemblyRef,
             IMDInternalImport * pMDImportOverride = NULL,
+            BOOL                fDoNotUtilizeExtraChecks = FALSE,
             AssemblyBinder      *pBinderForLoadedAssembly = NULL
             ) final;
 
@@ -1138,7 +1141,7 @@ protected:
                                                   UINT resIDWhy) final;
 #endif
 
-    Assembly * LoadAssemblyImpl(mdAssemblyRef kAssemblyRef) final;
+    DomainAssembly * LoadAssemblyImpl(mdAssemblyRef kAssemblyRef) final;
 public:
     PTR_Module LookupModule(mdToken kFile) final;
     Module *GetModuleIfLoaded(mdFile kFile) final;
@@ -1320,22 +1323,11 @@ public:
     MethodDesc *FindMethodThrowing(mdToken pMethod);
     MethodDesc *FindMethod(mdToken pMethod);
 
-#ifndef DACCESS_COMPILE
-public:
-    // light code gen. Keep the list of MethodTables needed for creating dynamic methods
-    DynamicMethodTable* GetDynamicMethodTable();
-#endif
-private:
-    // m_pDynamicMethodTable is used by the light code generation to allow method
-    // generation on the fly. They are lazily created when/if a dynamic method is requested
-    // for this specific module
-    DynamicMethodTable*         m_pDynamicMethodTable;
-
 public:
 
     // Debugger stuff
-    BOOL NotifyDebuggerLoad(DomainAssembly * pDomainAssembly, int level, BOOL attaching);
-    void NotifyDebuggerUnload();
+    BOOL NotifyDebuggerLoad(AppDomain *pDomain, DomainAssembly * pDomainAssembly, int level, BOOL attaching);
+    void NotifyDebuggerUnload(AppDomain *pDomain);
 
     void SetDebuggerInfoBits(DebuggerAssemblyControlFlags newBits);
 
@@ -1499,6 +1491,14 @@ public:
     InstrumentedILOffsetMapping GetInstrumentedILOffsetMapping(mdMethodDef token);
 
 public:
+    // LoaderHeap for storing IJW thunks
+    PTR_LoaderHeap           m_pThunkHeap;
+
+    // Self-initializing accessor for IJW thunk heap
+    LoaderHeap              *GetThunkHeap();
+    // Self-initializing accessor for domain-independent IJW thunk heap
+    LoaderHeap              *GetDllThunkHeap();
+
     const ReadyToRun_MethodIsGenericMap *m_pMethodIsGenericMap = &ReadyToRun_MethodIsGenericMap::EmptyInstance;
     const ReadyToRun_TypeGenericInfoMap *m_pTypeGenericInfoMap = &ReadyToRun_TypeGenericInfoMap::EmptyInstance;
 
@@ -1627,7 +1627,7 @@ public:
     uint32_t GetNativeMetadataAssemblyCount();
 #endif // !defined(DACCESS_COMPILE)
 
-    friend struct ::cdac_data<Module>;
+    template<typename T> friend struct ::cdac_data;
 };
 
 template<>
@@ -1637,10 +1637,9 @@ struct cdac_data<Module>
     static constexpr size_t Base = offsetof(Module, m_baseAddress);
     static constexpr size_t Flags = offsetof(Module, m_dwTransientFlags);
     static constexpr size_t LoaderAllocator = offsetof(Module, m_loaderAllocator);
+    static constexpr size_t ThunkHeap = offsetof(Module, m_pThunkHeap);
     static constexpr size_t DynamicMetadata = offsetof(Module, m_pDynamicMetadata);
     static constexpr size_t Path = offsetof(Module, m_path);
-    static constexpr size_t FileName = offsetof(Module, m_fileName);
-    static constexpr size_t ReadyToRunInfo = offsetof(Module, m_pReadyToRunInfo);
 
     // Lookup map pointers
     static constexpr size_t FieldDefToDescMap = offsetof(Module, m_FieldDefToDescMap);

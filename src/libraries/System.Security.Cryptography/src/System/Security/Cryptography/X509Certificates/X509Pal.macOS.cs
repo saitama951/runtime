@@ -7,7 +7,6 @@ using System.Formats.Asn1;
 using System.Security.Cryptography.Apple;
 using System.Security.Cryptography.Asn1;
 using System.Security.Cryptography.Asn1.Pkcs12;
-using Internal.Cryptography;
 
 namespace System.Security.Cryptography.X509Certificates
 {
@@ -18,9 +17,9 @@ namespace System.Security.Cryptography.X509Certificates
             return new AppleX509Pal();
         }
 
-        private sealed partial class AppleX509Pal : IX509Pal
+        private sealed partial class AppleX509Pal : ManagedX509ExtensionProcessor, IX509Pal
         {
-            public AsymmetricAlgorithm DecodePublicKey(Oid oid, byte[] encodedKeyValue, byte[]? encodedParameters,
+            public AsymmetricAlgorithm DecodePublicKey(Oid oid, byte[] encodedKeyValue, byte[] encodedParameters,
                 ICertificatePal? certificatePal)
             {
                 AppleCertificatePal? applePal = certificatePal as AppleCertificatePal;
@@ -74,33 +73,38 @@ namespace System.Security.Cryptography.X509Certificates
                 }
             }
 
-            private static DSA DecodeDsaPublicKey(byte[] encodedKeyValue, byte[]? encodedParameters)
+            private static DSA DecodeDsaPublicKey(byte[] encodedKeyValue, byte[] encodedParameters)
             {
                 SubjectPublicKeyInfoAsn spki = new SubjectPublicKeyInfoAsn
                 {
-                    Algorithm = new AlgorithmIdentifierAsn
-                    {
-                        Algorithm = Oids.Dsa,
-                        Parameters = encodedParameters.ToNullableMemory(),
-                    },
+                    Algorithm = new AlgorithmIdentifierAsn { Algorithm = Oids.Dsa, Parameters = encodedParameters },
                     SubjectPublicKey = encodedKeyValue,
                 };
 
                 AsnWriter writer = new AsnWriter(AsnEncodingRules.DER);
                 spki.Encode(writer);
 
+                byte[] rented = CryptoPool.Rent(writer.GetEncodedLength());
+
+                if (!writer.TryEncode(rented, out int written))
+                {
+                    Debug.Fail("TryEncode failed with a pre-allocated buffer");
+                    throw new InvalidOperationException();
+                }
+
                 DSA dsa = DSA.Create();
                 DSA? toDispose = dsa;
 
                 try
                 {
-                    writer.Encode(dsa, static (dsa, encoded) => dsa.ImportSubjectPublicKeyInfo(encoded, out _));
+                    dsa.ImportSubjectPublicKeyInfo(rented.AsSpan(0, written), out _);
                     toDispose = null;
                     return dsa;
                 }
                 finally
                 {
                     toDispose?.Dispose();
+                    CryptoPool.Return(rented, written);
                 }
             }
 

@@ -9,8 +9,6 @@
 #include "pal.h"
 #endif // TARGET_UNIX
 
-#include <minipal/guid.h>
-
 #ifdef FEATURE_PERFTRACING
 
 extern "C" UINT64 QCALLTYPE EventPipeInternal_Enable(
@@ -192,7 +190,7 @@ extern "C" int QCALLTYPE EventPipeInternal_EventActivityIdControl(uint32_t contr
 
         case ActivityControlCode::EVENT_ACTIVITY_CONTROL_CREATE_ID:
 
-            minipal_guid_v4_create(pActivityId);
+            CoCreateGuid(pActivityId);
             break;
 
         case ActivityControlCode::EVENT_ACTIVITY_CONTROL_GET_SET_ID:
@@ -205,7 +203,7 @@ extern "C" int QCALLTYPE EventPipeInternal_EventActivityIdControl(uint32_t contr
         case ActivityControlCode::EVENT_ACTIVITY_CONTROL_CREATE_SET_ID:
 
             *pActivityId = *pThread->GetActivityId();
-            minipal_guid_v4_create(&currentActivityId);
+            CoCreateGuid(&currentActivityId);
             pThread->SetActivityId(&currentActivityId);
             break;
 

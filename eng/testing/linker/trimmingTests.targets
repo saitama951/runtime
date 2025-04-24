@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
-    <IlcToolsPath>$(CoreCLRCrossILCompilerDir)</IlcToolsPath>
+    <IlcToolsPath>$(CoreCLRILCompilerDir)</IlcToolsPath>
+    <IlcToolsPath Condition="'$(TargetArchitecture)' != '$(BuildArchitecture)' or '$(EnableNativeSanitizers)' != ''">$(CoreCLRCrossILCompilerDir)</IlcToolsPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -150,7 +151,7 @@
 
     <MSBuild Projects="@(TestConsoleApps)"
              Targets="Publish"
-             Properties="Configuration=$(Configuration);BuildProjectReferences=false;HostOS=$(HostOS);TargetOS=$(TargetOS);TargetArchitecture=$(TargetArchitecture);_IsPublishing=true" />
+             Properties="Configuration=$(Configuration);BuildProjectReferences=false;TargetOS=$(TargetOS);TargetArchitecture=$(TargetArchitecture);_IsPublishing=true" />
   </Target>
 
   <Target Name="ExecuteApplications"

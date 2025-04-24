@@ -94,6 +94,12 @@ namespace System.Net.Http
             // Validate arguments as would base CopyToAsync
             StreamHelpers.ValidateCopyToArgs(this, destination, bufferSize);
 
+            // Check that there are no other pending read operations
+            if (_state.AsyncReadInProgress)
+            {
+                throw new InvalidOperationException(SR.net_http_no_concurrent_io_allowed);
+            }
+
             // Early check for cancellation
             if (cancellationToken.IsCancellationRequested)
             {
@@ -106,15 +112,11 @@ namespace System.Net.Http
 
         private async Task CopyToAsyncCore(Stream destination, byte[] buffer, CancellationToken cancellationToken)
         {
-            // Check that there are no other pending read operations
-            if (Interlocked.CompareExchange(ref _state.AsyncReadInProgress, 1, 0) == 1)
-            {
-                throw new InvalidOperationException(SR.net_http_no_concurrent_io_allowed);
-            }
+            _state.PinReceiveBuffer(buffer);
+            CancellationTokenRegistration ctr = cancellationToken.Register(s => ((WinHttpResponseStream)s!).CancelPendingResponseStreamReadOperation(), this);
+            _state.AsyncReadInProgress = true;
             try
             {
-                using var ctr = cancellationToken.Register(s => ((WinHttpResponseStream)s!).CancelPendingResponseStreamReadOperation(), this);
-                _state.PinReceiveBuffer(buffer);
                 // Loop until there's no more data to be read
                 while (true)
                 {
@@ -161,7 +163,8 @@ namespace System.Net.Http
             }
             finally
             {
-                _state.AsyncReadInProgress = 0;
+                _state.AsyncReadInProgress = false;
+                ctr.Dispose();
                 ArrayPool<byte>.Shared.Return(buffer);
             }
 
@@ -198,6 +201,11 @@ namespace System.Net.Http
 
             CheckDisposed();
 
+            if (_state.AsyncReadInProgress)
+            {
+                throw new InvalidOperationException(SR.net_http_no_concurrent_io_allowed);
+            }
+
             return ReadAsyncCore(buffer, offset, count, token);
         }
 
@@ -213,15 +221,12 @@ namespace System.Net.Http
             {
                 return 0;
             }
-            // Check that there are no other pending read operations
-            if (Interlocked.CompareExchange(ref _state.AsyncReadInProgress, 1, 0) == 1)
-            {
-                throw new InvalidOperationException(SR.net_http_no_concurrent_io_allowed);
-            }
+
+            _state.PinReceiveBuffer(buffer);
+            var ctr = token.Register(s => ((WinHttpResponseStream)s!).CancelPendingResponseStreamReadOperation(), this);
+            _state.AsyncReadInProgress = true;
             try
             {
-                using var ctr = token.Register(s => ((WinHttpResponseStream)s!).CancelPendingResponseStreamReadOperation(), this);
-                _state.PinReceiveBuffer(buffer);
                 lock (_state.Lock)
                 {
                     Debug.Assert(!_requestHandle.IsInvalid);
@@ -257,7 +262,8 @@ namespace System.Net.Http
             }
             finally
             {
-                _state.AsyncReadInProgress = 0;
+                _state.AsyncReadInProgress = false;
+                ctr.Dispose();
             }
         }
 
@@ -351,7 +357,7 @@ namespace System.Net.Http
         {
             lock (_state.Lock)
             {
-                if (_state.AsyncReadInProgress == 1)
+                if (_state.AsyncReadInProgress)
                 {
                     if (NetEventSource.Log.IsEnabled()) NetEventSource.Info("before dispose");
                     _requestHandle?.Dispose(); // null check necessary to handle race condition between stream disposal and cancellation

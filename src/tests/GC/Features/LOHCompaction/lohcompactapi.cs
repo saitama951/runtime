@@ -5,19 +5,17 @@ using System;
 using System.Collections.Generic;
 using System.Runtime;
 using System.Reflection;
-using Xunit;
 
 
 namespace LOHCompactAPI
 {
-    public class Program
+    class Program
     {
         static int ListSize = 500;
         static List<byte[]> shortLivedList = new List<byte[]>(ListSize);
         static List<byte[]> LongLivedList = new List<byte[]>(ListSize);
 
-        [Fact]
-        public static int TestEntryPoint()
+        public static int Main()
         {
             int retVal=0;
             for (int i = 0; i < 3; i++)

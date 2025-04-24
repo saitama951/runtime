@@ -404,14 +404,14 @@ namespace System.Reflection.Runtime.TypeInfos
             // Do not implement this as a call to MakeArrayType(1) - they are not interchangeable. MakeArrayType() returns a
             // vector type ("SZArray") while MakeArrayType(1) returns a multidim array of rank 1. These are distinct types
             // in the ECMA model and in CLR Reflection.
-            return this.GetArrayType().ToType();
+            return this.GetArrayTypeWithTypeHandle().ToType();
         }
 
         public Type MakeArrayType(int rank)
         {
             if (rank <= 0)
                 throw new IndexOutOfRangeException();
-            return this.GetMultiDimArrayType(rank).ToType();
+            return this.GetMultiDimArrayTypeWithTypeHandle(rank).ToType();
         }
 
         public Type MakePointerType()
@@ -475,7 +475,7 @@ namespace System.Reflection.Runtime.TypeInfos
                     throw new TypeLoadException(SR.CannotUseByRefLikeTypeInInstantiation);
             }
 
-            return this.GetConstructedGenericType(runtimeTypeArguments!).ToType();
+            return this.GetConstructedGenericTypeWithTypeHandle(runtimeTypeArguments!).ToType();
         }
 
         public Type DeclaringType

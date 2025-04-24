@@ -124,23 +124,30 @@ void EEClass::Destruct(MethodTable * pOwningMT)
     if (IsDelegate())
     {
         DelegateEEClass* pDelegateEEClass = (DelegateEEClass*)this;
-        for (Stub* pThunk : {pDelegateEEClass->m_pStaticCallStub, pDelegateEEClass->m_pInstRetBuffCallStub})
+
+        if (pDelegateEEClass->m_pStaticCallStub)
         {
-            if (pThunk == nullptr)
-                continue;
+            // Collect data to remove stub entry from StubManager if
+            // stub is deleted.
+            BYTE* entry = (BYTE*)pDelegateEEClass->m_pStaticCallStub->GetEntryPoint();
+            UINT length = pDelegateEEClass->m_pStaticCallStub->GetNumCodeBytes();
 
-            _ASSERTE(pThunk->IsShuffleThunk());
-
-            if (pThunk->HasExternalEntryPoint()) // IL thunk
+            ExecutableWriterHolder<Stub> stubWriterHolder(pDelegateEEClass->m_pStaticCallStub, sizeof(Stub));
+            BOOL fStubDeleted = stubWriterHolder.GetRW()->DecRef();
+            if (fStubDeleted)
             {
-                pThunk->DecRef();
-            }
-            else
-            {
-                ExecutableWriterHolder<Stub> stubWriterHolder(pThunk, sizeof(Stub));
-                stubWriterHolder.GetRW()->DecRef();
+                StubLinkStubManager::g_pManager->RemoveStubRange(entry, length);
             }
         }
+        if (pDelegateEEClass->m_pInstRetBuffCallStub)
+        {
+            ExecutableWriterHolder<Stub> stubWriterHolder(pDelegateEEClass->m_pInstRetBuffCallStub, sizeof(Stub));
+            stubWriterHolder.GetRW()->DecRef();
+        }
+        // While m_pMultiCastInvokeStub is also a member,
+        // it is owned by the m_pMulticastStubCache, not by the class
+        // - it is shared across classes. So we don't decrement
+        // its ref count here
     }
 
 #ifdef FEATURE_COMINTEROP
@@ -452,10 +459,10 @@ HRESULT EEClass::AddField(MethodTable* pMT, mdFieldDef fieldDef, FieldDesc** ppN
         AppDomain::AssemblyIterator appIt = pDomain->IterateAssembliesEx((AssemblyIterationFlags)(kIncludeLoaded | kIncludeExecution));
 
         bool isStaticField = !!pNewFD->IsStatic();
-        CollectibleAssemblyHolder<Assembly*> pAssembly;
-        while (appIt.Next(pAssembly.This()) && SUCCEEDED(hr))
+        CollectibleAssemblyHolder<DomainAssembly*> pDomainAssembly;
+        while (appIt.Next(pDomainAssembly.This()) && SUCCEEDED(hr))
         {
-            Module* pMod = pAssembly->GetModule();
+            Module* pMod = pDomainAssembly->GetModule();
             LOG((LF_ENC, LL_INFO100, "EEClass::AddField Checking: %s mod:%p\n", pMod->GetDebugName(), pMod));
 
             EETypeHashTable* paramTypes = pMod->GetAvailableParamTypes();
@@ -648,10 +655,10 @@ HRESULT EEClass::AddMethod(MethodTable* pMT, mdMethodDef methodDef, MethodDesc**
         PTR_AppDomain pDomain = AppDomain::GetCurrentDomain();
         AppDomain::AssemblyIterator appIt = pDomain->IterateAssembliesEx((AssemblyIterationFlags)(kIncludeLoaded | kIncludeExecution));
 
-        CollectibleAssemblyHolder<Assembly*> pAssembly;
-        while (appIt.Next(pAssembly.This()) && SUCCEEDED(hr))
+        CollectibleAssemblyHolder<DomainAssembly*> pDomainAssembly;
+        while (appIt.Next(pDomainAssembly.This()) && SUCCEEDED(hr))
         {
-            Module* pMod = pAssembly->GetModule();
+            Module* pMod = pDomainAssembly->GetModule();
             LOG((LF_ENC, LL_INFO100, "EEClass::AddMethod Checking: %s mod:%p\n", pMod->GetDebugName(), pMod));
 
             EETypeHashTable* paramTypes = pMod->GetAvailableParamTypes();
@@ -1583,7 +1590,7 @@ void ClassLoader::PropagateCovariantReturnMethodImplSlots(MethodTable* pMT)
 //
 // Debugger notification
 //
-BOOL TypeHandle::NotifyDebuggerLoad(BOOL attaching) const
+BOOL TypeHandle::NotifyDebuggerLoad(AppDomain *pDomain, BOOL attaching) const
 {
     LIMITED_METHOD_CONTRACT;
 
@@ -1598,21 +1605,21 @@ BOOL TypeHandle::NotifyDebuggerLoad(BOOL attaching) const
     }
 
     return g_pDebugInterface->LoadClass(
-        *this, GetCl(), GetModule());
+        *this, GetCl(), GetModule(), pDomain);
 }
 
 //*******************************************************************************
-void TypeHandle::NotifyDebuggerUnload() const
+void TypeHandle::NotifyDebuggerUnload(AppDomain *pDomain) const
 {
     LIMITED_METHOD_CONTRACT;
 
     if (!GetModule()->IsVisibleToDebugger())
         return;
 
-    if (!AppDomain::GetCurrentDomain()->IsDebuggerAttached())
+    if (!pDomain->IsDebuggerAttached())
         return;
 
-    g_pDebugInterface->UnloadClass(GetCl(), GetModule());
+    g_pDebugInterface->UnloadClass(GetCl(), GetModule(), pDomain);
 }
 
 //*******************************************************************************
@@ -2240,7 +2247,8 @@ CorNativeLinkType MethodTable::GetCharSet()
 // Helper routines for the macros defined at the top of this class.
 // You probably should not use these functions directly.
 //
-SString &MethodTable::_GetFullyQualifiedNameForClassNestedAware(SString &ssBuf)
+template<typename RedirectFunctor>
+SString &MethodTable::_GetFullyQualifiedNameForClassNestedAwareInternal(SString &ssBuf)
 {
     CONTRACTL {
         THROWS;
@@ -2267,8 +2275,10 @@ SString &MethodTable::_GetFullyQualifiedNameForClassNestedAware(SString &ssBuf)
     DWORD dwAttr;
     IfFailThrow(pImport->GetTypeDefProps(GetCl(), &dwAttr, NULL));
 
+    RedirectFunctor redirectFunctor;
     if (IsTdNested(dwAttr))
     {
+        StackSString ssFullyQualifiedName;
         StackSString ssPath;
 
         // Build the nesting chain.
@@ -2282,21 +2292,37 @@ SString &MethodTable::_GetFullyQualifiedNameForClassNestedAware(SString &ssBuf)
                 &szEnclNameSpace));
 
             ns::MakePath(ssPath,
-                StackSString(SString::Utf8, szEnclNameSpace),
+                StackSString(SString::Utf8, redirectFunctor(szEnclNameSpace)),
                 StackSString(SString::Utf8, szEnclName));
+            ns::MakeNestedTypeName(ssFullyQualifiedName, ssPath, ssName);
 
-            ssPath.Append('+');
-            ssPath.Append(ssName);
-
-            ssName = ssPath;
+            ssName = ssFullyQualifiedName;
         }
     }
 
     ns::MakePath(
         ssBuf,
-        StackSString(SString::Utf8, pszNamespace), ssName);
+        StackSString(SString::Utf8, redirectFunctor(pszNamespace)), ssName);
 
     return ssBuf;
+}
+
+class PassThrough
+{
+public :
+    LPCUTF8 operator() (LPCUTF8 szEnclNamespace)
+    {
+        LIMITED_METHOD_CONTRACT;
+
+        return szEnclNamespace;
+    }
+};
+
+SString &MethodTable::_GetFullyQualifiedNameForClassNestedAware(SString &ssBuf)
+{
+    LIMITED_METHOD_CONTRACT;
+
+    return _GetFullyQualifiedNameForClassNestedAwareInternal<PassThrough>(ssBuf);
 }
 
 //*******************************************************************************
@@ -2498,7 +2524,7 @@ void MethodTable::DebugRecursivelyDumpInstanceFields(LPCUTF8 pszClassName, BOOL 
             {
                 FieldDesc *pFD = &GetClass()->GetFieldDescList()[i];
 #ifdef DEBUG_LAYOUT
-                minipal_log_print_info("offset %s%3d %s\n", pFD->IsByValue() ? "byvalue " : "", pFD->GetOffset(), pFD->GetName());
+                printf("offset %s%3d %s\n", pFD->IsByValue() ? "byvalue " : "", pFD->GetOffset(), pFD->GetName());
 #endif
                 if(debug) {
                     ssBuff.Printf("offset %3d %s\n", pFD->GetOffset(), pFD->GetName());
@@ -3269,3 +3295,4 @@ EEClass::EnumMemoryRegions(CLRDataEnumMemoryFlags flags, MethodTable * pMT)
 }
 
 #endif // DACCESS_COMPILE
+

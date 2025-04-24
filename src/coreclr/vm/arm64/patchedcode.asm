@@ -64,7 +64,6 @@ wbs_GCShadowEnd
 #endif
     WRITE_BARRIER_END JIT_WriteBarrier_Table
 
-;-----------------------------------------------------------------------------
 ; void JIT_ByRefWriteBarrier
 ; On entry:
 ;   x13  : the source address (points to object reference to write)
@@ -75,7 +74,7 @@ wbs_GCShadowEnd
 ;   x13  : incremented by 8
 ;   x14  : incremented by 8
 ;   x15  : trashed
-;   x17  : trashed (ip1)
+;   x17  : trashed (ip1) if FEATURE_USE_SOFTWARE_WRITE_WATCH_FOR_GC_HEAP
 ;
 ;   NOTE: Keep in sync with RBM_CALLEE_TRASH_WRITEBARRIER_BYREF and RBM_CALLEE_GCTRASH_WRITEBARRIER_BYREF
 ;         if you add more trashed registers.
@@ -98,16 +97,14 @@ wbs_GCShadowEnd
 ;   x12  : trashed
 ;   x14  : incremented by 8
 ;   x15  : trashed
-;   x17  : trashed (ip1)
-;
-;   NOTE: Keep in sync with RBM_CALLEE_TRASH_WRITEBARRIER_BYREF and RBM_CALLEE_GCTRASH_WRITEBARRIER_BYREF
-;         if you add more trashed registers.
+;   x17  : trashed (ip1) if FEATURE_USE_SOFTWARE_WRITE_WATCH_FOR_GC_HEAP
 ;
     WRITE_BARRIER_ENTRY JIT_CheckedWriteBarrier
         ldr      x12,  wbs_lowest_address
-        ldr      x17,  wbs_highest_address
         cmp      x14,  x12
-        ccmphs   x14,  x17, #0x2
+
+        ldr      x12,  wbs_highest_address
+        ccmphs   x14,  x12, #0x2
         blo      JIT_WriteBarrier
 
 NotInHeap
@@ -115,7 +112,6 @@ NotInHeap
         ret      lr
     WRITE_BARRIER_END JIT_CheckedWriteBarrier
 
-;-----------------------------------------------------------------------------
 ; void JIT_WriteBarrier(Object** dst, Object* src)
 ; On entry:
 ;   x14  : the destination address (LHS of the assignment)
@@ -125,10 +121,7 @@ NotInHeap
 ;   x12  : trashed
 ;   x14  : incremented by 8
 ;   x15  : trashed
-;   x17  : trashed (ip1)
-;
-;   NOTE: Keep in sync with RBM_CALLEE_TRASH_WRITEBARRIER_BYREF and RBM_CALLEE_GCTRASH_WRITEBARRIER_BYREF
-;         if you add more trashed registers.
+;   x17  : trashed (ip1) if FEATURE_USE_SOFTWARE_WRITE_WATCH_FOR_GC_HEAP
 ;
     WRITE_BARRIER_ENTRY JIT_WriteBarrier
         stlr     x15, [x14]
@@ -138,17 +131,20 @@ NotInHeap
 
         ; Do not perform the work if g_GCShadow is 0
         ldr      x12, wbs_GCShadow
-        cbz      x12, ShadowUpdateEnd
+        cbz      x12, ShadowUpdateDisabled
+
+        ; need temporary register. Save before using.
+        str      x13, [sp, #-16]!
 
         ; Compute address of shadow heap location:
         ;   pShadow = $g_GCShadow + (x14 - g_lowest_address)
-        ldr      x17, wbs_lowest_address
-        sub      x17, x14, x17
-        add      x12, x17, x12
+        ldr      x13, wbs_lowest_address
+        sub      x13, x14, x13
+        add      x12, x13, x12
 
         ; if (pShadow >= $g_GCShadowEnd) goto end
-        ldr      x17, wbs_GCShadowEnd
-        cmp      x12, x17
+        ldr      x13, wbs_GCShadowEnd
+        cmp      x12, x13
         bhs      ShadowUpdateEnd
 
         ; *pShadow = x15
@@ -159,16 +155,18 @@ NotInHeap
         dmb      ish
 
         ; if ([x14] == x15) goto end
-        ldr      x17, [x14]
-        cmp      x17, x15
-        beq      ShadowUpdateEnd
+        ldr      x13, [x14]
+        cmp      x13, x15
+        beq ShadowUpdateEnd
 
         ; *pShadow = INVALIDGCVALUE (0xcccccccd)
-        movz     x17, #0xcccd
-        movk     x17, #0xcccc, LSL #16
-        str      x17, [x12]
+        movz     x13, #0xcccd
+        movk     x13, #0xcccc, LSL #16
+        str      x13, [x12]
 
 ShadowUpdateEnd
+        ldr      x13, [sp], #16
+ShadowUpdateDisabled
 #endif
 
 #ifdef FEATURE_USE_SOFTWARE_WRITE_WATCH_FOR_GC_HEAP
@@ -184,12 +182,22 @@ ShadowUpdateEnd
 
 CheckCardTable
         ; Branch to Exit if the reference is not in the Gen0 heap
+        ;
         ldr      x12,  wbs_ephemeral_low
-        ldr      x17,  wbs_ephemeral_high
+        cbz      x12,  SkipEphemeralCheck
         cmp      x15,  x12
-        ccmp     x15,  x17, #0x2, hs
+
+        ldr      x12,  wbs_ephemeral_high
+
+        ; Compare against the upper bound if the previous comparison indicated
+        ; that the destination address is greater than or equal to the lower
+        ; bound. Otherwise, set the C flag (specified by the 0x2) so that the
+        ; branch to exit is taken.
+        ccmp     x15,  x12, #0x2, hs
+
         bhs      Exit
 
+SkipEphemeralCheck
         ; Check if we need to update the card table
         ldr      x12, wbs_card_table
 
@@ -200,7 +208,7 @@ CheckCardTable
         cmp      x12, 0xFF
         beq      Exit
 
-        ; Update the card table
+UpdateCardTable
         mov      x12, 0xFF
         strb     w12, [x15]
 
@@ -220,9 +228,6 @@ CheckCardTable
 #endif
 
 Exit
-        ; Increment by 8 to implement JIT_ByRefWriteBarrier contract.
-        ; TODO: Consider duplicating the logic to get rid of this redundant 'add'
-        ; for JIT_WriteBarrier/JIT_CheckedWriteBarrier
         add      x14, x14, 8
         ret      lr
     WRITE_BARRIER_END JIT_WriteBarrier

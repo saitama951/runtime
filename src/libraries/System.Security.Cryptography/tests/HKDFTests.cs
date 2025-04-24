@@ -207,6 +207,7 @@ namespace System.Security.Cryptography.Tests
 
         [Theory]
         [MemberData(nameof(Sha3TestCases))]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/106489", typeof(PlatformDetection), nameof(PlatformDetection.IsAzureLinux))]
         public void Sha3Tests(HkdfTestCase test)
         {
             if (PlatformDetection.SupportsSha3)

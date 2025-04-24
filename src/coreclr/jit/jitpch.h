@@ -48,6 +48,7 @@ using std::min;
 #include "rationalize.h"
 #include "jitstd.h"
 #include "ssaconfig.h"
+#include "blockset.h"
 #include "bitvec.h"
 #include "inline.h"
 #include "objectalloc.h"

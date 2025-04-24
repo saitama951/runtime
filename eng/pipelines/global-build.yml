@@ -82,7 +82,8 @@ extends:
                 eq(variables['isRollingBuild'], true))
 
       #
-      # Build Libraries (all TFMs) and create packages on a non Windows operating system.
+      # Build Libraries AllConfigurations. This exercises the code path where we build libraries for all
+      # configurations on a non Windows operating system.
       #
       - template: /eng/pipelines/common/platform-matrix.yml
         parameters:
@@ -91,8 +92,8 @@ extends:
           platforms:
           - linux_x64_dev_innerloop
           jobParameters:
-            nameSuffix: Libraries_WithPackages
-            buildArgs: -subset libs -pack
+            nameSuffix: Libraries_AllConfigurations
+            buildArgs: -subset libs -allconfigurations
             timeoutInMinutes: 120
             condition:
               or(

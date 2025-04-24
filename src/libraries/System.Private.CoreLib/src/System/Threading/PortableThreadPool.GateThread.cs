@@ -23,9 +23,9 @@ namespace System.Threading
             private static void GateThreadStart()
             {
                 bool disableStarvationDetection =
-                    AppContextConfigHelper.GetBooleanComPlusOrDotNetConfig("System.Threading.ThreadPool.DisableStarvationDetection", "ThreadPool_DisableStarvationDetection", false);
+                    AppContextConfigHelper.GetBooleanConfig("System.Threading.ThreadPool.DisableStarvationDetection", false);
                 bool debuggerBreakOnWorkStarvation =
-                    AppContextConfigHelper.GetBooleanComPlusOrDotNetConfig("System.Threading.ThreadPool.DebugBreakOnWorkerStarvation", "ThreadPool_DebugBreakOnWorkerStarvation", false);
+                    AppContextConfigHelper.GetBooleanConfig("System.Threading.ThreadPool.DebugBreakOnWorkerStarvation", false);
 
                 // CPU utilization is updated when the gate thread performs periodic activities (GateActivitiesPeriodMs), so
                 // that would also affect the actual interval. Set to 0 to disable using CPU utilization and have components

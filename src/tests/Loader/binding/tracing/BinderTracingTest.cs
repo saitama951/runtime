@@ -189,8 +189,7 @@ namespace BinderTracingTests
 
         private static bool RunTestInSeparateProcess(MethodInfo method)
         {
-            string subprocessName = Process.GetCurrentProcess().MainModule.FileName;
-            var startInfo = new ProcessStartInfo(subprocessName, new[] { Assembly.GetExecutingAssembly().Location, method.Name })
+            var startInfo = new ProcessStartInfo(Process.GetCurrentProcess().MainModule.FileName, new[] { Assembly.GetExecutingAssembly().Location, method.Name })
             {
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -200,7 +199,7 @@ namespace BinderTracingTests
             Console.WriteLine($"[{DateTime.Now:T}] Launching process for {method.Name}...");
             using (Process p = Process.Start(startInfo))
             {
-                Console.WriteLine($"Started subprocess '{subprocessName}' with PID {p.Id} for {method.Name}...");
+                Console.WriteLine($"Started subprocess {p.Id} for {method.Name}...");
                 p.OutputDataReceived += (_, args) => Console.WriteLine(args.Data);
                 p.BeginOutputReadLine();
 

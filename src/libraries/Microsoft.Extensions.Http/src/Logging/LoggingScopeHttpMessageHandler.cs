@@ -59,25 +59,16 @@ namespace Microsoft.Extensions.Http.Logging
                 using (_logger.BeginRequestPipelineScope(request, out string? formattedUri))
                 {
                     _logger.LogRequestPipelineStart(request, formattedUri, shouldRedactHeaderValue);
-
-                    try
-                    {
-                        HttpResponseMessage response = useAsync
-                            ? await base.SendAsync(request, cancellationToken).ConfigureAwait(false)
+                    HttpResponseMessage response = useAsync
+                        ? await base.SendAsync(request, cancellationToken).ConfigureAwait(false)
 #if NET
-                            : base.Send(request, cancellationToken);
+                        : base.Send(request, cancellationToken);
 #else
-                            : throw new NotImplementedException("Unreachable code");
+                        : throw new NotImplementedException("Unreachable code");
 #endif
-                        _logger.LogRequestPipelineEnd(response, stopwatch.GetElapsedTime(), shouldRedactHeaderValue);
+                    _logger.LogRequestPipelineEnd(response, stopwatch.GetElapsedTime(), shouldRedactHeaderValue);
 
-                        return response;
-                    }
-                    catch (HttpRequestException ex)
-                    {
-                        _logger.LogRequestPipelineFailed(stopwatch.GetElapsedTime(), ex);
-                        throw;
-                    }
+                    return response;
                 }
             }
         }

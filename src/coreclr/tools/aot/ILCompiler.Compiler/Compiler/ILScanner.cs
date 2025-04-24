@@ -137,19 +137,6 @@ namespace ILCompiler
 
         ILScanResults IILScanner.Scan()
         {
-            _dependencyGraph.AddRoot(GetHelperEntrypoint(ReadyToRunHelper.BulkWriteBarrier), "Not tracked by scanner");
-            _dependencyGraph.AddRoot(GetHelperEntrypoint(ReadyToRunHelper.MemCpy), "Not tracked by scanner");
-            _dependencyGraph.AddRoot(GetHelperEntrypoint(ReadyToRunHelper.MemSet), "Not tracked by scanner");
-            _dependencyGraph.AddRoot(GetHelperEntrypoint(ReadyToRunHelper.MemZero), "Not tracked by scanner");
-            _dependencyGraph.AddRoot(GetHelperEntrypoint(ReadyToRunHelper.CheckCastAny), "Not tracked by scanner");
-            _dependencyGraph.AddRoot(GetHelperEntrypoint(ReadyToRunHelper.CheckCastInterface), "Not tracked by scanner");
-            _dependencyGraph.AddRoot(GetHelperEntrypoint(ReadyToRunHelper.CheckCastClass), "Not tracked by scanner");
-            _dependencyGraph.AddRoot(GetHelperEntrypoint(ReadyToRunHelper.CheckCastClassSpecial), "Not tracked by scanner");
-            _dependencyGraph.AddRoot(GetHelperEntrypoint(ReadyToRunHelper.CheckInstanceAny), "Not tracked by scanner");
-            _dependencyGraph.AddRoot(GetHelperEntrypoint(ReadyToRunHelper.CheckInstanceInterface), "Not tracked by scanner");
-            _dependencyGraph.AddRoot(GetHelperEntrypoint(ReadyToRunHelper.CheckInstanceClass), "Not tracked by scanner");
-            _dependencyGraph.AddRoot(GetHelperEntrypoint(ReadyToRunHelper.IsInstanceOfException), "Not tracked by scanner");
-
             _dependencyGraph.ComputeMarkedNodes();
 
             _nodeFactory.SetMarkingComplete();
@@ -397,7 +384,7 @@ namespace ILCompiler
                     // only exists in the compiler's graph. That's the place to focus the investigation on.
                     // Use the ILCompiler-DependencyGraph-Viewer tool to investigate.
                     Debug.Assert(false);
-                    throw new ScannerFailedException($"Dictionary layout of '{methodOrType}' was not computed by the IL scanner.");
+                    throw new ScannerFailedException($"A dictionary layout was not computed by the IL scanner.");
                 }
                 return new PrecomputedDictionaryLayoutNode(methodOrType, layout.Slots, layout.DiscardedSlots);
             }
@@ -436,13 +423,12 @@ namespace ILCompiler
         private sealed class ScannedDevirtualizationManager : DevirtualizationManager
         {
             private HashSet<TypeDesc> _constructedMethodTables = new HashSet<TypeDesc>();
-            private HashSet<TypeDesc> _reflectionVisibleGenericDefinitionMethodTables = new HashSet<TypeDesc>();
             private HashSet<TypeDesc> _canonConstructedMethodTables = new HashSet<TypeDesc>();
             private HashSet<TypeDesc> _canonConstructedTypes = new HashSet<TypeDesc>();
             private HashSet<TypeDesc> _unsealedTypes = new HashSet<TypeDesc>();
             private Dictionary<TypeDesc, HashSet<TypeDesc>> _implementators = new();
             private HashSet<TypeDesc> _disqualifiedTypes = new();
-            private HashSet<MethodDesc> _overriddenMethods = new();
+            private HashSet<MethodDesc> _overridenMethods = new();
             private HashSet<MethodDesc> _generatedVirtualMethods = new();
 
             public ScannedDevirtualizationManager(NodeFactory factory, ImmutableArray<DependencyNodeCore<NodeFactory>> markedNodes)
@@ -455,11 +441,6 @@ namespace ILCompiler
                     if (node is IMethodBodyNode { Method.IsVirtual: true, Method.HasInstantiation: false } virtualMethodBody)
                     {
                         _generatedVirtualMethods.Add(virtualMethodBody.Method);
-                    }
-
-                    if (node is ReflectionVisibleGenericDefinitionEETypeNode reflectionVisibleMT)
-                    {
-                        _reflectionVisibleGenericDefinitionMethodTables.Add(reflectionVisibleMT.Type);
                     }
 
                     TypeDesc type = node switch
@@ -560,27 +541,16 @@ namespace ILCompiler
                             }
 
                             TypeDesc canonType = type.ConvertToCanonForm(CanonicalFormKind.Specific);
-                            TypeDesc baseType;
 
-                            if (canonType is not MetadataType { IsAbstract: true })
-                            {
+                            if (!canonType.IsDefType || !((MetadataType)canonType).IsAbstract)
                                 _canonConstructedTypes.Add(canonType.GetClosestDefType());
-                                baseType = canonType.BaseType;
-                                while (baseType != null)
-                                {
-                                    baseType = baseType.ConvertToCanonForm(CanonicalFormKind.Specific);
-                                    if (!_canonConstructedTypes.Add(baseType))
-                                        break;
-                                    baseType = baseType.BaseType;
-                                }
-                            }
 
-                            baseType = canonType.BaseType;
-                            while (baseType != null)
+                            TypeDesc baseType = canonType.BaseType;
+                            bool added = true;
+                            while (baseType != null && added)
                             {
                                 baseType = baseType.ConvertToCanonForm(CanonicalFormKind.Specific);
-                                if (!_unsealedTypes.Add(baseType))
-                                    break;
+                                added = _unsealedTypes.Add(baseType);
                                 baseType = baseType.BaseType;
                             }
 
@@ -613,7 +583,7 @@ namespace ILCompiler
                                 for (int i = 0; i < baseVtable.Count; i++)
                                 {
                                     if (baseVtable[i] != vtable[i])
-                                        _overriddenMethods.Add(baseVtable[i].GetCanonMethodTarget(CanonicalFormKind.Specific));
+                                        _overridenMethods.Add(baseVtable[i].GetCanonMethodTarget(CanonicalFormKind.Specific));
                                 }
                             }
                         }
@@ -636,7 +606,8 @@ namespace ILCompiler
                 }
 
                 if (baseType.IsCanonicalSubtype(CanonicalFormKind.Any)
-                    || baseType.ConvertToCanonForm(CanonicalFormKind.Specific) != baseType)
+                    || baseType.ConvertToCanonForm(CanonicalFormKind.Specific) != baseType
+                    || baseType.Context.SupportsUniversalCanon)
                 {
                     // If the interface has a canonical form, we might not have a full view of all implementers.
                     // E.g. if we have:
@@ -710,21 +681,25 @@ namespace ILCompiler
                     return false;
 
                 // If we haven't seen any other method override this, this method is sealed
-                return !_overriddenMethods.Contains(canonMethod);
+                return !_overridenMethods.Contains(canonMethod);
             }
 
             protected override MethodDesc ResolveVirtualMethod(MethodDesc declMethod, DefType implType, out CORINFO_DEVIRTUALIZATION_DETAIL devirtualizationDetail)
             {
-                // If we would resolve into a type that wasn't seen as allocated, don't allow devirtualization.
-                // It would go past what we scanned in the scanner and that doesn't lead to good things.
-                if (!_canonConstructedTypes.Contains(implType.ConvertToCanonForm(CanonicalFormKind.Specific)))
+                MethodDesc result = base.ResolveVirtualMethod(declMethod, implType, out devirtualizationDetail);
+                if (result != null)
                 {
-                    // FAILED_BUBBLE_IMPL_NOT_REFERENCEABLE is close enough...
-                    devirtualizationDetail = CORINFO_DEVIRTUALIZATION_DETAIL.CORINFO_DEVIRTUALIZATION_FAILED_BUBBLE_IMPL_NOT_REFERENCEABLE;
-                    return null;
+                    // If we would resolve into a type that wasn't seen as allocated, don't allow devirtualization.
+                    // It would go past what we scanned in the scanner and that doesn't lead to good things.
+                    if (!_canonConstructedTypes.Contains(result.OwningType.ConvertToCanonForm(CanonicalFormKind.Specific)))
+                    {
+                        // FAILED_BUBBLE_IMPL_NOT_REFERENCEABLE is close enough...
+                        devirtualizationDetail = CORINFO_DEVIRTUALIZATION_DETAIL.CORINFO_DEVIRTUALIZATION_FAILED_BUBBLE_IMPL_NOT_REFERENCEABLE;
+                        return null;
+                    }
                 }
 
-                return base.ResolveVirtualMethod(declMethod, implType, out devirtualizationDetail);
+                return result;
             }
 
             public override bool CanReferenceConstructedMethodTable(TypeDesc type)
@@ -739,12 +714,6 @@ namespace ILCompiler
                 Debug.Assert(type.NormalizeInstantiation() == type);
                 Debug.Assert(ConstructedEETypeNode.CreationAllowed(type));
                 return _constructedMethodTables.Contains(type) || _canonConstructedMethodTables.Contains(type);
-            }
-
-            public override bool IsGenericDefinitionMethodTableReflectionVisible(TypeDesc type)
-            {
-                Debug.Assert(type.IsGenericDefinition);
-                return _reflectionVisibleGenericDefinitionMethodTables.Contains(type);
             }
 
             public override TypeDesc[] GetImplementingClasses(TypeDesc type)

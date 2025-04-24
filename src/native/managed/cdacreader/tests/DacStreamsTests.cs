@@ -4,11 +4,9 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Microsoft.Diagnostics.DataContractReader.Contracts;
-using Moq;
 using Xunit;
 
-namespace Microsoft.Diagnostics.DataContractReader.Tests;
+namespace Microsoft.Diagnostics.DataContractReader.UnitTests;
 
 public class DacStreamsTests
 {
@@ -27,26 +25,60 @@ public class DacStreamsTests
     [
     ];
 
-    private static readonly (string Name, ulong Value)[] DacStreamsGlobals =
+    private static readonly (string Name, ulong Value, string? Type)[] DacStreamsGlobals =
     [
-        (nameof(Constants.Globals.MiniMetaDataBuffAddress), TestMiniMetaDataBuffGlobalAddress),
-        (nameof(Constants.Globals.MiniMetaDataBuffMaxSize), TestMiniMetaDataBuffGlobalMaxSize),
+        (nameof(Constants.Globals.MiniMetaDataBuffAddress), TestMiniMetaDataBuffGlobalAddress, null),
+        (nameof(Constants.Globals.MiniMetaDataBuffMaxSize), TestMiniMetaDataBuffGlobalMaxSize, null),
     ];
 
     private static unsafe void DacStreamsContractHelper(MockTarget.Architecture arch, ConfigureContextBuilder configure, Action<Target> testCase)
     {
         TargetTestHelpers targetTestHelpers = new(arch);
-        MockMemorySpace.Builder builder = new(targetTestHelpers);
-        if (configure != null)
+        string metadataTypesJson = TargetTestHelpers.MakeTypesJson(DacStreamsTypes);
+        string metadataGlobalsJson = TargetTestHelpers.MakeGlobalsJson(DacStreamsGlobals);
+        byte[] json = Encoding.UTF8.GetBytes($$"""
         {
-            builder = configure(builder);
+            "version": 0,
+            "baseline": "empty",
+            "contracts": {
+                "{{nameof(Contracts.DacStreams)}}": 1
+            },
+            "types": { {{metadataTypesJson}} },
+            "globals": { {{metadataGlobalsJson}} }
+        }
+        """);
+        Span<byte> descriptor = stackalloc byte[targetTestHelpers.ContractDescriptorSize];
+        targetTestHelpers.ContractDescriptorFill(descriptor, json.Length, DacStreamsGlobals.Length);
+
+        int pointerSize = targetTestHelpers.PointerSize;
+        Span<byte> pointerData = stackalloc byte[DacStreamsGlobals.Length * pointerSize];
+        for (int i = 0; i < DacStreamsGlobals.Length; i++)
+        {
+            var (_, value, _) = DacStreamsGlobals[i];
+            targetTestHelpers.WritePointer(pointerData.Slice(i * pointerSize), value);
         }
 
-        var target = new TestPlaceholderTarget(arch, builder.GetReadContext().ReadFromTarget, DacStreamsTypes, DacStreamsGlobals);
-        target.SetContracts(Mock.Of<ContractRegistry>(
-            c => c.DacStreams == ((IContractFactory<IDacStreams>)new DacStreamsFactory()).CreateContract(target, 1)));
+        fixed (byte* jsonPtr = json)
+        {
+            MockMemorySpace.Builder builder = new();
 
-        testCase(target);
+            builder = builder.SetDescriptor(descriptor)
+                    .SetJson(json)
+                    .SetPointerData(pointerData);
+
+            if (configure != null)
+            {
+                builder = configure(builder);
+            }
+
+            using MockMemorySpace.ReadContext context = builder.Create();
+
+            bool success = MockMemorySpace.TryCreateTarget(&context, out Target? target);
+            Assert.True(success);
+
+            testCase(target);
+        }
+        GC.KeepAlive(json);
     }
 
     MockMemorySpace.Builder AddMiniMetaDataBuffMaxSize(TargetTestHelpers targetTestHelpers, MockMemorySpace.Builder builder, uint maxSize)

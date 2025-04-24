@@ -15,7 +15,7 @@ namespace System.Threading.Tests
 
         // Wait longer for a thread to time out, so that an unexpected timeout in the thread is more likely to expire first and
         // provide a better stack trace for the failure
-        public static readonly int UnexpectedThreadTimeoutMilliseconds =
+        public const int UnexpectedThreadTimeoutMilliseconds =
             UnexpectedTimeoutMilliseconds + RemoteExecutor.FailWaitTimeoutMilliseconds;
 
         public static Thread CreateGuardedThread(out Action waitForThread, Action start)

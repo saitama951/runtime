@@ -33,6 +33,12 @@ namespace System.Reflection.Internal
             return new ExternalMemoryBlock(this, _memory + start, size);
         }
 
+        public override Stream GetStream(out StreamConstraints constraints)
+        {
+            constraints = new StreamConstraints(null, 0, _size);
+            return new ReadOnlyUnmanagedMemoryStream(_memory, _size);
+        }
+
         protected override void Dispose(bool disposing)
         {
             Debug.Assert(disposing);

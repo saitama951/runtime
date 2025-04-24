@@ -4,7 +4,6 @@
 using System;
 
 using System.Collections.Generic;
-using Xunit;
 
 //Repro from http://www.simple-talk.com/dotnet/.net-framework/the-dangers-of-the-large-object-heap/
 
@@ -14,7 +13,7 @@ using Xunit;
 namespace LOH_test
 {
 
-    public class Program
+    class Program
     {
         //percent difference between the bytes allocated with small blocks only and with larger blocks
         //This accounts for difference in fragmentation
@@ -115,8 +114,7 @@ namespace LOH_test
 
 
 
-        [Fact]
-        public static int TestEntryPoint()
+        static int Main()
         {
 
             // Display results for cases both with and without the larger blocks
@@ -136,6 +134,7 @@ namespace LOH_test
             }
             Console.WriteLine("Test Passed");
             return 100;
+
         }
 
     }

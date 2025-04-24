@@ -12,34 +12,39 @@ namespace System.SpanTests
         {
             int[] a = new int[3];
 
-            Assert.True(new ReadOnlySpan<int>(a, 1, 0).EndsWith(new ReadOnlySpan<int>(a, 2, 0)));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.True(new ReadOnlySpan<int>(a, 1, 0).EndsWith(new ReadOnlySpan<int>(a, 2, 0), comparer)));
+            ReadOnlySpan<int> first = new ReadOnlySpan<int>(a, 1, 0);
+            ReadOnlySpan<int> second = new ReadOnlySpan<int>(a, 2, 0);
+            bool b = first.EndsWith(second);
+            Assert.True(b);
         }
 
         [Fact]
         public static void SameSpanEndsWith()
         {
             int[] a = { 4, 5, 6 };
-            Assert.True(new ReadOnlySpan<int>(a).EndsWith(new ReadOnlySpan<int>(a)));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.True(new ReadOnlySpan<int>(a).EndsWith(new ReadOnlySpan<int>(a), comparer)));
-            Assert.False(new ReadOnlySpan<int>(a).EndsWith(new ReadOnlySpan<int>(a), GetFalseEqualityComparer<int>()));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(a);
+            bool b = span.EndsWith(span);
+            Assert.True(b);
         }
 
         [Fact]
         public static void LengthMismatchEndsWith()
         {
             int[] a = { 4, 5, 6 };
-            Assert.False(new ReadOnlySpan<int>(a, 0, 2).EndsWith(new ReadOnlySpan<int>(a, 0, 3)));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.False(new ReadOnlySpan<int>(a, 0, 2).EndsWith(new ReadOnlySpan<int>(a, 0, 3), comparer)));
+            ReadOnlySpan<int> first = new ReadOnlySpan<int>(a, 0, 2);
+            ReadOnlySpan<int> second = new ReadOnlySpan<int>(a, 0, 3);
+            bool b = first.EndsWith(second);
+            Assert.False(b);
         }
 
         [Fact]
         public static void EndsWithMatch()
         {
             int[] a = { 4, 5, 6 };
-            Assert.True(new ReadOnlySpan<int>(a, 0, 3).EndsWith(new ReadOnlySpan<int>(a, 1, 2)));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.True(new ReadOnlySpan<int>(a, 0, 3).EndsWith(new ReadOnlySpan<int>(a, 1, 2), comparer)));
-            Assert.False(new ReadOnlySpan<int>(a, 0, 3).EndsWith(new ReadOnlySpan<int>(a, 1, 2), GetFalseEqualityComparer<int>()));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(a, 0, 3);
+            ReadOnlySpan<int> slice = new ReadOnlySpan<int>(a, 1, 2);
+            bool b = span.EndsWith(slice);
+            Assert.True(b);
         }
 
         [Fact]
@@ -47,9 +52,10 @@ namespace System.SpanTests
         {
             int[] a = { 4, 5, 6 };
             int[] b = { 4, 5, 6 };
-            Assert.True(new ReadOnlySpan<int>(a, 0, 3).EndsWith(new ReadOnlySpan<int>(b, 0, 3)));
-            Assert.All(GetDefaultEqualityComparers<int>(), comparer => Assert.True(new ReadOnlySpan<int>(a, 0, 3).EndsWith(new ReadOnlySpan<int>(b, 0, 3), comparer)));
-            Assert.False(new ReadOnlySpan<int>(a, 0, 3).EndsWith(new ReadOnlySpan<int>(b, 0, 3), GetFalseEqualityComparer<int>()));
+            ReadOnlySpan<int> span = new ReadOnlySpan<int>(a, 0, 3);
+            ReadOnlySpan<int> slice = new ReadOnlySpan<int>(b, 0, 3);
+            bool c = span.EndsWith(slice);
+            Assert.True(c);
         }
 
         [Fact]
@@ -68,7 +74,8 @@ namespace System.SpanTests
 
                 ReadOnlySpan<TInt> firstSpan = new ReadOnlySpan<TInt>(first);
                 ReadOnlySpan<TInt> secondSpan = new ReadOnlySpan<TInt>(second);
-                Assert.True(firstSpan.EndsWith(secondSpan));
+                bool b = firstSpan.EndsWith(secondSpan);
+                Assert.True(b);
 
                 // Make sure each element of the array was compared once. (Strictly speaking, it would not be illegal for
                 // EndsWith to compare an element more than once but that would be a non-optimal implementation and

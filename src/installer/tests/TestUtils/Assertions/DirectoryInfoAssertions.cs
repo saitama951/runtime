@@ -13,19 +13,17 @@ namespace Microsoft.DotNet.CoreSetup.Test
     public class DirectoryInfoAssertions
     {
         private DirectoryInfo _dirInfo;
-        private AssertionChain _assertionChain;
 
-        public DirectoryInfoAssertions(DirectoryInfo dir, AssertionChain assertionChain)
+        public DirectoryInfoAssertions(DirectoryInfo dir)
         {
             _dirInfo = dir;
-            _assertionChain = assertionChain;
         }
 
         public DirectoryInfo DirectoryInfo => _dirInfo;
 
         public AndConstraint<DirectoryInfoAssertions> Exist()
         {
-            _assertionChain.ForCondition(_dirInfo.Exists)
+            Execute.Assertion.ForCondition(_dirInfo.Exists)
                 .FailWith($"Expected directory '{_dirInfo.FullName}' does not exist.");
             return new AndConstraint<DirectoryInfoAssertions>(this);
         }
@@ -33,7 +31,7 @@ namespace Microsoft.DotNet.CoreSetup.Test
         public AndConstraint<DirectoryInfoAssertions> HaveFile(string expectedFile)
         {
             var file = _dirInfo.EnumerateFiles(expectedFile, SearchOption.TopDirectoryOnly).SingleOrDefault();
-            _assertionChain.ForCondition(file != null)
+            Execute.Assertion.ForCondition(file != null)
                 .FailWith($"Expected File '{expectedFile}' cannot be found in directory '{_dirInfo.FullName}.");
             return new AndConstraint<DirectoryInfoAssertions>(this);
         }
@@ -41,7 +39,7 @@ namespace Microsoft.DotNet.CoreSetup.Test
         public AndConstraint<DirectoryInfoAssertions> NotHaveFile(string expectedFile)
         {
             var file = _dirInfo.EnumerateFiles(expectedFile, SearchOption.TopDirectoryOnly).SingleOrDefault();
-            _assertionChain.ForCondition(file == null)
+            Execute.Assertion.ForCondition(file == null)
                 .FailWith($"File '{expectedFile}' should not be found in directory '{_dirInfo.FullName}'.");
             return new AndConstraint<DirectoryInfoAssertions>(this);
         }
@@ -69,19 +67,19 @@ namespace Microsoft.DotNet.CoreSetup.Test
         public AndConstraint<DirectoryInfoAssertions> HaveDirectory(string expectedDir)
         {
             var dir = _dirInfo.EnumerateDirectories(expectedDir, SearchOption.TopDirectoryOnly).SingleOrDefault();
-            _assertionChain.ForCondition(dir != null)
+            Execute.Assertion.ForCondition(dir != null)
                 .FailWith($"Expected directory '{expectedDir}' cannot be found inside directory '{_dirInfo.FullName}'.");
 
-            return new AndConstraint<DirectoryInfoAssertions>(new DirectoryInfoAssertions(dir, _assertionChain));
+            return new AndConstraint<DirectoryInfoAssertions>(new DirectoryInfoAssertions(dir));
         }
 
         public AndConstraint<DirectoryInfoAssertions> NotHaveDirectory(string expectedDir)
         {
             var dir = _dirInfo.EnumerateDirectories(expectedDir, SearchOption.TopDirectoryOnly).SingleOrDefault();
-            _assertionChain.ForCondition(dir == null)
+            Execute.Assertion.ForCondition(dir == null)
                 .FailWith($"Directory '{expectedDir}' should not be found in found inside directory '{_dirInfo.FullName}'.");
 
-            return new AndConstraint<DirectoryInfoAssertions>(new DirectoryInfoAssertions(dir, _assertionChain));
+            return new AndConstraint<DirectoryInfoAssertions>(new DirectoryInfoAssertions(dir));
         }
 
         public AndConstraint<DirectoryInfoAssertions> OnlyHaveFiles(IEnumerable<string> expectedFiles)
@@ -91,10 +89,10 @@ namespace Microsoft.DotNet.CoreSetup.Test
             var extraFiles = Enumerable.Except(actualFiles, expectedFiles);
             var nl = Environment.NewLine;
 
-            _assertionChain.ForCondition(!missingFiles.Any())
+            Execute.Assertion.ForCondition(!missingFiles.Any())
                 .FailWith($"Following files cannot be found inside directory {_dirInfo.FullName} {nl} {string.Join(nl, missingFiles)}");
 
-            _assertionChain.ForCondition(!extraFiles.Any())
+            Execute.Assertion.ForCondition(!extraFiles.Any())
                 .FailWith($"Following extra files are found inside directory {_dirInfo.FullName} {nl} {string.Join(nl, extraFiles)}");
 
             return new AndConstraint<DirectoryInfoAssertions>(this);
@@ -105,7 +103,7 @@ namespace Microsoft.DotNet.CoreSetup.Test
             _dirInfo.Refresh();
             DateTime writeTime = _dirInfo.LastWriteTimeUtc;
 
-            _assertionChain.ForCondition(writeTime <= timeUtc)
+            Execute.Assertion.ForCondition(writeTime <= timeUtc)
                 .FailWith($"Directory '{_dirInfo.FullName}' should not be modified after {timeUtc}, but is modified at {writeTime}.");
 
             return new AndConstraint<DirectoryInfoAssertions>(this);

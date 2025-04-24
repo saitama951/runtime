@@ -272,7 +272,7 @@ namespace System.Net
 
             if (hostname == "*" ||
                 hostname == "+" ||
-                IPAddress.IsValid(hostname))
+                IPAddress.TryParse(hostname, out _))
             {
                 // for a wildcard, register the machine name.  If the caller doesn't have DNS permission
                 // or the query fails for some reason, don't add an SPN.

@@ -55,20 +55,21 @@ namespace ILCompiler.DependencyAnalysis
             MethodDesc openCallingMethod = callingMethod.GetTypicalMethodDefinition();
             TypeDesc openImplementationType = implementationType.GetTypeDefinition();
 
-            factory.MetadataManager.GetNativeLayoutMetadataDependencies(ref dependencies, factory, openCallingMethod);
+            var openCallingMethodNameAndSig = factory.NativeLayout.MethodNameAndSignatureVertex(openCallingMethod);
+            dependencies.Add(new DependencyListEntry(factory.NativeLayout.PlacedSignatureVertex(openCallingMethodNameAndSig), "interface gvm table calling method signature"));
 
             // Implementation could be null if this is a default interface method reabstraction or diamond. We need to record those.
             if (implementationMethod != null)
             {
                 MethodDesc openImplementationMethod = implementationMethod.GetTypicalMethodDefinition();
                 dependencies.Add(new DependencyListEntry(factory.NecessaryTypeSymbol(openImplementationMethod.OwningType), "interface gvm table implementation method owning type"));
-
-                factory.MetadataManager.GetNativeLayoutMetadataDependencies(ref dependencies, factory, openImplementationMethod);
+                var openImplementationMethodNameAndSig = factory.NativeLayout.MethodNameAndSignatureVertex(openImplementationMethod);
+                dependencies.Add(new DependencyListEntry(factory.NativeLayout.PlacedSignatureVertex(openImplementationMethodNameAndSig), "interface gvm table implementation method signature"));
             }
 
             if (!openImplementationType.IsInterface)
             {
-                for (int index = 0; index < openImplementationType.RuntimeInterfaces.Length; index++)
+                for(int index = 0; index < openImplementationType.RuntimeInterfaces.Length; index++)
                 {
                     if (openImplementationType.RuntimeInterfaces[index] == callingMethod.OwningType)
                     {
@@ -152,10 +153,10 @@ namespace ILCompiler.DependencyAnalysis
 
                 // Emit the method signature and containing type of the current interface method
                 uint typeId = _externalReferences.GetIndex(factory.NecessaryTypeSymbol(callingMethod.OwningType));
-                int callingMethodToken = factory.MetadataManager.GetMetadataHandleForMethod(factory, callingMethod);
+                var nameAndSig = factory.NativeLayout.PlacedSignatureVertex(factory.NativeLayout.MethodNameAndSignatureVertex(callingMethod));
                 Vertex vertex = nativeFormatWriter.GetTuple(
                     nativeFormatWriter.GetUnsignedConstant(typeId),
-                    nativeFormatWriter.GetUnsignedConstant((uint)callingMethodToken));
+                    nativeFormatWriter.GetUnsignedConstant((uint)nameAndSig.SavedVertex.VertexOffset));
 
                 // Emit the method name / sig and containing type of each GVM target method for the current interface method entry
                 vertex = nativeFormatWriter.GetTuple(vertex, nativeFormatWriter.GetUnsignedConstant((uint)gvmEntry.Value.Count));
@@ -163,11 +164,11 @@ namespace ILCompiler.DependencyAnalysis
                 {
                     if (impl is MethodDesc implementationMethod)
                     {
-                        int implementationMethodToken = factory.MetadataManager.GetMetadataHandleForMethod(factory, implementationMethod);
+                        nameAndSig = factory.NativeLayout.PlacedSignatureVertex(factory.NativeLayout.MethodNameAndSignatureVertex(implementationMethod));
                         typeId = _externalReferences.GetIndex(factory.NecessaryTypeSymbol(implementationMethod.OwningType));
                         vertex = nativeFormatWriter.GetTuple(
                             vertex,
-                            nativeFormatWriter.GetUnsignedConstant((uint)implementationMethodToken),
+                            nativeFormatWriter.GetUnsignedConstant((uint)nameAndSig.SavedVertex.VertexOffset),
                             nativeFormatWriter.GetUnsignedConstant(typeId));
                     }
                     else

@@ -4,12 +4,10 @@
 
 using System;
 using System.Diagnostics;
-using Xunit;
 
 public class Test_Collect
 {
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         Stopwatch sw = Stopwatch.StartNew();
         GC.Collect();

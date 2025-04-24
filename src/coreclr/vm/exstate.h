@@ -51,7 +51,7 @@ class ThreadExceptionState
     // ExceptionTracker or the ExInfo as appropriate for the platform
     friend class ProfToEEInterfaceImpl;
 
-    friend struct ::cdac_data<Thread>;
+    template<typename T> friend struct ::cdac_data;
 
 #ifdef FEATURE_EH_FUNCLETS
     friend class ExceptionTracker;
@@ -67,6 +67,9 @@ public:
     {
         STEC_All,
         STEC_CurrentTrackerEqualNullOkHackForFatalStackOverflow,
+#ifdef FEATURE_INTERPRETER
+        STEC_CurrentTrackerEqualNullOkForInterpreter,
+#endif // FEATURE_INTERPRETER
     } SetThrowableErrorChecking;
 #endif
 

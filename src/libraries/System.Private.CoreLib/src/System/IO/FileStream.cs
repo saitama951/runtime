@@ -536,7 +536,6 @@ namespace System.IO
             _strategy.CopyTo(destination, bufferSize);
         }
 
-        /// <inheritdoc />
         public override Task CopyToAsync(Stream destination, int bufferSize, CancellationToken cancellationToken)
         {
             ValidateCopyToArguments(destination, bufferSize);

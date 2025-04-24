@@ -1,20 +1,17 @@
 // Copyright (c) .NET Foundation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
 using System.Collections.Immutable;
 using Mono.Cecil;
 using Mono.Linker;
 
 namespace ILLink.Shared.TypeSystemProxy
 {
-	internal readonly partial struct TypeProxy : IEquatable<TypeProxy>
+	internal readonly partial struct TypeProxy
 	{
-		public TypeProxy (TypeReference type, ITryResolveMetadata resolver)
-		{
-			Type = type;
-			this.resolver = resolver;
-		}
+		public TypeProxy (TypeReference type) => Type = type;
+
+		public static implicit operator TypeProxy (TypeReference type) => new (type);
 
 		internal partial ImmutableArray<GenericParameterProxy> GetGenericParameters ()
 		{
@@ -29,8 +26,6 @@ namespace ILLink.Shared.TypeSystemProxy
 			return builder.ToImmutableArray ();
 		}
 
-		private readonly ITryResolveMetadata resolver;
-
 		public TypeReference Type { get; }
 
 		public string Name { get => Type.Name; }
@@ -44,11 +39,5 @@ namespace ILLink.Shared.TypeSystemProxy
 		public string GetDisplayName () => Type.GetDisplayName ();
 
 		public override string ToString () => Type.ToString ();
-
-		public bool Equals (TypeProxy other) => TypeReferenceEqualityComparer.AreEqual (Type, other.Type, resolver);
-
-		public override bool Equals (object? o) => o is TypeProxy other && Equals (other);
-
-		public override int GetHashCode () => TypeReferenceEqualityComparer.GetHashCodeFor (Type);
 	}
 }

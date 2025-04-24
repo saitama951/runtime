@@ -24,74 +24,74 @@ JitHost* g_ourJitHost;
 
 // RecordVariable: return `true` if the given DOTNET variable `key` should be recorded
 // in the method context.
-bool RecordVariable(const char* key)
+bool RecordVariable(const WCHAR* key)
 {
     // Special cases: we don't want to store some DOTNET variables during
     // collections, typically when they refer to file paths or simply because
     // it does not make sense to replay with it.
 
-    static const char* s_ignoredVars[] = {
-        "EnableExtraSuperPmiQueries",
-        "JitDisasm",
-        "JitDump",
-        "JitDisasmWithAlignmentBoundaries",
-        "JitDumpASCII",
-        "JitHashBreak",
-        "JitHashDump",
-        "JitHashHalt",
-        "JitOrder",
-        "JitPrintInlinedMethods",
-        "JitPrintDevirtualizedMethods",
-        "JitBreak",
-        "JitDebugBreak",
-        "JitDisasmAssemblies",
-        "JitDisasmWithGC",
-        "JitDisasmWithDebugInfo",
-        "JitDisasmSpilled",
-        "JitDumpTier0",
-        "JitDumpAtOSROffset",
-        "JitDumpInlinePhases",
-        "JitEHDump",
-        "JitExclude",
-        "JitGCDump",
-        "JitDebugDump",
-        "JitHalt",
-        "JitImportBreak",
-        "JitInclude",
-        "JitLateDisasm",
-        "JitUnwindDump",
-        "JitDumpFg",
-        "JitDumpFgDir",
-        "JitDumpFgPhase",
-        "JitDumpFgPrePhase",
-        "JitDumpFgDot",
-        "JitDumpFgEH",
-        "JitDumpFgLoops",
-        "JitDumpFgConstrained",
-        "JitDumpFgBlockID",
-        "JitDumpFgBlockFlags",
-        "JitDumpFgLoopFlags",
-        "JitDumpFgBlockOrder",
-        "JITLateDisasmTo",
-        "JitDisasmSummary",
-        "JitStdOutFile",
-        "WriteRichDebugInfoFile",
-        "JitFuncInfoLogFile",
-        "JitTimeLogCsv",
-        "JitMeasureNowayAssertFile",
-        "JitInlineDumpData",
-        "JitInlineDumpXml",
-        "JitInlineDumpXmlFile",
-        "JitInlinePolicyDumpXml",
-        "JitInlineReplayFile",
-        "JitFunctionFile"
-        "JitRawHexCode",
-        "JitRawHexCodeFile"
+    static const WCHAR* s_ignoredVars[] = {
+        W("EnableExtraSuperPmiQueries"),
+        W("JitDisasm"),
+        W("JitDump"),
+        W("JitDisasmWithAlignmentBoundaries"),
+        W("JitDumpASCII"),
+        W("JitHashBreak"),
+        W("JitHashDump"),
+        W("JitHashHalt"),
+        W("JitOrder"),
+        W("JitPrintInlinedMethods"),
+        W("JitPrintDevirtualizedMethods"),
+        W("JitBreak"),
+        W("JitDebugBreak"),
+        W("JitDisasmAssemblies"),
+        W("JitDisasmWithGC"),
+        W("JitDisasmWithDebugInfo"),
+        W("JitDisasmSpilled"),
+        W("JitDumpTier0"),
+        W("JitDumpAtOSROffset"),
+        W("JitDumpInlinePhases"),
+        W("JitEHDump"),
+        W("JitExclude"),
+        W("JitGCDump"),
+        W("JitDebugDump"),
+        W("JitHalt"),
+        W("JitImportBreak"),
+        W("JitInclude"),
+        W("JitLateDisasm"),
+        W("JitUnwindDump"),
+        W("JitDumpFg"),
+        W("JitDumpFgDir"),
+        W("JitDumpFgPhase"),
+        W("JitDumpFgPrePhase"),
+        W("JitDumpFgDot"),
+        W("JitDumpFgEH"),
+        W("JitDumpFgLoops"),
+        W("JitDumpFgConstrained"),
+        W("JitDumpFgBlockID"),
+        W("JitDumpFgBlockFlags"),
+        W("JitDumpFgLoopFlags"),
+        W("JitDumpFgBlockOrder"),
+        W("JITLateDisasmTo"),
+        W("JitDisasmSummary"),
+        W("JitStdOutFile"),
+        W("WriteRichDebugInfoFile"),
+        W("JitFuncInfoLogFile"),
+        W("JitTimeLogCsv"),
+        W("JitMeasureNowayAssertFile"),
+        W("JitInlineDumpData"),
+        W("JitInlineDumpXml"),
+        W("JitInlineDumpXmlFile"),
+        W("JitInlinePolicyDumpXml"),
+        W("JitInlineReplayFile"),
+        W("JitFunctionFile")
+        W("JitRawHexCode"),
+        W("JitRawHexCodeFile")
     };
 
-    for (const char* ignoredVar : s_ignoredVars)
+    for (const WCHAR* ignoredVar : s_ignoredVars)
     {
-        if (_stricmp(key, ignoredVar) == 0)
+        if (_wcsicmp(key, ignoredVar) == 0)
         {
             return false;
         }
@@ -114,13 +114,13 @@ void JitHost::freeMemory(void* block)
     return wrappedHost->freeMemory(block);
 }
 
-int JitHost::getIntConfigValue(const char* key, int defaultValue)
+int JitHost::getIntConfigValue(const WCHAR* key, int defaultValue)
 {
     // Special-case handling: don't collect this pseudo-variable, and don't
     // even record that it was called (since it would get recorded into the
     // global state). (See the superpmi.exe tool implementation of JitHost::getIntConfigValue()
     // for the special-case implementation of this.)
-    if (strcmp(key, "SuperPMIMethodContextNumber") == 0)
+    if (u16_strcmp(key, W("SuperPMIMethodContextNumber")) == 0)
     {
         return defaultValue;
     }
@@ -138,10 +138,10 @@ int JitHost::getIntConfigValue(const char* key, int defaultValue)
     return result;
 }
 
-const char* JitHost::getStringConfigValue(const char* key)
+const WCHAR* JitHost::getStringConfigValue(const WCHAR* key)
 {
     mc->cr->AddCall("getStringConfigValue");
-    const char* result = wrappedHost->getStringConfigValue(key);
+    const WCHAR* result = wrappedHost->getStringConfigValue(key);
 
     // Don't store null returns, which is the default
     if (RecordVariable(key) && (result != nullptr))
@@ -151,7 +151,7 @@ const char* JitHost::getStringConfigValue(const char* key)
     return result;
 }
 
-void JitHost::freeStringConfigValue(const char* value)
+void JitHost::freeStringConfigValue(const WCHAR* value)
 {
     mc->cr->AddCall("freeStringConfigValue");
     wrappedHost->freeStringConfigValue(value);

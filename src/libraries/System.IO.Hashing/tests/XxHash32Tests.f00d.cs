@@ -118,7 +118,6 @@ namespace System.IO.Hashing.Tests
             };
 
         protected override NonCryptographicHashAlgorithm CreateInstance() => new XxHash32(Seed);
-        protected override NonCryptographicHashAlgorithm Clone(NonCryptographicHashAlgorithm instance) => ((XxHash32)instance).Clone();
 
         protected override byte[] StaticOneShot(byte[] source) => XxHash32.Hash(source, Seed);
 

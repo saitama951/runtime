@@ -101,7 +101,7 @@ namespace System.Net.Sockets.Tests
             listener.Stop();
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public async Task Pending_TrueWhenWaitingRequest()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -120,7 +120,7 @@ namespace System.Net.Sockets.Tests
             Assert.Throws<InvalidOperationException>(() => listener.Pending());
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void Accept_Invalid_Throws()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -145,15 +145,8 @@ namespace System.Net.Sockets.Tests
         [InlineData(2)] // Async with Cancellation
         [InlineData(3)] // APM
         [ActiveIssue("https://github.com/dotnet/runtime/issues/51392", TestPlatforms.iOS | TestPlatforms.tvOS | TestPlatforms.MacCatalyst)]
-        [ActiveIssue("https://github.com/dotnet/runtime/issues/107981", TestPlatforms.Wasi)]
         public async Task Accept_AcceptsPendingSocketOrClient(int mode)
         {
-            if (OperatingSystem.IsWasi() && (mode == 0 || mode == 3))
-            {
-                // Sync and APM are not supported on WASI
-                return;
-            }
-
             var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
 
@@ -211,7 +204,6 @@ namespace System.Net.Sockets.Tests
         }
 
         [Fact]
-        [ActiveIssue("https://github.com/dotnet/runtime/issues/107981", TestPlatforms.Wasi)]
         public async Task Accept_StartAfterStop_AcceptsSuccessfully()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -248,7 +240,6 @@ namespace System.Net.Sockets.Tests
         }
 
         [Fact]
-        [SkipOnPlatform(TestPlatforms.Wasi, "In wasi-libc ExclusiveAddressUse is emulated by fake SO_REUSEADDR")]
         public void ExclusiveAddressUse_SetStartListenerThenRead_ReadSuccessfully()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -263,7 +254,6 @@ namespace System.Net.Sockets.Tests
         }
 
         [Fact]
-        [SkipOnPlatform(TestPlatforms.Wasi, "In wasi-libc ExclusiveAddressUse is emulated by fake SO_REUSEADDR")]
         public void ExclusiveAddressUse_SetStartAndStopListenerThenRead_ReadSuccessfully()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -281,7 +271,7 @@ namespace System.Net.Sockets.Tests
             Assert.True(listener.ExclusiveAddressUse);
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void EndAcceptSocket_WhenStopped_ThrowsObjectDisposedException()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -296,7 +286,7 @@ namespace System.Net.Sockets.Tests
             Assert.Throws<ObjectDisposedException>(() => listener.EndAcceptSocket(iar));
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsThreadingSupported))]
+        [Fact]
         public void EndAcceptTcpClient_WhenStopped_ThrowsObjectDisposedException()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);

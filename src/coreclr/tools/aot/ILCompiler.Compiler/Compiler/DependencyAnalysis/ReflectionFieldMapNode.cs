@@ -77,8 +77,14 @@ namespace ILCompiler.DependencyAnalysis
                     flags = FieldTableFlags.Instance | FieldTableFlags.FieldOffsetEncodedDirectly;
                 }
 
+                if (fieldMapping.MetadataHandle != 0)
+                    flags |= FieldTableFlags.HasMetadataHandle;
+
                 if (field.OwningType.IsCanonicalSubtype(CanonicalFormKind.Any))
                     flags |= FieldTableFlags.IsAnyCanonicalEntry;
+
+                if (field.OwningType.IsCanonicalSubtype(CanonicalFormKind.Universal))
+                    flags |= FieldTableFlags.IsUniversalCanonicalEntry;
 
                 if (field.IsInitOnly)
                     flags |= FieldTableFlags.IsInitOnly;
@@ -92,62 +98,78 @@ namespace ILCompiler.DependencyAnalysis
                 vertex = writer.GetTuple(vertex,
                     writer.GetUnsignedConstant(declaringTypeId));
 
-                // Only store the offset portion of the metadata handle to get better integer compression
-                vertex = writer.GetTuple(vertex,
-                    writer.GetUnsignedConstant((uint)(fieldMapping.MetadataHandle & MetadataManager.MetadataOffsetMask)));
-
-                switch (flags & FieldTableFlags.StorageClass)
+                if ((flags & FieldTableFlags.HasMetadataHandle) != 0)
                 {
-                    case FieldTableFlags.ThreadStatic:
-                    case FieldTableFlags.GCStatic:
-                    case FieldTableFlags.NonGCStatic:
-                        {
-                            uint fieldOffset = (uint)field.Offset.AsInt;
-                            if (field.IsThreadStatic && field.OwningType is MetadataType mt)
-                            {
-                                fieldOffset += factory.ThreadStaticBaseOffset(mt);
-                            }
+                    // Only store the offset portion of the metadata handle to get better integer compression
+                    vertex = writer.GetTuple(vertex,
+                        writer.GetUnsignedConstant((uint)(fieldMapping.MetadataHandle & MetadataManager.MetadataOffsetMask)));
+                }
+                else
+                {
+                    // No metadata handle means we need to store name
+                    vertex = writer.GetTuple(vertex,
+                        writer.GetStringConstant(field.Name));
+                }
 
-                            if (field.OwningType.HasInstantiation)
+                if ((flags & FieldTableFlags.IsUniversalCanonicalEntry) != 0)
+                {
+                    vertex = writer.GetTuple(vertex, writer.GetUnsignedConstant(checked((uint)field.GetFieldOrdinal())));
+                }
+                else
+                {
+                    switch (flags & FieldTableFlags.StorageClass)
+                    {
+                        case FieldTableFlags.ThreadStatic:
+                        case FieldTableFlags.GCStatic:
+                        case FieldTableFlags.NonGCStatic:
                             {
-                                vertex = writer.GetTuple(vertex, writer.GetUnsignedConstant(fieldOffset));
-                            }
-                            else
-                            {
-                                MetadataType metadataType = (MetadataType)field.OwningType;
-
-                                ISymbolNode staticsNode;
-                                if (field.IsThreadStatic)
+                                uint fieldOffset = (uint)field.Offset.AsInt;
+                                if (field.IsThreadStatic && field.OwningType is MetadataType mt)
                                 {
-                                    staticsNode = factory.TypeThreadStaticIndex(metadataType);
-                                }
-                                else if (field.HasGCStaticBase)
-                                {
-                                    staticsNode = factory.TypeGCStaticsSymbol(metadataType);
-                                }
-                                else
-                                {
-                                    staticsNode = factory.TypeNonGCStaticsSymbol(metadataType);
+                                    fieldOffset += factory.ThreadStaticBaseOffset(mt);
                                 }
 
-                                if (!field.IsThreadStatic && !field.HasGCStaticBase)
+                                if (field.OwningType.HasInstantiation)
                                 {
-                                    uint index = _externalReferences.GetIndex(staticsNode, (int)fieldOffset);
-                                    vertex = writer.GetTuple(vertex, writer.GetUnsignedConstant(index));
-                                }
-                                else
-                                {
-                                    uint index = _externalReferences.GetIndex(staticsNode);
-                                    vertex = writer.GetTuple(vertex, writer.GetUnsignedConstant(index));
                                     vertex = writer.GetTuple(vertex, writer.GetUnsignedConstant(fieldOffset));
                                 }
-                            }
-                        }
-                        break;
+                                else
+                                {
+                                    MetadataType metadataType = (MetadataType)field.OwningType;
 
-                    case FieldTableFlags.Instance:
-                        vertex = writer.GetTuple(vertex, writer.GetUnsignedConstant((uint)field.Offset.AsInt));
-                        break;
+                                    ISymbolNode staticsNode;
+                                    if (field.IsThreadStatic)
+                                    {
+                                        staticsNode = factory.TypeThreadStaticIndex(metadataType);
+                                    }
+                                    else if (field.HasGCStaticBase)
+                                    {
+                                        staticsNode = factory.TypeGCStaticsSymbol(metadataType);
+                                    }
+                                    else
+                                    {
+                                        staticsNode = factory.TypeNonGCStaticsSymbol(metadataType);
+                                    }
+
+                                    if (!field.IsThreadStatic && !field.HasGCStaticBase)
+                                    {
+                                        uint index = _externalReferences.GetIndex(staticsNode, (int)fieldOffset);
+                                        vertex = writer.GetTuple(vertex, writer.GetUnsignedConstant(index));
+                                    }
+                                    else
+                                    {
+                                        uint index = _externalReferences.GetIndex(staticsNode);
+                                        vertex = writer.GetTuple(vertex, writer.GetUnsignedConstant(index));
+                                        vertex = writer.GetTuple(vertex, writer.GetUnsignedConstant(fieldOffset));
+                                    }
+                                }
+                            }
+                            break;
+
+                        case FieldTableFlags.Instance:
+                            vertex = writer.GetTuple(vertex, writer.GetUnsignedConstant((uint)field.Offset.AsInt));
+                            break;
+                    }
                 }
 
                 int hashCode = field.OwningType.ConvertToCanonForm(CanonicalFormKind.Specific).GetHashCode();

@@ -7,12 +7,10 @@
 
 using System;
 using System.Runtime.CompilerServices;
-using Xunit;
 
 public class Test_271010 {
 
-    [Fact]
-    public static int TestEntryPoint() {
+    public static int Main() {
 
         int[][] otherarray;
 

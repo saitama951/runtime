@@ -20,7 +20,6 @@ namespace System.Security.Cryptography.X509Certificates
 
         protected override byte[] ExportPkcs8(
             ICertificatePalCore certificatePal,
-            PbeParameters pbeParameters,
             ReadOnlySpan<char> password)
         {
             SafeEvpPKeyHandle? privateKey = ((OpenSslX509CertificateReader)certificatePal).PrivateKeyHandle;
@@ -40,7 +39,7 @@ namespace System.Security.Cryptography.X509Certificates
                 _ => throw new CryptographicException(SR.Cryptography_InvalidHandle),
             };
 
-            return alg.ExportEncryptedPkcs8PrivateKey(password, pbeParameters);
+            return alg.ExportEncryptedPkcs8PrivateKey(password, s_windowsPbe);
         }
 
         private static void PushHandle(IntPtr certPtr, SafeX509StackHandle publicCerts)

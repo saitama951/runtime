@@ -3,6 +3,7 @@
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace System.Numerics.Tensors
@@ -10,6 +11,7 @@ namespace System.Numerics.Tensors
     [Experimental(Experimentals.TensorTDiagId, UrlFormat = Experimentals.SharedUrlFormat)]
     internal static class TensorHelpers
     {
+
         /// <summary>
         /// Counts the number of true elements in a boolean filter tensor so we know how much space we will need.
         /// </summary>

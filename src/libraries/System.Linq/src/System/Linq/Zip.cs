@@ -74,32 +74,38 @@ namespace System.Linq
 
         private static IEnumerable<(TFirst First, TSecond Second)> ZipIterator<TFirst, TSecond>(IEnumerable<TFirst> first, IEnumerable<TSecond> second)
         {
-            using IEnumerator<TFirst> e1 = first.GetEnumerator();
-            using IEnumerator<TSecond> e2 = second.GetEnumerator();
-            while (e1.MoveNext() && e2.MoveNext())
+            using (IEnumerator<TFirst> e1 = first.GetEnumerator())
+            using (IEnumerator<TSecond> e2 = second.GetEnumerator())
             {
-                yield return (e1.Current, e2.Current);
+                while (e1.MoveNext() && e2.MoveNext())
+                {
+                    yield return (e1.Current, e2.Current);
+                }
             }
         }
 
         private static IEnumerable<TResult> ZipIterator<TFirst, TSecond, TResult>(IEnumerable<TFirst> first, IEnumerable<TSecond> second, Func<TFirst, TSecond, TResult> resultSelector)
         {
-            using IEnumerator<TFirst> e1 = first.GetEnumerator();
-            using IEnumerator<TSecond> e2 = second.GetEnumerator();
-            while (e1.MoveNext() && e2.MoveNext())
+            using (IEnumerator<TFirst> e1 = first.GetEnumerator())
+            using (IEnumerator<TSecond> e2 = second.GetEnumerator())
             {
-                yield return resultSelector(e1.Current, e2.Current);
+                while (e1.MoveNext() && e2.MoveNext())
+                {
+                    yield return resultSelector(e1.Current, e2.Current);
+                }
             }
         }
 
         private static IEnumerable<(TFirst First, TSecond Second, TThird Third)> ZipIterator<TFirst, TSecond, TThird>(IEnumerable<TFirst> first, IEnumerable<TSecond> second, IEnumerable<TThird> third)
         {
-            using IEnumerator<TFirst> e1 = first.GetEnumerator();
-            using IEnumerator<TSecond> e2 = second.GetEnumerator();
-            using IEnumerator<TThird> e3 = third.GetEnumerator();
-            while (e1.MoveNext() && e2.MoveNext() && e3.MoveNext())
+            using (IEnumerator<TFirst> e1 = first.GetEnumerator())
+            using (IEnumerator<TSecond> e2 = second.GetEnumerator())
+            using (IEnumerator<TThird> e3 = third.GetEnumerator())
             {
-                yield return (e1.Current, e2.Current, e3.Current);
+                while (e1.MoveNext() && e2.MoveNext() && e3.MoveNext())
+                {
+                    yield return (e1.Current, e2.Current, e3.Current);
+                }
             }
         }
     }

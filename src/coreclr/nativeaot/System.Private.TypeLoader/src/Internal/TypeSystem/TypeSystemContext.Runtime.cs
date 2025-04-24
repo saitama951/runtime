@@ -188,6 +188,10 @@ namespace Internal.TypeSystem
             {
                 returnedType = CanonType;
             }
+            else if (rtth.Equals(UniversalCanonType.RuntimeTypeHandle))
+            {
+                returnedType = UniversalCanonType;
+            }
             else if (RuntimeAugments.IsGenericTypeDefinition(rtth))
             {
                 unsafe
@@ -331,7 +335,7 @@ namespace Internal.TypeSystem
                 _owningType = owningType;
                 _methodNameAndSignature = nameAndSignature;
 
-                _hashCode = TypeHashingAlgorithms.ComputeMethodHashCode(owningType.GetHashCode(), TypeHashingAlgorithms.ComputeNameHashCode(nameAndSignature.GetName()));
+                _hashCode = TypeHashingAlgorithms.ComputeMethodHashCode(owningType.GetHashCode(), TypeHashingAlgorithms.ComputeNameHashCode(nameAndSignature.Name));
             }
 
             public class RuntimeMethodKeyHashtable : LockFreeReaderHashtable<RuntimeMethodKey, MethodDesc>

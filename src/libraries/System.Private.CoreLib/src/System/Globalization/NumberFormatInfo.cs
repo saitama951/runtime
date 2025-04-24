@@ -218,9 +218,9 @@ namespace System.Globalization
             static NumberFormatInfo GetProviderNonNull(IFormatProvider provider)
             {
                 // Fast path for a regular CultureInfo
-                if (provider.GetType() == typeof(CultureInfo) && ((CultureInfo)provider)._numInfo is { } info)
+                if (provider is CultureInfo cultureProvider && !cultureProvider._isInherited)
                 {
-                    return info;
+                    return cultureProvider._numInfo ?? cultureProvider.NumberFormat;
                 }
 
                 return

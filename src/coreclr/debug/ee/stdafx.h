@@ -14,7 +14,6 @@
 #include <stdio.h>
 #include <algorithm>
 #include <cmath>
-#include <common.h>
 
 #include <windows.h>
 

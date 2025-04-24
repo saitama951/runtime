@@ -32,7 +32,7 @@ namespace System.Numerics
                 r[r.Length - 1] = 1;
 
                 // Let mu = 4^k / m
-                DivRem(r, modulus, mu);
+                Divide(r, modulus, mu);
                 _modulus = modulus;
 
                 _q1 = q1;

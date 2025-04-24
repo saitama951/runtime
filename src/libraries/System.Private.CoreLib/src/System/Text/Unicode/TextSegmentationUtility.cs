@@ -155,7 +155,7 @@ namespace System.Text.Unicode
                         processor.MoveNext();
                     }
 
-                    // Standalone RI scalars (or a single pair of RI scalars) can only be followed by trailers.
+                    // Standlone RI scalars (or a single pair of RI scalars) can only be followed by trailers.
 
                     break; // nothing but trailers after the final RI
 

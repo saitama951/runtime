@@ -3,7 +3,6 @@
 
 using System;
 using System.Runtime.InteropServices;
-using Xunit;
 
 public class Handler
 {
@@ -112,8 +111,7 @@ public class Handler
     }
 
 
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         Handler h = new Handler();
 

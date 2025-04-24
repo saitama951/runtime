@@ -31,6 +31,7 @@
 #include "comdatetime.h"
 #include "debugdebugger.h"
 #include "assemblynative.hpp"
+#include "comthreadpool.h"
 #include "comwaithandle.h"
 
 #include "proftoeeinterfaceimpl.h"
@@ -46,6 +47,7 @@
 
 #ifdef FEATURE_COMINTEROP
 #include "variant.h"
+#include "mngstdinterfaces.h"
 #endif // FEATURE_COMINTEROP
 
 #include "interoplibinterface.h"

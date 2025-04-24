@@ -116,11 +116,10 @@ public:
     const SString& GetPath();
     const SString& GetIdentityPath();
 
-    // This is the module file name. Used as a hint as file name.
-    // For assemblies loaded from a path or single-file bundle, this is the file name portion of the path
-    // For assemblies loaded from memory, this is the module file name from metadata
-    // For reflection emitted assemblies, this is an empty string
+#ifdef DACCESS_COMPILE
+    // This is the metadata module name. Used as a hint as file name.
     const SString &GetModuleFileNameHint();
+#endif // DACCESS_COMPILE
 
     LPCWSTR GetPathForErrorMessages();
 

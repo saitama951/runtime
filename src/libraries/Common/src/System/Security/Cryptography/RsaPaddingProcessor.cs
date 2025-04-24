@@ -354,7 +354,6 @@ namespace System.Security.Cryptography
                     Xor(db, dbMaskSpan);
 
                     // 2(g)
-                    Debug.Assert(hLen is >= 0 and <= 64);
                     Span<byte> seedMask = stackalloc byte[hLen];
                     Mgf1(hasher, db, seedMask);
 
@@ -425,7 +424,6 @@ namespace System.Security.Cryptography
             {
                 Debug.Assert(hasher.HashLengthInBytes == hLen);
                 // 4. Generate a random salt of length sLen
-                Debug.Assert(hLen is >= 0 and <= 64);
                 Span<byte> salt = stackalloc byte[sLen];
                 RandomNumberGenerator.Fill(salt);
 
@@ -561,7 +559,6 @@ namespace System.Security.Cryptography
                     hasher.AppendData(mHash);
                     hasher.AppendData(salt);
 
-                    Debug.Assert(hLen is >= 0 and <= 64);
                     Span<byte> hPrime = stackalloc byte[hLen];
 
                     if (!hasher.TryGetHashAndReset(hPrime, out int hLen2) || hLen2 != hLen)
@@ -611,7 +608,6 @@ namespace System.Security.Cryptography
                 }
                 else
                 {
-                    Debug.Assert(hLen is >= 0 and <= 64);
                     Span<byte> tmp = stackalloc byte[hLen];
 
                     if (!hasher.TryGetHashAndReset(tmp, out int bytesWritten))

@@ -38,6 +38,8 @@ namespace ILCompiler.DependencyAnalysis
                 return ObjectNodeSection.DataSection;
         }
 
+        private static readonly Utf8String s_NativeLayoutSignaturePrefix = new Utf8String("__RFHSignature_");
+
         protected override DependencyList ComputeNonRelocationBasedDependencies(NodeFactory factory)
         {
             DependencyList result = null;
@@ -52,10 +54,8 @@ namespace ILCompiler.DependencyAnalysis
             objData.RequireInitialPointerAlignment();
             objData.AddSymbol(this);
 
-            int handle = relocsOnly ? 0 : factory.MetadataManager.GetMetadataHandleForField(factory, _targetField.GetTypicalFieldDefinition());
-
-            objData.EmitPointerReloc(factory.MaximallyConstructableType(_targetField.OwningType));
-            objData.EmitInt(handle);
+            NativeLayoutFieldLdTokenVertexNode ldtokenSigNode = factory.NativeLayout.FieldLdTokenVertex(_targetField);
+            objData.EmitPointerReloc(factory.NativeLayout.NativeLayoutSignature(ldtokenSigNode, s_NativeLayoutSignaturePrefix, _targetField));
 
             return objData.ToObjectData();
         }

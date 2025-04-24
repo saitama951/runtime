@@ -50,7 +50,7 @@ namespace Internal.Cryptography.Pal.AnyOS
                 }
             }
 
-            unprotectedAttributes = PkcsHelpers.MakeAttributeCollection(data.UnprotectedAttributes);
+            unprotectedAttributes = SignerInfo.MakeAttributeCollection(data.UnprotectedAttributes);
 
             var recipientInfos = new List<RecipientInfo>();
 

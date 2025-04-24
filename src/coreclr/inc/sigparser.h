@@ -116,7 +116,7 @@ class SigParser
         void
         GetSignature(
             PCCOR_SIGNATURE * pSig,
-            uint32_t           * pcbSigSize) const
+            uint32_t           * pcbSigSize)
         {
             *pSig = m_ptr;
             *pcbSigSize = m_dwLen;
@@ -582,32 +582,19 @@ class SigParser
                 return hr;
 
             while ((ELEMENT_TYPE_CMOD_REQD == bElementType) ||
-                   (ELEMENT_TYPE_CMOD_OPT == bElementType) ||
-                   (ELEMENT_TYPE_CMOD_INTERNAL == bElementType))
+                   (ELEMENT_TYPE_CMOD_OPT == bElementType))
             {
                 sigTemp.SkipBytes(1);
-                if (ELEMENT_TYPE_CMOD_INTERNAL == bElementType)
-                {
-                    void * pMT;
-                    // If this custom modifier is required or optional
-                    uint8_t required;
-                    if (FAILED(hr = sigTemp.GetByte(&required)))
-                        return hr;
-                    
-                    if (FAILED(hr = sigTemp.GetPointer(&pMT)))
-                        return hr;
-                }
-                else
-                {
-                    mdToken token;
 
-                    hr = sigTemp.GetToken(&token);
+                mdToken token;
 
-                    if (FAILED(hr))
-                        return hr;
-                }
+                hr = sigTemp.GetToken(&token);
 
-                if (FAILED(hr = sigTemp.PeekByte(&bElementType)))
+                if (FAILED(hr))
+                    return hr;
+
+                hr = sigTemp.PeekByte(&bElementType);
+                if (FAILED(hr))
                     return hr;
             }
 
@@ -656,31 +643,19 @@ class SigParser
             while (ELEMENT_TYPE_CMOD_REQD == bElementType ||
                    ELEMENT_TYPE_CMOD_OPT == bElementType ||
                    ELEMENT_TYPE_MODIFIER == bElementType ||
-                   ELEMENT_TYPE_PINNED == bElementType ||
-                   ELEMENT_TYPE_CMOD_INTERNAL == bElementType)
+                   ELEMENT_TYPE_PINNED == bElementType)
             {
                 sigTemp.SkipBytes(1);
-                if (ELEMENT_TYPE_CMOD_INTERNAL == bElementType)
-                {
-                    void * pMT;
-                    uint8_t required;
-                    if (FAILED(hr = sigTemp.GetByte(&required)))
-                        return hr;
-                    
-                    if (FAILED(hr = sigTemp.GetPointer(&pMT)))
-                        return hr;
-                }
-                else
-                {
-                    mdToken token;
 
-                    hr = sigTemp.GetToken(&token);
+                mdToken token;
 
-                    if (FAILED(hr))
-                        return hr;
-                }
+                hr = sigTemp.GetToken(&token);
 
-                if (FAILED(hr = sigTemp.PeekByte(&bElementType)))
+                if (FAILED(hr))
+                    return hr;
+
+                hr = sigTemp.PeekByte(&bElementType);
+                if (FAILED(hr))
                     return hr;
             }
 

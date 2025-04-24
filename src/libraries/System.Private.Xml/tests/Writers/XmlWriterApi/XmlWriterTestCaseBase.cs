@@ -19,7 +19,7 @@ namespace System.Xml.XmlWriterApiTests
 
         public XmlWriterUtils(WriterType writerType, bool async)
         {
-            WriterFactory = new WriterFactory(writerType, true, async);
+            WriterFactory = new WriterFactory(writerType);
             Async = async;
         }
 

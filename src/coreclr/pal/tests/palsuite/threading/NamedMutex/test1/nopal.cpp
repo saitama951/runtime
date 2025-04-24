@@ -7,7 +7,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
@@ -28,16 +27,6 @@ unsigned int test_getpid()
     return getpid();
 }
 
-unsigned int test_getsid()
-{
-    return getsid(0);
-}
-
-unsigned int test_geteuid()
-{
-    return geteuid();
-}
-
 int test_kill(unsigned int pid)
 {
     return kill(pid, SIGKILL);
@@ -52,24 +41,11 @@ bool TestFileExists(const char *path)
     return true;
 }
 
-bool WriteHeaderInfo(const char *path, bool currentUserOnly, char sharedMemoryType, char version, int *fdRef)
+bool WriteHeaderInfo(const char *path, char sharedMemoryType, char version, int *fdRef)
 {
     int fd = open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
     if (fd == -1)
         return false;
-
-    if (currentUserOnly)
-    {
-        int chmodResult;
-        do
-        {
-            chmodResult = chmod(path, S_IRUSR | S_IWUSR);
-        } while (chmodResult != 0 && errno == EINTR);
-
-        if (chmodResult != 0)
-            return false;
-    }
-
     *fdRef = fd;
     if (ftruncate(fd, getpagesize()) != 0)
         return false;

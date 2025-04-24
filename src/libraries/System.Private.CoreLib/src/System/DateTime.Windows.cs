@@ -41,28 +41,26 @@ namespace System
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static unsafe bool IsValidTimeWithLeapSeconds(DateTime value)
+        internal static unsafe bool IsValidTimeWithLeapSeconds(int year, int month, int day, int hour, int minute, DateTimeKind kind)
         {
             Interop.Kernel32.SYSTEMTIME time;
-            value.GetDate(out int year, out int month, out int day);
             time.Year = (ushort)year;
             time.Month = (ushort)month;
             time.DayOfWeek = 0; // ignored by TzSpecificLocalTimeToSystemTime/SystemTimeToFileTime
             time.Day = (ushort)day;
-            value.GetTime(out int hour, out int minute, out _);
             time.Hour = (ushort)hour;
             time.Minute = (ushort)minute;
             time.Second = 60;
             time.Milliseconds = 0;
 
-            if (value.Kind != DateTimeKind.Utc)
+            if (kind != DateTimeKind.Utc)
             {
                 Interop.Kernel32.SYSTEMTIME st;
                 if (Interop.Kernel32.TzSpecificLocalTimeToSystemTime(IntPtr.Zero, &time, &st) != Interop.BOOL.FALSE)
                     return true;
             }
 
-            if (value.Kind != DateTimeKind.Local)
+            if (kind != DateTimeKind.Local)
             {
                 ulong ft;
                 if (Interop.Kernel32.SystemTimeToFileTime(&time, &ft) != Interop.BOOL.FALSE)
@@ -84,7 +82,7 @@ namespace System
 
         private static unsafe ulong ToFileTimeLeapSecondsAware(long ticks)
         {
-            DateTime dt = new((ulong)ticks);
+            DateTime dt = new(ticks);
             Interop.Kernel32.SYSTEMTIME time;
 
             dt.GetDate(out int year, out int month, out int day);

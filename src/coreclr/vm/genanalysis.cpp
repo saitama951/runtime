@@ -76,7 +76,6 @@ bool gcGenAnalysisDump = false;
 
 /* static */ void GenAnalysis::EnableGenerationalAwareSession()
 {
-#ifdef FEATURE_EVENT_TRACE
     WCHAR outputPath[MAX_PATH];
     ReplacePid(GENAWARE_TRACE_FILE_NAME, outputPath, MAX_PATH);
 
@@ -116,7 +115,4 @@ bool gcGenAnalysisDump = false;
     {
         gcGenAnalysisTrace = false;
     }
-#else
-    gcGenAnalysisTrace = false;
-#endif //FEATURE_EVENT_TRACE
 }

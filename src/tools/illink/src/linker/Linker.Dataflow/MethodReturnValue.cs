@@ -5,9 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using ILLink.Shared.DataFlow;
-using ILLink.Shared.TypeSystemProxy;
 using Mono.Cecil;
-using Mono.Linker;
 using Mono.Linker.Dataflow;
 using TypeReference = Mono.Cecil.TypeReference;
 
@@ -19,17 +17,16 @@ namespace ILLink.Shared.TrimAnalysis
 	/// </summary>
 	internal partial record MethodReturnValue
 	{
-		public static MethodReturnValue Create (MethodProxy method, bool isNewObj, DynamicallyAccessedMemberTypes dynamicallyAccessedMemberTypes, ITryResolveMetadata resolver)
+		public static MethodReturnValue Create (MethodDefinition method, bool isNewObj, DynamicallyAccessedMemberTypes dynamicallyAccessedMemberTypes)
 		{
-			Debug.Assert (!isNewObj || method.Definition.IsConstructor, "isNewObj can only be true for constructors");
-			var methodRef = method.Method;
-			var staticType = isNewObj ? methodRef.DeclaringType : methodRef.ReturnType.InflateFrom (methodRef as IGenericInstance ?? methodRef.DeclaringType as IGenericInstance);
-			return new MethodReturnValue (staticType, method.Definition, dynamicallyAccessedMemberTypes, resolver);
+			Debug.Assert (!isNewObj || method.IsConstructor, "isNewObj can only be true for constructors");
+			var staticType = isNewObj ? method.DeclaringType : method.ReturnType;
+			return new MethodReturnValue (staticType, method, dynamicallyAccessedMemberTypes);
 		}
 
-		private MethodReturnValue (TypeReference? staticType, MethodDefinition method, DynamicallyAccessedMemberTypes dynamicallyAccessedMemberTypes, ITryResolveMetadata resolver)
+		private MethodReturnValue (TypeReference? staticType, MethodDefinition method, DynamicallyAccessedMemberTypes dynamicallyAccessedMemberTypes)
 		{
-			StaticType = staticType == null ? null : new (staticType, resolver);
+			StaticType = staticType == null ? null : new (staticType);
 			Method = method;
 			DynamicallyAccessedMemberTypes = dynamicallyAccessedMemberTypes;
 		}

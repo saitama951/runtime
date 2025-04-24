@@ -246,11 +246,11 @@ namespace System.Net
                 contextAttribute == Interop.SspiCli.ContextAttribute.SECPKG_ATTR_CLIENT_SPECIFIED_TARGET);
 
 
-            Span<byte> buffer = stackalloc byte[IntPtr.Size];
+            Span<IntPtr> buffer = stackalloc IntPtr[1];
             int errorCode = secModule.QueryContextAttributes(
                 securityContext,
                 contextAttribute,
-                buffer,
+                MemoryMarshal.AsBytes(buffer),
                 typeof(SafeFreeContextBuffer),
                 out SafeHandle? sspiHandle);
 

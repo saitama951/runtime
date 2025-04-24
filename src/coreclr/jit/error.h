@@ -9,8 +9,6 @@
 #include <corjit.h>   // for CORJIT_INTERNALERROR
 #include <safemath.h> // For FitsIn, used by SafeCvt methods.
 
-#include <minipal/debugger.h>
-
 #define FATAL_JIT_EXCEPTION 0x02345678
 class Compiler;
 
@@ -249,7 +247,7 @@ extern void notYetImplemented(const char* msg, const char* file, unsigned line);
 #define BreakIfDebuggerPresent()                                                                                       \
     do                                                                                                                 \
     {                                                                                                                  \
-        if (minipal_is_native_debugger_present())                                                                      \
+        if (IsDebuggerPresent())                                                                                       \
             DebugBreak();                                                                                              \
     } while (0)
 #endif

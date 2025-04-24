@@ -11,7 +11,7 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Microsoft.Interop
 {
-    public sealed class Utf16CharMarshaller : IUnboundMarshallingGenerator
+    public sealed class Utf16CharMarshaller : IMarshallingGenerator
     {
         private static readonly ManagedTypeInfo s_nativeType = SpecialTypeInfo.UInt16;
 
@@ -44,13 +44,13 @@ namespace Microsoft.Interop
             return info.IsByRef ? SignatureBehavior.PointerToNativeType : SignatureBehavior.NativeType;
         }
 
-        public IEnumerable<StatementSyntax> Generate(TypePositionInfo info, StubCodeContext codeContext, StubIdentifierContext context)
+        public IEnumerable<StatementSyntax> Generate(TypePositionInfo info, StubCodeContext context)
         {
             (string managedIdentifier, string nativeIdentifier) = context.GetIdentifiers(info);
 
-            if (IsPinningPathSupported(info, codeContext))
+            if (IsPinningPathSupported(info, context))
             {
-                if (context.CurrentStage == StubIdentifierContext.Stage.Pin)
+                if (context.CurrentStage == StubCodeContext.Stage.Pin)
                 {
                     // fixed (char* <pinned> = &<managed>)
                     yield return FixedStatement(
@@ -79,13 +79,13 @@ namespace Microsoft.Interop
                 yield break;
             }
 
-            MarshalDirection elementMarshalDirection = MarshallerHelpers.GetMarshalDirection(info, codeContext);
+            MarshalDirection elementMarshalDirection = MarshallerHelpers.GetMarshalDirection(info, context);
 
             switch (context.CurrentStage)
             {
-                case StubIdentifierContext.Stage.Setup:
+                case StubCodeContext.Stage.Setup:
                     break;
-                case StubIdentifierContext.Stage.Marshal:
+                case StubCodeContext.Stage.Marshal:
                     if (elementMarshalDirection is MarshalDirection.ManagedToUnmanaged or MarshalDirection.Bidirectional)
                     {
                         // There's an implicit conversion from char to ushort,
@@ -101,7 +101,7 @@ namespace Microsoft.Interop
                     }
 
                     break;
-                case StubIdentifierContext.Stage.Unmarshal:
+                case StubCodeContext.Stage.Unmarshal:
                     if (elementMarshalDirection is MarshalDirection.UnmanagedToManaged or MarshalDirection.Bidirectional)
                     {
                         yield return ExpressionStatement(
@@ -134,9 +134,9 @@ namespace Microsoft.Interop
         }
 
         private static string PinnedIdentifier(string identifier) => $"{identifier}__pinned";
-        public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, TypePositionInfo info, out GeneratorDiagnostic? diagnostic)
+        public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, TypePositionInfo info, StubCodeContext context, out GeneratorDiagnostic? diagnostic)
         {
-            return ByValueMarshalKindSupportDescriptor.Default.GetSupport(marshalKind, info, out diagnostic);
+            return ByValueMarshalKindSupportDescriptor.Default.GetSupport(marshalKind, info, context, out diagnostic);
         }
 
     }

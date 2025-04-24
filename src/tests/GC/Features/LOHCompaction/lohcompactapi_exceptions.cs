@@ -3,17 +3,15 @@
 
 using System;
 using System.Runtime;
-using Xunit;
 
 
 
 namespace LOHCompactAPI
 {
-    public class Program
+    class Program
     {
 
-        [Fact]
-        public static int TestEntryPoint()
+        public static int Main()
         {
             for(int i = 0; i <= 5; i++)
             {

@@ -8,6 +8,8 @@ extern GenericPInvokeCalliStubWorker:proc
 extern VarargPInvokeStubWorker:proc
 extern JIT_PInvokeEndRarePath:proc
 
+extern s_gsCookie:QWORD
+extern ??_7InlinedCallFrame@@6B@:QWORD
 extern g_TrapReturningThreads:DWORD
 
 ;
@@ -133,13 +135,19 @@ NESTED_END VarargPInvokeGenILStub, _TEXT
 
 ;
 ; in:
-; InlinedCallFrame (rcx) = pointer to the InlinedCallFrame data
+; InlinedCallFrame (rcx) = pointer to the InlinedCallFrame data, including the GS cookie slot (GS cookie right
+;                          before actual InlinedCallFrame data)
 ;
 ;
 LEAF_ENTRY JIT_PInvokeBegin, _TEXT
 
+        mov             rax, qword ptr [s_gsCookie]
+        mov             qword ptr [rcx], rax
+        add             rcx, SIZEOF_GSCookie
+
         ;; set first slot to the value of InlinedCallFrame::`vftable' (checked by runtime code)
-        mov             qword ptr [rcx], FRAMETYPE_InlinedCallFrame
+        lea             rax,[??_7InlinedCallFrame@@6B@]
+        mov             qword ptr [rcx], rax
 
         mov             qword ptr [rcx + OFFSETOF__InlinedCallFrame__m_Datum], 0
 
@@ -168,10 +176,13 @@ LEAF_END JIT_PInvokeBegin, _TEXT
 
 ;
 ; in:
-; InlinedCallFrame (rcx) = pointer to the InlinedCallFrame data
+; InlinedCallFrame (rcx) = pointer to the InlinedCallFrame data, including the GS cookie slot (GS cookie right
+;                          before actual InlinedCallFrame data)
 ;
 ;
 LEAF_ENTRY JIT_PInvokeEnd, _TEXT
+
+        add             rcx, SIZEOF_GSCookie
 
         INLINE_GETTHREAD rdx
 

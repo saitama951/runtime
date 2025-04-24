@@ -676,201 +676,23 @@ namespace System.Tests
             }
         }
 
-        public static IEnumerable<object[]> IsTestByte
-        {
-            get
-            {
-                yield return new object[] { byte.MinValue };
-                yield return new object[] { 1.0 };
-                yield return new object[] { 2.0 };
-                yield return new object[] { 3.0 };
-                yield return new object[] { sbyte.MaxValue };
-                yield return new object[] { byte.MaxValue };
-            }
-        }
-
-        public static IEnumerable<object[]> IsTestDouble
-        {
-            get
-            {
-                yield return new object[] {  double.NegativeInfinity };
-                yield return new object[] {  double.MinValue };
-                yield return new object[] { -1.0 };
-                yield return new object[] { -MinNormalDouble };
-                yield return new object[] { -MaxSubnormalDouble };
-                yield return new object[] { -double.Epsilon };
-                yield return new object[] { -0.0 };
-                yield return new object[] {  double.NaN };
-                yield return new object[] {  0.0 };
-                yield return new object[] {  double.Epsilon };
-                yield return new object[] {  MaxSubnormalDouble };
-                yield return new object[] {  MinNormalDouble };
-                yield return new object[] {  1.0 };
-                yield return new object[] {  double.MaxValue };
-                yield return new object[] {  double.PositiveInfinity };
-            }
-        }
-
-        public static IEnumerable<object[]> IsTestInt16
-        {
-            get
-            {
-                yield return new object[] {  short.MinValue };
-                yield return new object[] {  sbyte.MinValue };
-                yield return new object[] { -3.0 };
-                yield return new object[] { -2.0 };
-                yield return new object[] { -1.0 };
-                yield return new object[] {  0.0 };
-                yield return new object[] {  1.0 };
-                yield return new object[] {  2.0 };
-                yield return new object[] {  3.0 };
-                yield return new object[] {  sbyte.MaxValue };
-                yield return new object[] {  byte.MaxValue };
-                yield return new object[] {  short.MaxValue };
-            }
-        }
-
-        public static IEnumerable<object[]> IsTestInt32
-        {
-            get
-            {
-                yield return new object[] {  int.MinValue };
-                yield return new object[] {  short.MinValue };
-                yield return new object[] {  sbyte.MinValue };
-                yield return new object[] { -3.0 };
-                yield return new object[] { -2.0 };
-                yield return new object[] { -1.0 };
-                yield return new object[] {  0.0 };
-                yield return new object[] {  1.0 };
-                yield return new object[] {  2.0 };
-                yield return new object[] {  3.0 };
-                yield return new object[] {  sbyte.MaxValue };
-                yield return new object[] {  byte.MaxValue };
-                yield return new object[] {  short.MaxValue };
-                yield return new object[] {  int.MaxValue };
-            }
-        }
-
-        public static IEnumerable<object[]> IsTestInt64
-        {
-            get
-            {
-                yield return new object[] {  long.MinValue };
-                yield return new object[] {  int.MinValue };
-                yield return new object[] {  short.MinValue };
-                yield return new object[] {  sbyte.MinValue };
-                yield return new object[] { -3.0 };
-                yield return new object[] { -2.0 };
-                yield return new object[] { -1.0 };
-                yield return new object[] {  0.0 };
-                yield return new object[] {  1.0 };
-                yield return new object[] {  2.0 };
-                yield return new object[] {  3.0 };
-                yield return new object[] {  sbyte.MaxValue };
-                yield return new object[] {  byte.MaxValue };
-                yield return new object[] {  short.MaxValue };
-                yield return new object[] {  int.MaxValue };
-                yield return new object[] {  long.MaxValue };
-            }
-        }
-
-        public static IEnumerable<object[]> IsTestSByte
-        {
-            get
-            {
-                yield return new object[] {  sbyte.MinValue };
-                yield return new object[] { -3.0 };
-                yield return new object[] { -2.0 };
-                yield return new object[] { -1.0 };
-                yield return new object[] {  0.0 };
-                yield return new object[] {  1.0 };
-                yield return new object[] {  2.0 };
-                yield return new object[] {  3.0 };
-                yield return new object[] {  sbyte.MaxValue };
-            }
-        }
-
-        public static IEnumerable<object[]> IsTestSingle
-        {
-            get
-            {
-                yield return new object[] {  float.NegativeInfinity };
-                yield return new object[] {  float.MinValue };
-                yield return new object[] { -1.0f };
-                yield return new object[] { -MinNormalSingle };
-                yield return new object[] { -MaxSubnormalSingle };
-                yield return new object[] { -float.Epsilon };
-                yield return new object[] { -0.0f };
-                yield return new object[] {  float.NaN };
-                yield return new object[] {  0.0f };
-                yield return new object[] {  float.Epsilon };
-                yield return new object[] {  MaxSubnormalSingle };
-                yield return new object[] {  MinNormalSingle };
-                yield return new object[] {  1.0f };
-                yield return new object[] {  float.MaxValue };
-                yield return new object[] {  float.PositiveInfinity };
-            }
-        }
-
-        public static IEnumerable<object[]> IsTestUInt16
-        {
-            get
-            {
-                yield return new object[] { ushort.MinValue };
-                yield return new object[] { 1.0 };
-                yield return new object[] { 2.0 };
-                yield return new object[] { 3.0 };
-                yield return new object[] { sbyte.MaxValue };
-                yield return new object[] { byte.MaxValue };
-                yield return new object[] { short.MaxValue };
-                yield return new object[] { ushort.MaxValue };
-            }
-        }
-
-        public static IEnumerable<object[]> IsTestUInt32
-        {
-            get
-            {
-                yield return new object[] { uint.MinValue };
-                yield return new object[] { sbyte.MaxValue };
-                yield return new object[] { byte.MaxValue };
-                yield return new object[] { short.MaxValue };
-                yield return new object[] { int.MaxValue };
-                yield return new object[] { uint.MaxValue };
-            }
-        }
-
-        public static IEnumerable<object[]> IsTestUInt64
-        {
-            get
-            {
-                yield return new object[] { ulong.MinValue };
-                yield return new object[] { sbyte.MaxValue };
-                yield return new object[] { byte.MaxValue };
-                yield return new object[] { short.MaxValue };
-                yield return new object[] { int.MaxValue };
-                yield return new object[] { long.MaxValue };
-                yield return new object[] { ulong.MaxValue };
-            }
-        }
-
         public static IEnumerable<object[]> IsNaNDouble
         {
             get
             {
-                yield return new object[] { double.NegativeInfinity, false };
-                yield return new object[] { double.MinValue, false };
-                yield return new object[] { -MinNormalDouble, false };
-                yield return new object[] { -MaxSubnormalDouble, false };
-                yield return new object[] { -double.Epsilon, false };
-                yield return new object[] { -0.0, false };
-                yield return new object[] { double.NaN, true };
-                yield return new object[] { 0.0, false };
-                yield return new object[] { double.Epsilon, false };
-                yield return new object[] { MaxSubnormalDouble, false };
-                yield return new object[] { MinNormalDouble, false };
-                yield return new object[] { double.MaxValue, false };
-                yield return new object[] { double.PositiveInfinity, false };
+                yield return new object[] {  double.NegativeInfinity,   false };
+                yield return new object[] {  double.MinValue,           false };
+                yield return new object[] { -MinNormalDouble,           false };
+                yield return new object[] { -MaxSubnormalDouble,        false };
+                yield return new object[] { -double.Epsilon,            false };
+                yield return new object[] { -0.0,                       false };
+                yield return new object[] {  double.NaN,                true };
+                yield return new object[] {  0.0,                       false };
+                yield return new object[] {  double.Epsilon,            false };
+                yield return new object[] {  MaxSubnormalDouble,        false };
+                yield return new object[] {  MinNormalDouble,           false };
+                yield return new object[] {  double.MaxValue,           false };
+                yield return new object[] {  double.PositiveInfinity,   false };
             }
         }
 
@@ -878,19 +700,19 @@ namespace System.Tests
         {
             get
             {
-                yield return new object[] { float.NegativeInfinity, false };
-                yield return new object[] { float.MinValue, false };
-                yield return new object[] { -MinNormalSingle, false };
-                yield return new object[] { -MaxSubnormalSingle, false };
-                yield return new object[] { -float.Epsilon, false };
-                yield return new object[] { -0.0f, false };
-                yield return new object[] { float.NaN, true };
-                yield return new object[] { 0.0f, false };
-                yield return new object[] { float.Epsilon, false };
-                yield return new object[] { MaxSubnormalSingle, false };
-                yield return new object[] { MinNormalSingle, false };
-                yield return new object[] { float.MaxValue, false };
-                yield return new object[] { float.PositiveInfinity, false };
+                yield return new object[] {  float.NegativeInfinity,    false };
+                yield return new object[] {  float.MinValue,            false };
+                yield return new object[] { -MinNormalSingle,           false };
+                yield return new object[] { -MaxSubnormalSingle,        false };
+                yield return new object[] { -float.Epsilon,             false };
+                yield return new object[] { -0.0f,                      false };
+                yield return new object[] {  float.NaN,                 true };
+                yield return new object[] {  0.0f,                      false };
+                yield return new object[] {  float.Epsilon,             false };
+                yield return new object[] {  MaxSubnormalSingle,        false };
+                yield return new object[] {  MinNormalSingle,           false };
+                yield return new object[] {  float.MaxValue,            false };
+                yield return new object[] {  float.PositiveInfinity,    false };
             }
         }
 
@@ -898,17 +720,17 @@ namespace System.Tests
         {
             get
             {
-                yield return new object[] { double.NegativeInfinity, true };
-                yield return new object[] { double.MinValue, true };
-                yield return new object[] { -MinNormalDouble, true };
-                yield return new object[] { -MaxSubnormalDouble, true };
-                yield return new object[] { -0.0, true };
-                yield return new object[] { double.NaN, true };
-                yield return new object[] { 0.0, false };
-                yield return new object[] { MaxSubnormalDouble, false };
-                yield return new object[] { MinNormalDouble, false };
-                yield return new object[] { double.MaxValue, false };
-                yield return new object[] { double.PositiveInfinity, false };
+                yield return new object[] {  double.NegativeInfinity,   true };
+                yield return new object[] {  double.MinValue,           true };
+                yield return new object[] { -MinNormalDouble,           true };
+                yield return new object[] { -MaxSubnormalDouble,        true };
+                yield return new object[] { -0.0,                       true };
+                yield return new object[] {  double.NaN,                true };
+                yield return new object[] {  0.0,                       false };
+                yield return new object[] {  MaxSubnormalDouble,        false };
+                yield return new object[] {  MinNormalDouble,           false };
+                yield return new object[] {  double.MaxValue,           false };
+                yield return new object[] {  double.PositiveInfinity,   false };
             }
         }
 
@@ -916,17 +738,17 @@ namespace System.Tests
         {
             get
             {
-                yield return new object[] { float.NegativeInfinity, true };
-                yield return new object[] { float.MinValue, true };
-                yield return new object[] { -MinNormalSingle, true };
-                yield return new object[] { -MaxSubnormalSingle, true };
-                yield return new object[] { -0.0f, true };
-                yield return new object[] { float.NaN, true };
-                yield return new object[] { 0.0f, false };
-                yield return new object[] { MaxSubnormalSingle, false };
-                yield return new object[] { MinNormalSingle, false };
-                yield return new object[] { float.MaxValue, false };
-                yield return new object[] { float.PositiveInfinity, false };
+                yield return new object[] {  float.NegativeInfinity,    true };
+                yield return new object[] {  float.MinValue,            true };
+                yield return new object[] { -MinNormalSingle,           true };
+                yield return new object[] { -MaxSubnormalSingle,        true };
+                yield return new object[] { -0.0f,                      true };
+                yield return new object[] {  float.NaN,                 true };
+                yield return new object[] {  0.0f,                      false };
+                yield return new object[] {  MaxSubnormalSingle,        false };
+                yield return new object[] {  MinNormalSingle,           false };
+                yield return new object[] {  float.MaxValue,            false };
+                yield return new object[] {  float.PositiveInfinity,    false };
             }
         }
 
@@ -934,17 +756,17 @@ namespace System.Tests
         {
             get
             {
-                yield return new object[] { double.NegativeInfinity, false };
-                yield return new object[] { double.MinValue, false };
-                yield return new object[] { -MinNormalDouble, false };
-                yield return new object[] { -MaxSubnormalDouble, false };
-                yield return new object[] { -0.0, false };
-                yield return new object[] { double.NaN, false };
-                yield return new object[] { 0.0, true };
-                yield return new object[] { MaxSubnormalDouble, true };
-                yield return new object[] { MinNormalDouble, true };
-                yield return new object[] { double.MaxValue, true };
-                yield return new object[] { double.PositiveInfinity, true };
+                yield return new object[] {  double.NegativeInfinity,   false };
+                yield return new object[] {  double.MinValue,           false };
+                yield return new object[] { -MinNormalDouble,           false };
+                yield return new object[] { -MaxSubnormalDouble,        false };
+                yield return new object[] { -0.0,                       false };
+                yield return new object[] {  double.NaN,                false };
+                yield return new object[] {  0.0,                       true };
+                yield return new object[] {  MaxSubnormalDouble,        true };
+                yield return new object[] {  MinNormalDouble,           true };
+                yield return new object[] {  double.MaxValue,           true };
+                yield return new object[] {  double.PositiveInfinity,   true };
             }
         }
 
@@ -952,17 +774,17 @@ namespace System.Tests
         {
             get
             {
-                yield return new object[] { float.NegativeInfinity, false };
-                yield return new object[] { float.MinValue, false };
-                yield return new object[] { -MinNormalSingle, false };
-                yield return new object[] { -MaxSubnormalSingle, false };
-                yield return new object[] { -0.0f, false };
-                yield return new object[] { float.NaN, false };
-                yield return new object[] { 0.0f, true };
-                yield return new object[] { MaxSubnormalSingle, true };
-                yield return new object[] { MinNormalSingle, true };
-                yield return new object[] { float.MaxValue, true };
-                yield return new object[] { float.PositiveInfinity, true };
+                yield return new object[] {  float.NegativeInfinity,    false };
+                yield return new object[] {  float.MinValue,            false };
+                yield return new object[] { -MinNormalSingle,           false };
+                yield return new object[] { -MaxSubnormalSingle,        false };
+                yield return new object[] { -0.0f,                      false };
+                yield return new object[] {  float.NaN,                 false };
+                yield return new object[] {  0.0f,                      true };
+                yield return new object[] {  MaxSubnormalSingle,        true };
+                yield return new object[] {  MinNormalSingle,           true };
+                yield return new object[] {  float.MaxValue,            true };
+                yield return new object[] {  float.PositiveInfinity,    true };
             }
         }
 
@@ -970,19 +792,19 @@ namespace System.Tests
         {
             get
             {
-                yield return new object[] { double.NegativeInfinity, false };
-                yield return new object[] { double.MinValue, false };
-                yield return new object[] { -MinNormalDouble, false };
-                yield return new object[] { -MaxSubnormalDouble, false };
-                yield return new object[] { -double.Epsilon, false };
-                yield return new object[] { -0.0, false };
-                yield return new object[] { double.NaN, false };
-                yield return new object[] { 0.0, false };
-                yield return new object[] { double.Epsilon, false };
-                yield return new object[] { MaxSubnormalDouble, false };
-                yield return new object[] { MinNormalDouble, false };
-                yield return new object[] { double.MaxValue, false };
-                yield return new object[] { double.PositiveInfinity, true };
+                yield return new object[] {  double.NegativeInfinity,   false };
+                yield return new object[] {  double.MinValue,           false };
+                yield return new object[] { -MinNormalDouble,           false };
+                yield return new object[] { -MaxSubnormalDouble,        false };
+                yield return new object[] { -double.Epsilon,            false };
+                yield return new object[] { -0.0,                       false };
+                yield return new object[] {  double.NaN,                false };
+                yield return new object[] {  0.0,                       false };
+                yield return new object[] {  double.Epsilon,            false };
+                yield return new object[] {  MaxSubnormalDouble,        false };
+                yield return new object[] {  MinNormalDouble,           false };
+                yield return new object[] {  double.MaxValue,           false };
+                yield return new object[] {  double.PositiveInfinity,   true };
             }
         }
 
@@ -990,19 +812,19 @@ namespace System.Tests
         {
             get
             {
-                yield return new object[] { float.NegativeInfinity, false };
-                yield return new object[] { float.MinValue, false };
-                yield return new object[] { -MinNormalSingle, false };
-                yield return new object[] { -MaxSubnormalSingle, false };
-                yield return new object[] { -float.Epsilon, false };
-                yield return new object[] { -0.0f, false };
-                yield return new object[] { float.NaN, false };
-                yield return new object[] { 0.0f, false };
-                yield return new object[] { float.Epsilon, false };
-                yield return new object[] { MaxSubnormalSingle, false };
-                yield return new object[] { MinNormalSingle, false };
-                yield return new object[] { float.MaxValue, false };
-                yield return new object[] { float.PositiveInfinity, true };
+                yield return new object[] {  float.NegativeInfinity,    false };
+                yield return new object[] {  float.MinValue,            false };
+                yield return new object[] { -MinNormalSingle,           false };
+                yield return new object[] { -MaxSubnormalSingle,        false };
+                yield return new object[] { -float.Epsilon,             false };
+                yield return new object[] { -0.0f,                      false };
+                yield return new object[] {  float.NaN,                 false };
+                yield return new object[] {  0.0f,                      false };
+                yield return new object[] {  float.Epsilon,             false };
+                yield return new object[] {  MaxSubnormalSingle,        false };
+                yield return new object[] {  MinNormalSingle,           false };
+                yield return new object[] {  float.MaxValue,            false };
+                yield return new object[] {  float.PositiveInfinity,    true };
             }
         }
 
@@ -1010,19 +832,19 @@ namespace System.Tests
         {
             get
             {
-                yield return new object[] { double.NegativeInfinity, false };
-                yield return new object[] { double.MinValue, false };
-                yield return new object[] { -MinNormalDouble, false };
-                yield return new object[] { -MaxSubnormalDouble, false };
-                yield return new object[] { -double.Epsilon, false };
-                yield return new object[] { -0.0, true };
-                yield return new object[] { double.NaN, false };
-                yield return new object[] { 0.0, true };
-                yield return new object[] { double.Epsilon, false };
-                yield return new object[] { MaxSubnormalDouble, false };
-                yield return new object[] { MinNormalDouble, false };
-                yield return new object[] { double.MaxValue, false };
-                yield return new object[] { double.PositiveInfinity, false };
+                yield return new object[] {  double.NegativeInfinity,   false };
+                yield return new object[] {  double.MinValue,           false };
+                yield return new object[] { -MinNormalDouble,           false };
+                yield return new object[] { -MaxSubnormalDouble,        false };
+                yield return new object[] { -double.Epsilon,            false };
+                yield return new object[] { -0.0,                       true };
+                yield return new object[] {  double.NaN,                false };
+                yield return new object[] {  0.0,                       true };
+                yield return new object[] {  double.Epsilon,            false };
+                yield return new object[] {  MaxSubnormalDouble,        false };
+                yield return new object[] {  MinNormalDouble,           false };
+                yield return new object[] {  double.MaxValue,           false };
+                yield return new object[] {  double.PositiveInfinity,   false };
             }
         }
 
@@ -1030,19 +852,19 @@ namespace System.Tests
         {
             get
             {
-                yield return new object[] { float.NegativeInfinity, false };
-                yield return new object[] { float.MinValue, false };
-                yield return new object[] { -MinNormalSingle, false };
-                yield return new object[] { -MaxSubnormalSingle, false };
-                yield return new object[] { -float.Epsilon, false };
-                yield return new object[] { -0.0f, true };
-                yield return new object[] { float.NaN, false };
-                yield return new object[] { 0.0f, true };
-                yield return new object[] { float.Epsilon, false };
-                yield return new object[] { MaxSubnormalSingle, false };
-                yield return new object[] { MinNormalSingle, false };
-                yield return new object[] { float.MaxValue, false };
-                yield return new object[] { float.PositiveInfinity, false };
+                yield return new object[] {  float.NegativeInfinity,    false };
+                yield return new object[] {  float.MinValue,            false };
+                yield return new object[] { -MinNormalSingle,           false };
+                yield return new object[] { -MaxSubnormalSingle,        false };
+                yield return new object[] { -float.Epsilon,             false };
+                yield return new object[] { -0.0f,                      true };
+                yield return new object[] {  float.NaN,                 false };
+                yield return new object[] {  0.0f,                      true };
+                yield return new object[] {  float.Epsilon,             false };
+                yield return new object[] {  MaxSubnormalSingle,        false };
+                yield return new object[] {  MinNormalSingle,           false };
+                yield return new object[] {  float.MaxValue,            false };
+                yield return new object[] {  float.PositiveInfinity,    false };
             }
         }
 

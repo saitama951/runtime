@@ -77,17 +77,10 @@ endif()
 
 if (NOT CLR_CMAKE_HOST_WIN32)
   # detect linker
-  if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    execute_process(COMMAND ${CMAKE_C_COMPILER} -Wl,--version
-      ERROR_QUIET
-      OUTPUT_VARIABLE ldVersionOutput
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
-  else()
-    execute_process(COMMAND sh -c "${CMAKE_C_COMPILER} ${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version | head -1"
-      ERROR_QUIET
-      OUTPUT_VARIABLE ldVersionOutput
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
-  endif()
+  execute_process(COMMAND sh -c "${CMAKE_C_COMPILER} ${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version | head -1"
+    ERROR_QUIET
+    OUTPUT_VARIABLE ldVersionOutput
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
 
   if("${ldVersionOutput}" MATCHES "LLD")
     set(LD_LLVM 1)

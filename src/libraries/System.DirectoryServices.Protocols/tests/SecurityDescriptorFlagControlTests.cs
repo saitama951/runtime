@@ -19,23 +19,14 @@ namespace System.DirectoryServices.Protocols.Tests
             Assert.True(control.ServerSide);
             Assert.Equal("1.2.840.113556.1.4.801", control.Type);
 
-#if NETFRAMEWORK
-            var expected = new byte[] { 48, 132, 0, 0, 0, 3, 2, 1, 0 };
-#else
-            var expected = new byte[] { 48, 3, 2, 1, 0 };
-#endif
+            var expected = (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) ? new byte[] { 48, 132, 0, 0, 0, 3, 2, 1, 0 } : new byte[] { 48, 3, 2, 1, 0 };
             Assert.Equal(expected, control.GetValue());
         }
 
         public static IEnumerable<object[]> Ctor_Flags_Data()
         {
-#if NETFRAMEWORK
-            yield return new object[] { SecurityMasks.Group, new byte[] { 48, 132, 0, 0, 0, 3, 2, 1, 2 } };
-            yield return new object[] { SecurityMasks.None - 1, new byte[] { 48, 132, 0, 0, 0, 6, 2, 4, 255, 255, 255, 255 } };
-#else
-            yield return new object[] { SecurityMasks.Group, new byte[] { 48, 3, 2, 1, 2 } };
-            yield return new object[] { SecurityMasks.None - 1, new byte[] { 48, 3, 2, 1, 255 } };
-#endif
+            yield return new object[] { SecurityMasks.Group, (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) ? new byte[] { 48, 132, 0, 0, 0, 3, 2, 1, 2 } : new byte[] { 48, 3, 2, 1, 2 } };
+            yield return new object[] { SecurityMasks.None - 1, (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) ? new byte[] { 48, 132, 0, 0, 0, 6, 2, 4, 255, 255, 255, 255 } : new byte[] { 48, 3, 2, 1, 255 } };
         }
 
         [Theory]

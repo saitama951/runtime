@@ -158,12 +158,12 @@ namespace System.Text.Json
             SupportAsync = supportAsync;
 
             JsonSerializerOptions options = jsonTypeInfo.Options;
-            if (options.ReferenceHandlingStrategy != JsonKnownReferenceHandler.Unspecified)
+            if (options.ReferenceHandlingStrategy != ReferenceHandlingStrategy.None)
             {
                 Debug.Assert(options.ReferenceHandler != null);
                 ReferenceResolver = options.ReferenceHandler.CreateResolver(writing: true);
 
-                if (options.ReferenceHandlingStrategy == JsonKnownReferenceHandler.IgnoreCycles &&
+                if (options.ReferenceHandlingStrategy == ReferenceHandlingStrategy.IgnoreCycles &&
                     rootValueBoxed is not null && jsonTypeInfo.Type.IsValueType)
                 {
                     // Root object is a boxed value type, we need to push it to the reference stack before starting the serializer.

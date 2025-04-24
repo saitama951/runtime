@@ -21,12 +21,7 @@ namespace System.Speech.Internal.ObjectTokens
         internal static ObjectTokenCategory Create(string sCategoryId)
         {
             RegistryDataKey key = RegistryDataKey.Open(sCategoryId, true);
-            if (key != null)
-            {
-                return new ObjectTokenCategory(sCategoryId, key);
-            }
-
-            return null;
+            return new ObjectTokenCategory(sCategoryId, key);
         }
 
         #endregion

@@ -5,7 +5,6 @@
 
 using System;
 using System.Runtime.InteropServices;
-using Xunit;
 
 public class Test_keepalivehandle {
 	public class Dummy {
@@ -17,8 +16,7 @@ public class Test_keepalivehandle {
 		}
 	}
 
-	[Fact]
-	public static int TestEntryPoint() {
+	public static int Main() {
 
         int returnValue = 0;
 		Dummy obj = new Dummy();

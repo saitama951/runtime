@@ -213,8 +213,6 @@ public:
         REGNUM_T5,
         REGNUM_T6,
         REGNUM_PC,
-#elif TARGET_WASM
-        REGNUM_PC, // wasm doesn't have registers
 #else
         PORTABILITY_WARNING("Register numbers not defined on this platform")
 #endif

@@ -4,7 +4,6 @@
 #nullable enable
 
 using System;
-using System.Linq;
 using System.IO;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -19,9 +18,7 @@ internal class BrowserRunner : IAsyncDisposable
 {
     private static Regex s_blazorUrlRegex = new Regex("Now listening on: (?<url>https?://.*$)");
     private static Regex s_appHostUrlRegex = new Regex("^App url: (?<url>https?://.*$)");
-    private static Regex s_appPublishedUrlRegex = new Regex(@"^\s{2}(?<url>https?://.*$)");
-    private static readonly Regex s_payloadRegex = new Regex("\"payload\":\"(?<payload>[^\"]*)\"", RegexOptions.Compiled);
-    private static Regex s_exitRegex = new Regex("WASM EXIT (?<exitCode>-?[0-9]+)$");
+    private static Regex s_exitRegex = new Regex("WASM EXIT (?<exitCode>[0-9]+)$");
     private static readonly Lazy<string> s_chromePath = new(() =>
     {
         string artifactsBinDir = Path.Combine(Path.GetDirectoryName(typeof(BuildTestBase).Assembly.Location)!, "..", "..", "..", "..");
@@ -55,15 +52,9 @@ internal class BrowserRunner : IAsyncDisposable
                 OutputLines.Add(msg);
             }
 
-            var regexes = new[] { s_appHostUrlRegex, s_blazorUrlRegex, s_appPublishedUrlRegex };
-            Match m = Match.Empty;
-
-            foreach (var regex in regexes)
-            {
-                m = regex.Match(msg);
-                if (m.Success)
-                    break;
-            }
+            Match m = s_appHostUrlRegex.Match(msg);
+            if (!m.Success)
+                m = s_blazorUrlRegex.Match(msg);
 
             if (m.Success)
             {
@@ -113,15 +104,12 @@ internal class BrowserRunner : IAsyncDisposable
         string browserUrl,
         bool headless = true,
         int? timeout = null,
-        int maxRetries = 3,
-        string locale = "en-US"
+        int maxRetries = 3
     ) {
         var url = new Uri(browserUrl);
         Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         // codespaces: ignore certificate error -> Microsoft.Playwright.PlaywrightException : net::ERR_CERT_AUTHORITY_INVALID
-        string[] chromeArgs = new[] { $"--explicitly-allowed-ports={url.Port}", "--ignore-certificate-errors", $"--lang={locale}" };
-        if (headless)
-            chromeArgs = chromeArgs.Append("--headless").ToArray();
+        string[] chromeArgs = new[] { $"--explicitly-allowed-ports={url.Port}", "--ignore-certificate-errors" };
         _testOutput.WriteLine($"Launching chrome ('{s_chromePath.Value}') via playwright with args = {string.Join(',', chromeArgs)}");
 
         int attempt = 0;
@@ -131,6 +119,7 @@ internal class BrowserRunner : IAsyncDisposable
             {
                 Browser = await Playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions {
                     ExecutablePath = s_chromePath.Value,
+                    Headless = headless,
                     Args = chromeArgs,
                     Timeout = timeout
                 });
@@ -157,15 +146,14 @@ internal class BrowserRunner : IAsyncDisposable
         ToolCommand cmd,
         string args,
         bool headless = true,
-        string locale = "en-US",
-        Action<string, string>? onConsoleMessage = null,
+        Action<IPage, IConsoleMessage>? onConsoleMessage = null,
         Action<string>? onServerMessage = null,
         Action<string>? onError = null,
         Func<string, string>? modifyBrowserUrl = null)
     {
         var urlString = await StartServerAndGetUrlAsync(cmd, args, onServerMessage);
-        var browser = await SpawnBrowserAsync(urlString, headless, locale: locale);
-        var context = await browser.NewContextAsync(new BrowserNewContextOptions { Locale = locale });
+        var browser = await SpawnBrowserAsync(urlString, headless);
+        var context = await browser.NewContextAsync();
         return await RunAsync(context, urlString, headless, onConsoleMessage, onError, modifyBrowserUrl);
     }
 
@@ -173,7 +161,7 @@ internal class BrowserRunner : IAsyncDisposable
         IBrowserContext context,
         string browserUrl,
         bool headless = true,
-        Action<string, string>? onConsoleMessage = null,
+        Action<IPage, IConsoleMessage>? onConsoleMessage = null,
         Action<string>? onError = null,
         Func<string, string>? modifyBrowserUrl = null,
         bool resetExitedState = false
@@ -186,25 +174,8 @@ internal class BrowserRunner : IAsyncDisposable
 
         IPage page = await context.NewPageAsync();
 
-        page.Console += (_, msg) =>
-        {
-            string message = msg.Text;
-            Match payloadMatch = s_payloadRegex.Match(message);
-            if (payloadMatch.Success)
-            {
-                message = payloadMatch.Groups["payload"].Value;
-            }
-            Match exitMatch = s_exitRegex.Match(message);
-            if (exitMatch.Success)
-            {
-                int exitCode = int.Parse(exitMatch.Groups["exitCode"].Value);
-                _exited.TrySetResult(exitCode);
-            }
-            if (onConsoleMessage is not null)
-            {
-                onConsoleMessage(msg.Type, message);
-            }
-        };
+        if (onConsoleMessage is not null)
+            page.Console += (_, msg) => onConsoleMessage(page, msg);
 
         onError ??= _testOutput.WriteLine;
         if (onError is not null)
@@ -218,7 +189,7 @@ internal class BrowserRunner : IAsyncDisposable
         return page;
     }
 
-    public async Task<int> WaitForExitMessageAsync(TimeSpan timeout)
+    public async Task WaitForExitMessageAsync(TimeSpan timeout)
     {
         if (RunTask is null || RunTask.IsCompleted)
             throw new Exception($"No run task, or already completed");
@@ -226,9 +197,8 @@ internal class BrowserRunner : IAsyncDisposable
         await Task.WhenAny(RunTask!, _exited.Task, Task.Delay(timeout));
         if (_exited.Task.IsCompleted)
         {
-            int code = await _exited.Task;
-            _testOutput.WriteLine ($"Exited with {code}");
-            return code;
+            _testOutput.WriteLine ($"Exited with {await _exited.Task}");
+            return;
         }
 
         throw new Exception($"Timed out after {timeout.TotalSeconds}s waiting for 'WASM EXIT' message");

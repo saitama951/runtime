@@ -44,13 +44,13 @@ namespace System.Linq.Tests
         [Fact]
         public void SkipExcessive()
         {
-            Assert.Equal([], NumberRangeGuaranteedNotCollectionType(0, 20).Skip(42));
+            Assert.Equal(Enumerable.Empty<int>(), NumberRangeGuaranteedNotCollectionType(0, 20).Skip(42));
         }
 
         [Fact]
         public void SkipExcessiveIList()
         {
-            Assert.Equal([], NumberRangeGuaranteedNotCollectionType(0, 20).ToList().Skip(42));
+            Assert.Equal(Enumerable.Empty<int>(), NumberRangeGuaranteedNotCollectionType(0, 20).ToList().Skip(42));
         }
 
         [Fact]
@@ -381,7 +381,7 @@ namespace System.Linq.Tests
                 current: () => 0,
                 dispose: () => state = -1);
 
-            using IEnumerator<int> iterator = source.Skip(count).GetEnumerator();
+            IEnumerator<int> iterator = source.Skip(count).GetEnumerator();
             int iteratorCount = Math.Max(0, sourceCount - Math.Max(0, count));
             Assert.All(Enumerable.Range(0, iteratorCount), _ => Assert.True(iterator.MoveNext()));
 

@@ -34,7 +34,6 @@ namespace System.Net.Http.Functional.Tests
             }
             else
             {
-                Assert.True(tags.Any(t => t.Key == name), $"Tag {name} not found in tags.");
                 object? actualValue = tags.Single(t => t.Key == name).Value;
                 Assert.Equal(value, (T)actualValue);
             }
@@ -345,7 +344,7 @@ namespace System.Net.Http.Functional.Tests
             });
         }
 
-        [ConditionalTheory(typeof(PlatformDetection), nameof(PlatformDetection.IsNotNodeJSOrFirefox))]
+        [Theory]
         [InlineData("GET", HttpStatusCode.OK)]
         [InlineData("PUT", HttpStatusCode.Created)]
         public Task RequestDuration_Success_Recorded(string method, HttpStatusCode statusCode)
@@ -382,7 +381,7 @@ namespace System.Net.Http.Functional.Tests
             using InstrumentRecorder<long> openConnectionsRecorder = SetupInstrumentRecorder<long>(InstrumentNames.OpenConnections);
 
             Uri uri = UseVersion == HttpVersion.Version11
-                ? Test.Common.Configuration.Http.RemoteSecureHttp11Server.EchoUri
+                ? Test.Common.Configuration.Http.RemoteHttp11Server.EchoUri
                 : Test.Common.Configuration.Http.RemoteHttp2Server.EchoUri;
             IPAddress[] addresses = await Dns.GetHostAddressesAsync(uri.Host);
             addresses = addresses.Union(addresses.Select(a => a.MapToIPv6())).ToArray();
@@ -937,7 +936,7 @@ namespace System.Net.Http.Functional.Tests
         {
         }
 
-        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsNotNodeJSOrFirefox))]
+        [ConditionalFact(typeof(PlatformDetection), nameof(PlatformDetection.IsNotNodeJS))]
         public async Task RequestDuration_EnrichmentHandler_ContentLengthError_Recorded()
         {
             await LoopbackServerFactory.CreateClientAndServerAsync(async uri =>
@@ -1047,12 +1046,10 @@ namespace System.Net.Http.Functional.Tests
                 using HttpRequestMessage request = new(HttpMethod.Get, uri) { Version = UseVersion };
                 using HttpResponseMessage response = await SendAsync(client, request);
 
-
                 Assert.Equal(1, requestDurationRecorder.MeasurementCount);
-                if (SocketsHttpHandler.IsSupported) Assert.Equal(1, timeInQueueRecorder.MeasurementCount);
+                Assert.Equal(1, timeInQueueRecorder.MeasurementCount);
                 client.Dispose(); // terminate the connection
-
-                if (SocketsHttpHandler.IsSupported) Assert.Equal(1, connectionDurationRecorder.MeasurementCount);
+                Assert.Equal(1, connectionDurationRecorder.MeasurementCount);
             }, async server =>
             {
                 await server.AcceptConnectionSendResponseAndCloseAsync();
@@ -1060,6 +1057,7 @@ namespace System.Net.Http.Functional.Tests
         }
     }
 
+    [ActiveIssue("https://github.com/dotnet/runtime/issues/93754", TestPlatforms.Browser)]
     public class HttpMetricsTest_Http11_Async : HttpMetricsTest_Http11
     {
         public HttpMetricsTest_Http11_Async(ITestOutputHelper output) : base(output)
@@ -1261,7 +1259,7 @@ namespace System.Net.Http.Functional.Tests
                     });
 
                 }, options: new GenericLoopbackOptions() { UseSsl = true });
-            }, options: new GenericLoopbackOptions() { UseSsl = false });
+            }, options: new GenericLoopbackOptions() { UseSsl = false});
         }
 
         [Fact]
@@ -1299,6 +1297,7 @@ namespace System.Net.Http.Functional.Tests
         }
     }
 
+    [Collection(nameof(DisableParallelization))]
     [ConditionalClass(typeof(HttpClientHandlerTestBase), nameof(IsQuicSupported))]
     public class HttpMetricsTest_Http30 : HttpMetricsTest
     {
@@ -1308,6 +1307,7 @@ namespace System.Net.Http.Functional.Tests
         }
     }
 
+    [Collection(nameof(DisableParallelization))]
     public class HttpMetricsTest_Http30_HttpMessageInvoker : HttpMetricsTest_Http30
     {
         protected override bool TestHttpMessageInvoker => true;

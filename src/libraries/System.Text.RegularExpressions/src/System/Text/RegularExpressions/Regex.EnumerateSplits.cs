@@ -267,8 +267,9 @@ namespace System.Text.RegularExpressions
             }
 
             /// <summary>
-            /// Gets a <see cref="Range"/> for the split at the current position of the enumerator.
+            /// Gets the <see cref="ValueMatch"/> element at the current position of the enumerator.
             /// </summary>
+            /// <exception cref="InvalidOperationException">Enumeration has either not started or has already finished.</exception>
             public readonly Range Current => _currentSplit;
         }
     }

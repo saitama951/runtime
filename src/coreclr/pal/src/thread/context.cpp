@@ -29,9 +29,6 @@ SET_DEFAULT_DEBUG_CHANNEL(THREAD); // some headers have code with asserts, so do
 #endif
 #include <errno.h>
 #include <unistd.h>
-#if defined(HOST_APPLE) && !defined(HOST_OSX)
-#include <libkern/OSCacheControl.h>
-#endif
 
 extern PGET_GCMARKER_EXCEPTION_CODE g_getGcMarkerExceptionCode;
 
@@ -62,22 +59,13 @@ typedef int __ptrace_request;
 #endif // !HAVE_MACH_EXCEPTIONS
 
 #ifdef HOST_AMD64
-#ifdef __HAIKU__
 #define ASSIGN_CONTROL_REGS \
-        ASSIGN_REG(Rbp)     \
-        ASSIGN_REG(Rip)     \
-        ASSIGN_REG(EFlags)  \
-        ASSIGN_REG(Rsp)     \
+    ASSIGN_REG(Rbp)     \
+    ASSIGN_REG(Rip)     \
+    ASSIGN_REG(SegCs)   \
+    ASSIGN_REG(EFlags)  \
+    ASSIGN_REG(Rsp)     \
 
-#else // __HAIKU__
-#define ASSIGN_CONTROL_REGS \
-        ASSIGN_REG(Rbp)     \
-        ASSIGN_REG(Rip)     \
-        ASSIGN_REG(SegCs)   \
-        ASSIGN_REG(EFlags)  \
-        ASSIGN_REG(Rsp)     \
-
-#endif // __HAIKU__
 #define ASSIGN_INTEGER_REGS \
     ASSIGN_REG(Rdi)     \
     ASSIGN_REG(Rsi)     \
@@ -180,6 +168,7 @@ typedef int __ptrace_request;
 
 #define ASSIGN_INTEGER_REGS \
     ASSIGN_REG(R0)     \
+    ASSIGN_REG(Tp)     \
     ASSIGN_REG(A0)     \
     ASSIGN_REG(A1)     \
     ASSIGN_REG(A2)     \
@@ -316,11 +305,6 @@ typedef int __ptrace_request;
     ASSIGN_REG(R29)     \
     ASSIGN_REG(R30)
 
-#elif defined(HOST_WASM)
-#define ASSIGN_CONTROL_REGS  \
-    ASSERT("WASM does not have registers");
-#define ASSIGN_INTEGER_REGS  \
-    ASSERT("WASM does not have registers");
 #else
 #error "Don't know how to assign registers on this architecture"
 #endif
@@ -394,59 +378,6 @@ bool Xstate_IsAvx512Supported()
     }
 
     return Xstate_Avx512Supported == 1;
-#endif
-}
-
-bool Xstate_IsApxSupported()
-{
-#if defined(HAVE_MACH_EXCEPTIONS)
-    // TODO-xarch-apx: I assume OSX will never support APX
-    return false;
-#else
-    static int Xstate_ApxSupported = -1;
-
-    if (Xstate_ApxSupported == -1)
-    {
-        int cpuidInfo[4];
-
-        const int CPUID_EAX = 0;
-        const int CPUID_EBX = 1;
-        const int CPUID_ECX = 2;
-        const int CPUID_EDX = 3;
-
-#ifdef _DEBUG
-        // We should only be calling this function if we know the extended feature exists
-        __cpuid(cpuidInfo, 0x00000000);
-        _ASSERTE(static_cast<uint32_t>(cpuidInfo[CPUID_EAX]) >= 0x0D);
-#endif // _DEBUG
-
-        __cpuidex(cpuidInfo, 0x0000000D, 0x00000000);
-
-        if ((cpuidInfo[CPUID_EAX] & XSTATE_MASK_APX) == XSTATE_MASK_APX)
-        {
-            // Knight's Landing and Knight's Mill shipped without all 5 of the "baseline"
-            // AVX-512 ISAs that are required by x86-64-v4. Specifically they do not include
-            // BW, DQ, or VL. RyuJIT currently requires all 5 ISAs to be present so we will
-            // only enable Avx512 context save/restore when all exist. This requires us to
-            // query which ISAs are actually supported to ensure they're all present.
-
-            __cpuidex(cpuidInfo, 0x00000007, 0x00000001);
-
-            const int requiredApxFlags = (1 << 21);
-
-            if ((cpuidInfo[CPUID_EDX] & requiredApxFlags) == requiredApxFlags)
-            {
-                Xstate_ApxSupported = 1;
-            }
-        }
-
-        if (Xstate_ApxSupported == -1)
-        {
-            Xstate_ApxSupported = 0;
-        }
-    }
-
-    return Xstate_ApxSupported == 1;
 #endif
 }
 #endif // XSTATE_SUPPORTED || defined(HOST_AMD64) && defined(HAVE_MACH_EXCEPTIONS)
@@ -729,7 +660,7 @@ void CONTEXTToNativeContext(CONST CONTEXT *lpContext, native_context_t *native)
 #endif // (HAVE_GREGSET_T || HAVE___GREGSET_T) && !HOST_S390X && !HOST_LOONGARCH64 && !HOST_RISCV64 && !HOST_POWERPC64
 #endif // !HAVE_FPREGS_WITH_CW
 
-#if defined(HOST_ARM64) && !defined(__APPLE__) && !defined(TARGET_FREEBSD)
+#if defined(HOST_ARM64) && !defined(TARGET_OSX) && !defined(TARGET_FREEBSD)
     sve_context* sve = nullptr;
     fpsimd_context* fp = nullptr;
     if (((lpContext->ContextFlags & CONTEXT_FLOATING_POINT) == CONTEXT_FLOATING_POINT) ||
@@ -737,7 +668,7 @@ void CONTEXTToNativeContext(CONST CONTEXT *lpContext, native_context_t *native)
     {
         GetNativeSigSimdContext(native, &fp, &sve);
     }
-#endif // HOST_ARM64 && !__APPLE__ && !TARGET_FREEBSD
+#endif // HOST_ARM64 && !TARGET_OSX && !TARGET_FREEBSD
 
     if ((lpContext->ContextFlags & CONTEXT_FLOATING_POINT) == CONTEXT_FLOATING_POINT)
     {
@@ -767,7 +698,7 @@ void CONTEXTToNativeContext(CONST CONTEXT *lpContext, native_context_t *native)
             FPREG_Xmm(native, i) = lpContext->FltSave.XmmRegisters[i];
         }
 #elif defined(HOST_ARM64)
-#ifdef __APPLE__
+#ifdef TARGET_OSX
         _STRUCT_ARM_NEON_STATE64* fp = GetNativeSigSimdContext(native);
         fp->__fpsr = lpContext->Fpsr;
         fp->__fpcr = lpContext->Fpcr;
@@ -786,7 +717,7 @@ void CONTEXTToNativeContext(CONST CONTEXT *lpContext, native_context_t *native)
                 *(NEON128*) &fp->fp_q[i] = lpContext->V[i];
             }
         }
-#else // __APPLE__
+#else // TARGET_OSX
         if (fp)
         {
             fp->fpsr = lpContext->Fpsr;
@@ -796,7 +727,7 @@ void CONTEXTToNativeContext(CONST CONTEXT *lpContext, native_context_t *native)
                 *(NEON128*) &fp->vregs[i] = lpContext->V[i];
             }
         }
-#endif // __APPLE__
+#endif // TARGET_OSX
 #elif defined(HOST_ARM)
         VfpSigFrame* fp = GetNativeSigSimdContext(native);
         if (fp)
@@ -878,18 +809,6 @@ void CONTEXTToNativeContext(CONST CONTEXT *lpContext, native_context_t *native)
                 dest = FPREG_Xstate_Hi16Zmm(native, &size);
                 _ASSERT(size == (sizeof(M512) * 16));
                 memcpy_s(dest, sizeof(M512) * 16, &lpContext->Zmm16, sizeof(M512) * 16);
-
-#ifndef TARGET_OSX
-                // TODO-xarch-apx: I suppose OSX will not support APX.
-                if (FPREG_HasApxRegisters(native))
-                {
-                    _ASSERT((lpContext->XStateFeaturesMask & XSTATE_MASK_APX) == XSTATE_MASK_APX);
-
-                    dest = FPREG_Xstate_Egpr(native, &size);
-                    _ASSERT(size == (sizeof(DWORD64) * 16));
-                    memcpy_s(dest, sizeof(DWORD64) * 16, &lpContext->Egpr16, sizeof(DWORD64) * 16);
-                }
-#endif //  !TARGET_OSX
             }
         }
 #elif defined(HOST_ARM64)
@@ -924,7 +843,7 @@ void CONTEXTToNativeContext(CONST CONTEXT *lpContext, native_context_t *native)
 
 }
 
-#if defined(HOST_64BIT) && defined(HOST_ARM64) && !defined(TARGET_FREEBSD) && !defined(__APPLE__)
+#if defined(HOST_64BIT) && defined(HOST_ARM64) && !defined(TARGET_FREEBSD) && !defined(TARGET_OSX)
 /*++
 Function :
     _GetNativeSigSimdContext
@@ -1014,7 +933,7 @@ void _GetNativeSigSimdContext(uint8_t *data, uint32_t size, fpsimd_context **fp_
         *sve_ptr = sve;
     }
 }
-#endif // HOST_64BIT && HOST_ARM64 && !TARGET_FREEBSD && !__APPLE__
+#endif // HOST_64BIT && HOST_ARM64 && !TARGET_FREEBSD && !TARGET_OSX
 
 /*++
 Function :
@@ -1081,7 +1000,7 @@ void CONTEXTFromNativeContext(const native_context_t *native, LPCONTEXT lpContex
 #endif // (HAVE_GREGSET_T || HAVE___GREGSET_T) && !HOST_S390X && !HOST_LOONGARCH64 && !HOST_RISCV64 && !HOST_POWERPC64 && !HOST_POWERPC64
 #endif // !HAVE_FPREGS_WITH_CW
 
-#if defined(HOST_ARM64) && !defined(__APPLE__) && !defined(TARGET_FREEBSD)
+#if defined(HOST_ARM64) && !defined(TARGET_OSX) && !defined(TARGET_FREEBSD)
     const fpsimd_context* fp = nullptr;
     const sve_context* sve = nullptr;
     if (((lpContext->ContextFlags & CONTEXT_FLOATING_POINT) == CONTEXT_FLOATING_POINT) ||
@@ -1089,7 +1008,7 @@ void CONTEXTFromNativeContext(const native_context_t *native, LPCONTEXT lpContex
     {
         GetConstNativeSigSimdContext(native, &fp, &sve);
     }
-#endif // HOST_ARM64 && !__APPLE__ && !TARGET_FREEBSD
+#endif // HOST_ARM64 && !TARGET_OSX && !TARGET_FREEBSD
 
     if ((contextFlags & CONTEXT_FLOATING_POINT) == CONTEXT_FLOATING_POINT)
     {
@@ -1118,7 +1037,7 @@ void CONTEXTFromNativeContext(const native_context_t *native, LPCONTEXT lpContex
             lpContext->FltSave.XmmRegisters[i] = FPREG_Xmm(native, i);
         }
 #elif defined(HOST_ARM64)
-#ifdef __APPLE__
+#ifdef TARGET_OSX
         const _STRUCT_ARM_NEON_STATE64* fp = GetConstNativeSigSimdContext(native);
         lpContext->Fpsr = fp->__fpsr;
         lpContext->Fpcr = fp->__fpcr;
@@ -1137,7 +1056,7 @@ void CONTEXTFromNativeContext(const native_context_t *native, LPCONTEXT lpContex
                 lpContext->V[i] = *(NEON128*) &fp->fp_q[i];
             }
         }
-#else // __APPLE__
+#else // TARGET_OSX
         if (fp)
         {
             lpContext->Fpsr = fp->fpsr;
@@ -1147,7 +1066,7 @@ void CONTEXTFromNativeContext(const native_context_t *native, LPCONTEXT lpContex
                 lpContext->V[i] = *(NEON128*) &fp->vregs[i];
             }
         }
-#endif // __APPLE__
+#endif // TARGET_OSX
 #elif defined(HOST_ARM)
         const VfpSigFrame* fp = GetConstNativeSigSimdContext(native);
         if (fp)
@@ -1238,16 +1157,6 @@ void CONTEXTFromNativeContext(const native_context_t *native, LPCONTEXT lpContex
 
                 lpContext->XStateFeaturesMask |= XSTATE_MASK_AVX512;
             }
-#if !defined(TARGET_OSX)
-            if (FPREG_HasApxRegisters(native))
-            {
-                src = FPREG_Xstate_Egpr(native, &size);
-                _ASSERT(size == (sizeof(DWORD64) * 16));
-                memcpy_s(&lpContext->Egpr16, sizeof(DWORD64) * 16, src, sizeof(DWORD64) * 16);
-
-                lpContext->XStateFeaturesMask |= XSTATE_MASK_APX;
-            }
-#endif // TARGET_OSX
         }
 #elif defined(HOST_ARM64)
         if (sve && sve->head.size >= SVE_SIG_CONTEXT_SIZE(sve_vq_from_vl(sve->vl)))
@@ -1791,12 +1700,6 @@ CONTEXT_GetThreadContextFromThreadState(
 
                 // AMD64's FLOATING_POINT includes the xmm registers.
                 memcpy(&lpContext->Xmm0, &pState->__fpu_xmm0, 16 * 16);
-
-                if (threadStateFlavor == x86_FLOAT_STATE64)
-                {
-                     // There was just a floating point state, so make sure the CONTEXT_XSTATE is not set
-                     lpContext->ContextFlags &= ~(CONTEXT_XSTATE & CONTEXT_AREA_MASK);
-                }
             }
             break;
         }
@@ -2188,10 +2091,6 @@ DBG_FlushInstructionCache(
 #endif
 
     syscall(__NR_riscv_flush_icache, (char *)lpBaseAddress, (char *)((INT_PTR)lpBaseAddress + dwSize), 0 /* all harts */);
-#elif defined(HOST_WASM)
-    // do nothing, no instruction cache to flush
-#elif defined(HOST_APPLE) && !defined(HOST_OSX)
-    sys_icache_invalidate((void *)lpBaseAddress, dwSize);
 #else
     __builtin___clear_cache((char *)lpBaseAddress, (char *)((INT_PTR)lpBaseAddress + dwSize));
 #endif
@@ -2204,13 +2103,9 @@ CONTEXT& CONTEXT::operator=(const CONTEXT& ctx)
     size_t copySize;
     if (ctx.ContextFlags & CONTEXT_XSTATE & CONTEXT_AREA_MASK)
     {
-        if ((ctx.XStateFeaturesMask & XSTATE_MASK_APX) == XSTATE_MASK_APX)
+        if ((ctx.XStateFeaturesMask & XSTATE_MASK_AVX512) == XSTATE_MASK_AVX512)
         {
             copySize = sizeof(CONTEXT);
-        }
-        else if ((ctx.XStateFeaturesMask & XSTATE_MASK_AVX512) == XSTATE_MASK_AVX512)
-        {
-            copySize = offsetof(CONTEXT, Egpr16);
         }
         else
         {

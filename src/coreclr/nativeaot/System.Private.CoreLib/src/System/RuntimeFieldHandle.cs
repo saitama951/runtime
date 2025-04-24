@@ -2,11 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
-using Internal.Metadata.NativeFormat;
 using Internal.Runtime.Augments;
 
 namespace System
@@ -31,7 +29,7 @@ namespace System
             return Equals((RuntimeFieldHandle)obj);
         }
 
-        public unsafe bool Equals(RuntimeFieldHandle handle)
+        public bool Equals(RuntimeFieldHandle handle)
         {
             if (_value == handle._value)
                 return true;
@@ -39,21 +37,26 @@ namespace System
             if (_value == IntPtr.Zero || handle._value == IntPtr.Zero)
                 return false;
 
-            FieldHandleInfo* thisInfo = ToFieldHandleInfo();
-            FieldHandleInfo* thatInfo = handle.ToFieldHandleInfo();
+            string fieldName1, fieldName2;
+            RuntimeTypeHandle declaringType1, declaringType2;
 
-            return thisInfo->DeclaringType.Equals(thatInfo->DeclaringType) && thisInfo->Handle.Equals(thatInfo->Handle);
+            RuntimeAugments.TypeLoaderCallbacks.GetRuntimeFieldHandleComponents(this, out declaringType1, out fieldName1);
+            RuntimeAugments.TypeLoaderCallbacks.GetRuntimeFieldHandleComponents(handle, out declaringType2, out fieldName2);
+
+            return declaringType1.Equals(declaringType2) && fieldName1 == fieldName2;
         }
 
-        public override unsafe int GetHashCode()
+        public override int GetHashCode()
         {
             if (_value == IntPtr.Zero)
                 return 0;
 
-            FieldHandleInfo* info = ToFieldHandleInfo();
+            string fieldName;
+            RuntimeTypeHandle declaringType;
+            RuntimeAugments.TypeLoaderCallbacks.GetRuntimeFieldHandleComponents(this, out declaringType, out fieldName);
 
-            int hashcode = info->DeclaringType.GetHashCode();
-            return (hashcode + int.RotateLeft(hashcode, 13)) ^ info->Handle.GetHashCode();
+            int hashcode = declaringType.GetHashCode();
+            return (hashcode + int.RotateLeft(hashcode, 13)) ^ fieldName.GetHashCode();
         }
 
         public static RuntimeFieldHandle FromIntPtr(IntPtr value) => new RuntimeFieldHandle(value);
@@ -76,19 +79,5 @@ namespace System
         {
             throw new PlatformNotSupportedException();
         }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal readonly unsafe FieldHandleInfo* ToFieldHandleInfo()
-        {
-            return (FieldHandleInfo*)_value;
-        }
-    }
-
-    [CLSCompliant(false)]
-    [StructLayout(LayoutKind.Sequential)]
-    public struct FieldHandleInfo
-    {
-        public RuntimeTypeHandle DeclaringType;
-        public FieldHandle Handle;
     }
 }

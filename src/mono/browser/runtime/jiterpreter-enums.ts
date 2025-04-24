@@ -21,8 +21,6 @@ export const enum JiterpCounter {
     BackBranchesNotEmitted,
     ElapsedGenerationMs,
     ElapsedCompilationMs,
-    SwitchTargetsOk,
-    SwitchTargetsFailed,
 }
 
 // keep in sync with jiterpreter.c, see mono_jiterp_get_member_offset
@@ -129,8 +127,6 @@ export const enum BailoutReason {
     Icall,
     UnexpectedRetIp,
     LeaveCheck,
-    SwitchSize,
-    SwitchTarget,
 }
 
 export const BailoutReasonNames = [
@@ -161,8 +157,6 @@ export const BailoutReasonNames = [
     "Icall",
     "UnexpectedRetIp",
     "LeaveCheck",
-    "SwitchSize",
-    "SwitchTarget",
 ];
 
 export const enum JitQueue {

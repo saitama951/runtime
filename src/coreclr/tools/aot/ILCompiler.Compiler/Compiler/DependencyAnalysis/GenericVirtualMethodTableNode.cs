@@ -53,8 +53,11 @@ namespace ILCompiler.DependencyAnalysis
             MethodDesc openCallingMethod = callingMethod.GetTypicalMethodDefinition();
             MethodDesc openImplementationMethod = implementationMethod.GetTypicalMethodDefinition();
 
-            factory.MetadataManager.GetNativeLayoutMetadataDependencies(ref dependencies, factory, openCallingMethod);
-            factory.MetadataManager.GetNativeLayoutMetadataDependencies(ref dependencies, factory, openImplementationMethod);
+            var openCallingMethodNameAndSig = factory.NativeLayout.MethodNameAndSignatureVertex(openCallingMethod);
+            var openImplementationMethodNameAndSig = factory.NativeLayout.MethodNameAndSignatureVertex(openImplementationMethod);
+
+            dependencies.Add(new DependencyListEntry(factory.NativeLayout.PlacedSignatureVertex(openCallingMethodNameAndSig), "gvm table calling method signature"));
+            dependencies.Add(new DependencyListEntry(factory.NativeLayout.PlacedSignatureVertex(openImplementationMethodNameAndSig), "gvm table implementation method signature"));
         }
 
         private void AddGenericVirtualMethodImplementation(MethodDesc callingMethod, MethodDesc implementationMethod)
@@ -113,11 +116,11 @@ namespace ILCompiler.DependencyAnalysis
                     uint targetTypeId = _externalReferences.GetIndex(factory.NecessaryTypeSymbol(implementationType));
                     vertex = nativeFormatWriter.GetTuple(vertex, nativeFormatWriter.GetUnsignedConstant(targetTypeId));
 
-                    int callingMethodToken = factory.MetadataManager.GetMetadataHandleForMethod(factory, callingMethod);
-                    vertex = nativeFormatWriter.GetTuple(vertex, nativeFormatWriter.GetUnsignedConstant((uint)callingMethodToken));
+                    var nameAndSig = factory.NativeLayout.PlacedSignatureVertex(factory.NativeLayout.MethodNameAndSignatureVertex(callingMethod));
+                    vertex = nativeFormatWriter.GetTuple(vertex, nativeFormatWriter.GetUnsignedConstant((uint)nameAndSig.SavedVertex.VertexOffset));
 
-                    int implementationMethodToken = factory.MetadataManager.GetMetadataHandleForMethod(factory, implementationMethod);
-                    vertex = nativeFormatWriter.GetTuple(vertex, nativeFormatWriter.GetUnsignedConstant((uint)implementationMethodToken));
+                    nameAndSig = factory.NativeLayout.PlacedSignatureVertex(factory.NativeLayout.MethodNameAndSignatureVertex(implementationMethod));
+                    vertex = nativeFormatWriter.GetTuple(vertex, nativeFormatWriter.GetUnsignedConstant((uint)nameAndSig.SavedVertex.VertexOffset));
 
                     int hashCode = callingMethod.OwningType.GetHashCode();
                     hashCode = ((hashCode << 13) ^ hashCode) ^ implementationType.GetHashCode();

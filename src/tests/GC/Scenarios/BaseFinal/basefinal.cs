@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit;
 /*******************************************************************************/
 /* Test:    BaseFinal
 /* Purpose: 1. if finalize() is called before the objects are GCed.
@@ -13,15 +12,14 @@ namespace DefaultNamespace {
     using System.Runtime.CompilerServices;
     using System.Collections.Generic;
 
-    public class BaseFinal
+    internal class BaseFinal
     {
 // disabling unused variable warning
 #pragma warning disable 0414
         internal static Object StObj;
 #pragma warning restore 0414
 
-        [Fact]
-        public static int TestEntryPoint()
+        public static int Main()
         {
             Console.WriteLine("Test should return with ExitCode 100 ...");
             CreateObj temp = new CreateObj();

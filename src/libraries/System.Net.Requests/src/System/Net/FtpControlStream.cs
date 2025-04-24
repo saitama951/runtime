@@ -6,8 +6,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Net.Sockets;
-using System.Net.Security;
-using System.Security.Authentication;
 using System.Text;
 
 namespace System.Net
@@ -29,9 +27,8 @@ namespace System.Net
     internal sealed class FtpControlStream : CommandStream
     {
         private Socket? _dataSocket;
-        private NetworkStream? _dataStream;
         private IPEndPoint? _passiveEndPoint;
-        private SslStream? _sslStream;
+        private TlsStream? _tlsStream;
 
         private StringBuilder? _bannerMessage;
         private StringBuilder? _welcomeMessage;
@@ -150,7 +147,7 @@ namespace System.Net
             FtpControlStream connection = (FtpControlStream)asyncResult.AsyncState!;
             try
             {
-                connection._sslStream!.EndAuthenticateAsClient(asyncResult);
+                connection._tlsStream!.EndAuthenticateAsClient(asyncResult);
                 connection.ContinueCommandPipeline();
             }
             catch (Exception e)
@@ -168,51 +165,38 @@ namespace System.Net
                 throw new InternalException();
 
             //
-            // Re-entered pipeline with completed read on the SslStream
+            // Re-entered pipeline with completed read on the TlsStream
             //
-            if (_sslStream != null)
+            if (_tlsStream != null)
             {
-                Debug.Assert(_dataStream != null, "Data stream is null");
-
-                stream = new FtpDataStream(_sslStream, _dataStream!, (FtpWebRequest)_request!, IsFtpDataStreamWriteable());
-                _sslStream = null;
+                stream = new FtpDataStream(_tlsStream, (FtpWebRequest)_request!, IsFtpDataStreamWriteable());
+                _tlsStream = null;
                 return PipelineInstruction.GiveStream;
             }
 
-            _dataStream = new NetworkStream(_dataSocket, true);
+            NetworkStream networkStream = new NetworkStream(_dataSocket, true);
 
             if (UsingSecureStream)
             {
                 FtpWebRequest request = (FtpWebRequest)_request!;
 
-#pragma warning disable SYSLIB0014 // ServicePointManager is obsolete
-                SslStream sslStream = new SslStream(_dataStream, false, ServicePointManager.ServerCertificateValidationCallback);
+                TlsStream tlsStream = new TlsStream(networkStream, _dataSocket, request.RequestUri.Host, request.ClientCertificates);
+                networkStream = tlsStream;
 
                 if (_isAsync)
                 {
-                    _sslStream = sslStream;
+                    _tlsStream = tlsStream;
 
-                    sslStream.BeginAuthenticateAsClient(
-                        request.RequestUri.Host,
-                        request.ClientCertificates,
-                        (SslProtocols)ServicePointManager.SecurityProtocol, // enums use same values
-                        ServicePointManager.CheckCertificateRevocationList,
-                        s_SSLHandshakeCallback,
-                        this);
+                    tlsStream.BeginAuthenticateAsClient(s_SSLHandshakeCallback, this);
                     return PipelineInstruction.Pause;
                 }
                 else
                 {
-                    sslStream.AuthenticateAsClient(
-                        request.RequestUri.Host,
-                        request.ClientCertificates,
-                        (SslProtocols)ServicePointManager.SecurityProtocol, // enums use same values
-                        ServicePointManager.CheckCertificateRevocationList);
+                    tlsStream.AuthenticateAsClient();
                 }
-#pragma warning restore SYSLIB0014 // ServicePointManager is obsolete
             }
 
-            stream = new FtpDataStream((Stream?)_sslStream ?? _dataStream, _dataStream, (FtpWebRequest)_request!, IsFtpDataStreamWriteable());
+            stream = new FtpDataStream(networkStream, (FtpWebRequest)_request!, IsFtpDataStreamWriteable());
             return PipelineInstruction.GiveStream;
         }
 
@@ -227,8 +211,7 @@ namespace System.Net
 
             _dataSocket = null;
             _passiveEndPoint = null;
-            _sslStream = null;
-            _dataStream = null;
+            _tlsStream = null;
 
             base.ClearState();
         }
@@ -387,51 +370,39 @@ namespace System.Net
             // OR set us up for SSL/TLS, after this we'll be writing securely
             else if (status == FtpStatusCode.ServerWantsSecureSession)
             {
-                // If NetworkStream is a SslStream, then this must be in the async callback
+                // If NetworkStream is a TlsStream, then this must be in the async callback
                 // from completing the SSL handshake.
                 // So just let the pipeline continue.
-                if (!(Stream is SslStream))
+                if (!(NetworkStream is TlsStream))
                 {
                     FtpWebRequest request = (FtpWebRequest)_request!;
-#pragma warning disable SYSLIB0014 // ServicePointManager is obsolete
-                    SslStream sslStream = new SslStream(Stream, false, ServicePointManager.ServerCertificateValidationCallback);
+                    TlsStream tlsStream = new TlsStream(NetworkStream, Socket, request.RequestUri.Host, request.ClientCertificates);
 
                     if (_isAsync)
                     {
-                        sslStream.BeginAuthenticateAsClient(
-                            request.RequestUri.Host,
-                            request.ClientCertificates,
-                            (SslProtocols)ServicePointManager.SecurityProtocol, // enums use same values
-                            ServicePointManager.CheckCertificateRevocationList,
-                            ar =>
+                        tlsStream.BeginAuthenticateAsClient(ar =>
+                        {
+                            try
                             {
-                                try
-                                {
-                                    sslStream.EndAuthenticateAsClient(ar);
-                                    Stream = sslStream;
-                                    this.ContinueCommandPipeline();
-                                }
-                                catch (Exception e)
-                                {
-                                    this.CloseSocket();
-                                    this.InvokeRequestCallback(e);
-                                }
-                            },
-                            null);
+                                tlsStream.EndAuthenticateAsClient(ar);
+                                NetworkStream = tlsStream;
+                                this.ContinueCommandPipeline();
+                            }
+                            catch (Exception e)
+                            {
+                                this.CloseSocket();
+                                this.InvokeRequestCallback(e);
+                            }
+                        }, null);
 
                         return PipelineInstruction.Pause;
                     }
                     else
                     {
-                        sslStream.AuthenticateAsClient(
-                            request.RequestUri.Host,
-                            request.ClientCertificates,
-                            (SslProtocols)ServicePointManager.SecurityProtocol, // enums use same values
-                            ServicePointManager.CheckCertificateRevocationList);
-                        Stream = sslStream;
+                        tlsStream.AuthenticateAsClient();
+                        NetworkStream = tlsStream;
                     }
                 }
-#pragma warning restore SYSLIB0014 // ServicePointManager is obsolete
             }
             // OR parse out the file size or file time, usually a result of sending SIZE/MDTM commands
             else if (status == FtpStatusCode.FileStatus)

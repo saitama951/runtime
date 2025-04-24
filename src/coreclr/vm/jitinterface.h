@@ -47,8 +47,6 @@ class CalledMethod;
 
 #include "genericdict.h"
 
-void FlushVirtualFunctionPointerCaches();
-
 inline FieldDesc* GetField(CORINFO_FIELD_HANDLE fieldHandle)
 {
     LIMITED_METHOD_CONTRACT;
@@ -66,6 +64,7 @@ bool SigInfoFlagsAreValid (CORINFO_SIG_INFO *sig)
 
 
 void InitJITHelpers1();
+void InitJITHelpers2();
 
 PCODE UnsafeJitFunction(PrepareCodeConfig* config,
                         COR_ILMETHOD_DECODER* header,
@@ -83,9 +82,24 @@ BOOL LoadDynamicInfoEntry(Module *currentModule,
                           SIZE_T *entry,
                           BOOL mayUsePrecompiledNDirectMethods = TRUE);
 
-// These must be implemented in assembly and generate a TransitionBlock then calling JIT_PatchpointWorkerWithPolicy in order to actually be used.
-EXTERN_C FCDECL2(void, JIT_Patchpoint, int* counter, int ilOffset);
-EXTERN_C FCDECL1(void, JIT_PartialCompilationPatchpoint, int ilOffset);
+//
+// The legacy x86 monitor helpers do not need a state argument
+//
+#if !defined(TARGET_X86)
+
+#define FCDECL_MONHELPER(funcname, arg) FCDECL2(void, funcname, arg, BYTE* pbLockTaken)
+#define HCIMPL_MONHELPER(funcname, arg) HCIMPL2(void, funcname, arg, BYTE* pbLockTaken)
+#define MONHELPER_STATE(x) x
+#define MONHELPER_ARG pbLockTaken
+
+#else
+
+#define FCDECL_MONHELPER(funcname, arg) FCDECL1(void, funcname, arg)
+#define HCIMPL_MONHELPER(funcname, arg) HCIMPL1(void, funcname, arg)
+#define MONHELPER_STATE(x)
+#define MONHELPER_ARG NULL
+
+#endif // TARGET_X86
 
 //
 // JIT HELPER ALIASING FOR PORTABILITY.
@@ -93,19 +107,65 @@ EXTERN_C FCDECL1(void, JIT_PartialCompilationPatchpoint, int ilOffset);
 // The portable helper is used if the platform does not provide optimized implementation.
 //
 
-EXTERN_C FCDECL0(void, JIT_PollGC);
+#ifndef JIT_MonEnter
+#define JIT_MonEnter JIT_MonEnter_Portable
+#endif
+EXTERN_C FCDECL1(void, JIT_MonEnter, Object *obj);
+EXTERN_C FCDECL1(void, JIT_MonEnter_Portable, Object *obj);
+
+#ifndef JIT_MonEnterWorker
+#define JIT_MonEnterWorker JIT_MonEnterWorker_Portable
+#endif
+EXTERN_C FCDECL_MONHELPER(JIT_MonEnterWorker, Object *obj);
+EXTERN_C FCDECL_MONHELPER(JIT_MonEnterWorker_Portable, Object *obj);
+
+#ifndef JIT_MonReliableEnter
+#define JIT_MonReliableEnter JIT_MonReliableEnter_Portable
+#endif
+EXTERN_C FCDECL2(void, JIT_MonReliableEnter, Object* obj, BYTE *tookLock);
+EXTERN_C FCDECL2(void, JIT_MonReliableEnter_Portable, Object* obj, BYTE *tookLock);
+
+#ifndef JIT_MonTryEnter
+#define JIT_MonTryEnter JIT_MonTryEnter_Portable
+#endif
+EXTERN_C FCDECL3(void, JIT_MonTryEnter, Object *obj, INT32 timeout, BYTE* pbLockTaken);
+EXTERN_C FCDECL3(void, JIT_MonTryEnter_Portable, Object *obj, INT32 timeout, BYTE* pbLockTaken);
+
+#ifndef JIT_MonExit
+#define JIT_MonExit JIT_MonExit_Portable
+#endif
+EXTERN_C FCDECL1(void, JIT_MonExit, Object *obj);
+EXTERN_C FCDECL1(void, JIT_MonExit_Portable, Object *obj);
+
+#ifndef JIT_MonExitWorker
+#define JIT_MonExitWorker JIT_MonExitWorker_Portable
+#endif
+EXTERN_C FCDECL_MONHELPER(JIT_MonExitWorker, Object *obj);
+EXTERN_C FCDECL_MONHELPER(JIT_MonExitWorker_Portable, Object *obj);
+
+#ifndef JIT_MonEnterStatic
+#define JIT_MonEnterStatic JIT_MonEnterStatic_Portable
+#endif
+EXTERN_C FCDECL_MONHELPER(JIT_MonEnterStatic, AwareLock *lock);
+EXTERN_C FCDECL_MONHELPER(JIT_MonEnterStatic_Portable, AwareLock *lock);
+
+#ifndef JIT_MonExitStatic
+#define JIT_MonExitStatic JIT_MonExitStatic_Portable
+#endif
+EXTERN_C FCDECL_MONHELPER(JIT_MonExitStatic, AwareLock *lock);
+EXTERN_C FCDECL_MONHELPER(JIT_MonExitStatic_Portable, AwareLock *lock);
 
 #ifndef JIT_GetGCStaticBase
-#define JIT_GetGCStaticBase NULL
-#else
-EXTERN_C FCDECL1(void*, JIT_GetGCStaticBase, DynamicStaticsInfo* pStaticsInfo);
+#define JIT_GetGCStaticBase JIT_GetGCStaticBase_Portable
 #endif
+EXTERN_C FCDECL1(void*, JIT_GetGCStaticBase, MethodTable *pMT);
+EXTERN_C FCDECL1(void*, JIT_GetGCStaticBase_Portable, MethodTable *pMT);
 
 #ifndef JIT_GetNonGCStaticBase
-#define JIT_GetNonGCStaticBase NULL
-#else
-EXTERN_C FCDECL1(void*, JIT_GetNonGCStaticBase, DynamicStaticsInfo* pStaticsInfo);
+#define JIT_GetNonGCStaticBase JIT_GetNonGCStaticBase_Portable
 #endif
+EXTERN_C FCDECL1(void*, JIT_GetNonGCStaticBase, MethodTable *pMT);
+EXTERN_C FCDECL1(void*, JIT_GetNonGCStaticBase_Portable, MethodTable *pMT);
 
 #ifndef JIT_GetGCStaticBaseNoCtor
 #define JIT_GetGCStaticBaseNoCtor JIT_GetGCStaticBaseNoCtor_Portable
@@ -120,16 +180,16 @@ EXTERN_C FCDECL1(void*, JIT_GetNonGCStaticBaseNoCtor, MethodTable *pMT);
 EXTERN_C FCDECL1(void*, JIT_GetNonGCStaticBaseNoCtor_Portable, MethodTable *pMT);
 
 #ifndef JIT_GetDynamicGCStaticBase
-#define JIT_GetDynamicGCStaticBase NULL
-#else
-EXTERN_C FCDECL1(void*, JIT_GetDynamicGCStaticBase, DynamicStaticsInfo* pStaticsInfo);
+#define JIT_GetDynamicGCStaticBase JIT_GetDynamicGCStaticBase_Portable
 #endif
+EXTERN_C FCDECL1(void*, JIT_GetDynamicGCStaticBase, DynamicStaticsInfo* pStaticsInfo);
+EXTERN_C FCDECL1(void*, JIT_GetDynamicGCStaticBase_Portable, DynamicStaticsInfo* pStaticsInfo);
 
 #ifndef JIT_GetDynamicNonGCStaticBase
-#define JIT_GetDynamicNonGCStaticBase NULL
-#else
-EXTERN_C FCDECL1(void*, JIT_GetDynamicNonGCStaticBase, DynamicStaticsInfo* pStaticsInfo);
+#define JIT_GetDynamicNonGCStaticBase JIT_GetDynamicNonGCStaticBase_Portable
 #endif
+EXTERN_C FCDECL1(void*, JIT_GetDynamicNonGCStaticBase, DynamicStaticsInfo* pStaticsInfo);
+EXTERN_C FCDECL1(void*, JIT_GetDynamicNonGCStaticBase_Portable, DynamicStaticsInfo* pStaticsInfo);
 
 #ifndef JIT_GetDynamicGCStaticBaseNoCtor
 #define JIT_GetDynamicGCStaticBaseNoCtor JIT_GetDynamicGCStaticBaseNoCtor_Portable
@@ -153,8 +213,12 @@ extern FCDECL2(Object*, JIT_NewArr1VC_MP_FastPortable, CORINFO_CLASS_HANDLE arra
 extern FCDECL2(Object*, JIT_NewArr1OBJ_MP_FastPortable, CORINFO_CLASS_HANDLE arrayMT, INT_PTR size);
 extern FCDECL2(Object*, JIT_NewArr1, CORINFO_CLASS_HANDLE arrayMT, INT_PTR size);
 
+EXTERN_C FCDECL_MONHELPER(JITutil_MonEnterWorker, Object* obj);
 EXTERN_C FCDECL2(void, JITutil_MonReliableEnter, Object* obj, BYTE* pbLockTaken);
 EXTERN_C FCDECL3(void, JITutil_MonTryEnter, Object* obj, INT32 timeOut, BYTE* pbLockTaken);
+EXTERN_C FCDECL_MONHELPER(JITutil_MonExitWorker, Object* obj);
+EXTERN_C FCDECL_MONHELPER(JITutil_MonSignal, AwareLock* lock);
+EXTERN_C FCDECL_MONHELPER(JITutil_MonContention, AwareLock* awarelock);
 EXTERN_C FCDECL2(void, JITutil_MonReliableContention, AwareLock* awarelock, BYTE* pbLockTaken);
 
 EXTERN_C FCDECL1(void*, JIT_GetNonGCStaticBase_Helper, MethodTable *pMT);
@@ -176,11 +240,19 @@ extern "C" FCDECL2(VOID, JIT_CheckedWriteBarrier, Object **dst, Object *ref);
 extern "C" FCDECL2(VOID, JIT_WriteBarrier, Object **dst, Object *ref);
 extern "C" FCDECL2(VOID, JIT_WriteBarrierEnsureNonHeapTarget, Object **dst, Object *ref);
 
-// ARM64 JIT_WriteBarrier uses special ABI and thus is not callable directly
+extern "C" FCDECL2(Object*, ChkCastAny_NoCacheLookup, CORINFO_CLASS_HANDLE type, Object* obj);
+extern "C" FCDECL2(Object*, IsInstanceOfAny_NoCacheLookup, CORINFO_CLASS_HANDLE type, Object* obj);
+extern "C" FCDECL2(LPVOID, Unbox_Helper, CORINFO_CLASS_HANDLE type, Object* obj);
+extern "C" FCDECL2(void, JIT_Unbox_TypeTest, CORINFO_CLASS_HANDLE type, CORINFO_CLASS_HANDLE boxType);
+extern "C" FCDECL3(void, JIT_Unbox_Nullable, void * destPtr, CORINFO_CLASS_HANDLE type, Object* obj);
+
+// ARM64 JIT_WriteBarrier uses speciall ABI and thus is not callable directly
 // Copied write barriers must be called at a different location
 extern "C" FCDECL2(VOID, JIT_WriteBarrier_Callable, Object **dst, Object *ref);
-
 #define WriteBarrier_Helper JIT_WriteBarrier_Callable
+
+extern "C" FCDECL1(void, JIT_InternalThrow, unsigned exceptNum);
+extern "C" FCDECL1(void*, JIT_InternalThrowFromHelper, unsigned exceptNum);
 
 #ifdef TARGET_AMD64
 
@@ -298,19 +370,24 @@ extern "C"
 {
 #ifndef FEATURE_EH_FUNCLETS
     void STDCALL JIT_EndCatch();               // JIThelp.asm/JIThelp.s
-#endif // FEATURE_EH_FUNCLETS
+#endif // TARGET_X86
 
     void STDCALL JIT_ByRefWriteBarrier();      // JIThelp.asm/JIThelp.s
 
-#if defined(TARGET_X86) && !defined(UNIX_X86_ABI)
+#if defined(TARGET_AMD64) || defined(TARGET_ARM)
+
+    FCDECL2VA(void, JIT_TailCall, PCODE copyArgs, PCODE target);
+
+#else // TARGET_AMD64 || TARGET_ARM
+
     void STDCALL JIT_TailCall();                    // JIThelp.asm
-#endif // defined(TARGET_X86) && !defined(UNIX_X86_ABI)
+
+#endif // TARGET_AMD64 || TARGET_ARM
 
     void STDMETHODCALLTYPE JIT_ProfilerEnterLeaveTailcallStub(UINT_PTR ProfilerHandle);
 #if !defined(TARGET_ARM64) && !defined(TARGET_LOONGARCH64) && !defined(TARGET_RISCV64)
-    // TODO: implement stack probing for other architectures https://github.com/dotnet/runtime/issues/13519
     void STDCALL JIT_StackProbe();
-#endif // !defined(TARGET_ARM64) && !defined(TARGET_LOONGARCH64) && !defined(TARGET_RISCV64)
+#endif // TARGET_ARM64
 };
 
 /*********************************************************************/
@@ -375,11 +452,6 @@ public:
     CORINFO_CLASS_HANDLE getDefaultEqualityComparerClassHelper(
         CORINFO_CLASS_HANDLE elemType
         );
-
-    CORINFO_CLASS_HANDLE getSZArrayHelperEnumeratorClassHelper(
-        CORINFO_CLASS_HANDLE elemType
-        );
-
 
     CorInfoType getFieldTypeInternal (CORINFO_FIELD_HANDLE field, CORINFO_CLASS_HANDLE* structType = NULL,CORINFO_CLASS_HANDLE owner = NULL);
 
@@ -446,6 +518,16 @@ public:
     void setJitFlags(const CORJIT_FLAGS& jitFlags);
 
 private:
+    // Shrinking these buffers drastically reduces the amount of stack space
+    // required for each instance of the interpreter, and thereby reduces SOs.
+#ifdef FEATURE_INTERPRETER
+#define CLS_STRING_SIZE 8  // force heap allocation
+#define CLS_BUFFER_SIZE SBUFFER_PADDED_SIZE(8)
+#else
+#define CLS_STRING_SIZE MAX_CLASSNAME_LENGTH
+#define CLS_BUFFER_SIZE MAX_CLASSNAME_LENGTH
+#endif
+
 #ifdef _DEBUG
     InlineSString<MAX_CLASSNAME_LENGTH> ssClsNameBuff;
     InlineSString<MAX_CLASSNAME_LENGTH> ssClsNameBuffUTF8;
@@ -505,64 +587,79 @@ protected:
 /*********************************************************************/
 
 class  EEJitManager;
-class  InterpreterJitManager;
-class  EECodeGenManager;
 struct  HeapList;
-struct CodeHeader;
+struct _hpCodeHdr;
+typedef struct _hpCodeHdr CodeHeader;
 
-class CEECodeGenInfo : public CEEInfo
+// CEEJitInfo is the concrete implementation of callbacks that the EE must provide for the JIT to do its
+// work.   See code:ICorJitInfo#JitToEEInterface for more on this interface.
+class CEEJitInfo : public CEEInfo
 {
 public:
     // ICorJitInfo stuff
-    CEECodeGenInfo(MethodDesc* fd, COR_ILMETHOD_DECODER* header, EECodeGenManager* jm, bool allowInlining = true)
-        : CEEInfo(fd, allowInlining),
-          m_jitManager(jm),
-          m_CodeHeader(NULL),
-          m_CodeHeaderRW(NULL),
-          m_codeWriteBufferSize(0),
-          m_pRealCodeHeader(NULL),
-          m_pCodeHeap(NULL),
-          m_ILHeader(header),
-          m_GCinfo_len(0),
-          m_EHinfo_len(0),
-          m_iOffsetMapping(0),
-          m_pOffsetMapping(NULL),
-          m_iNativeVarInfo(0),
-          m_pNativeVarInfo(NULL),
-          m_inlineTreeNodes(NULL),
-          m_numInlineTreeNodes(0),
-          m_richOffsetMappings(NULL),
-          m_numRichOffsetMappings(0),
-          m_gphCache()
-    {
-        CONTRACTL
-        {
-            NOTHROW;
-            GC_NOTRIGGER;
-            MODE_ANY;
-        } CONTRACTL_END;
-    }
 
-    ~CEECodeGenInfo()
-    {
-        CONTRACTL
-        {
-            NOTHROW;
-            GC_NOTRIGGER;
-            MODE_ANY;
-        } CONTRACTL_END;
+    void allocMem (AllocMemArgs *pArgs) override final;
 
-        if (m_CodeHeaderRW != m_CodeHeader)
-            freeArrayInternal(m_CodeHeaderRW);
+    void reserveUnwindInfo(bool isFunclet, bool isColdCode, uint32_t unwindSize) override final;
 
-        if (m_pOffsetMapping != NULL)
-            freeArrayInternal(m_pOffsetMapping);
+    void allocUnwindInfo (
+            uint8_t * pHotCode,              /* IN */
+            uint8_t * pColdCode,             /* IN */
+            uint32_t  startOffset,           /* IN */
+            uint32_t  endOffset,             /* IN */
+            uint32_t  unwindSize,            /* IN */
+            uint8_t * pUnwindBlock,          /* IN */
+            CorJitFuncKind funcKind       /* IN */
+            ) override final;
 
-        if (m_pNativeVarInfo != NULL)
-            freeArrayInternal(m_pNativeVarInfo);
-    }
+    void * allocGCInfo (size_t  size) override final;
 
-    virtual void ResetForJitRetry()
+    void setEHcount (unsigned cEH) override final;
+
+    void setEHinfo (
+            unsigned      EHnumber,
+            const CORINFO_EH_CLAUSE* clause) override final;
+
+    void getEHinfo(
+            CORINFO_METHOD_HANDLE ftn,              /* IN  */
+            unsigned      EHnumber,                 /* IN */
+            CORINFO_EH_CLAUSE* clause               /* OUT */
+            ) override final;
+
+    HRESULT allocPgoInstrumentationBySchema(
+            CORINFO_METHOD_HANDLE ftnHnd, /* IN */
+            PgoInstrumentationSchema* pSchema, /* IN/OUT */
+            uint32_t countSchemaItems, /* IN */
+            uint8_t** pInstrumentationData /* OUT */
+            ) override final;
+
+    HRESULT getPgoInstrumentationResults(
+            CORINFO_METHOD_HANDLE ftnHnd, /* IN */
+            PgoInstrumentationSchema** pSchema, /* OUT */
+            uint32_t* pCountSchemaItems, /* OUT */
+            uint8_t**pInstrumentationData, /* OUT */
+            PgoSource *pPgoSource, /* OUT */
+            bool* pDynamicPgo /* OUT */
+            ) override final;
+
+    void recordCallSite(
+            uint32_t                     instrOffset,  /* IN */
+            CORINFO_SIG_INFO *        callSig,      /* IN */
+            CORINFO_METHOD_HANDLE     methodHandle  /* IN */
+            ) override final;
+
+    void recordRelocation(
+            void                    *location,
+            void                    *locationRW,
+            void                    *target,
+            uint16_t                 fRelocType,
+            int32_t                  addlDelta) override final;
+
+    uint16_t getRelocTypeHint(void * target) override final;
+
+    uint32_t getExpectedTargetArchitecture() override final;
+
+    void ResetForJitRetry()
     {
         CONTRACTL {
             NOTHROW;
@@ -599,190 +696,6 @@ public:
         m_numInlineTreeNodes = 0;
         m_richOffsetMappings = NULL;
         m_numRichOffsetMappings = 0;
-    }
-
-    virtual void BackoutJitData(EECodeGenManager * jitMgr) = 0;
-
-    // ICorDebugInfo stuff.
-    void setBoundaries(CORINFO_METHOD_HANDLE ftn,
-                       ULONG32 cMap, ICorDebugInfo::OffsetMapping *pMap) override final;
-    void setVars(CORINFO_METHOD_HANDLE ftn, ULONG32 cVars,
-                 ICorDebugInfo::NativeVarInfo *vars) override final;
-    void CompressDebugInfo();
-    virtual void SetDebugInfo(PTR_BYTE pDebugInfo) = 0;
-
-    virtual PatchpointInfo* GetPatchpointInfo()
-    {
-        return NULL;
-    }
-
-    virtual BOOL JitAgain()
-    {
-        return FALSE;
-    }
-
-    void reportRichMappings(
-        ICorDebugInfo::InlineTreeNode*    inlineTreeNodes,
-        uint32_t                          numInlineTreeNodes,
-        ICorDebugInfo::RichOffsetMapping* mappings,
-        uint32_t                          numMappings) override final;
-
-    void reportMetadata(const char* key, const void* value, size_t length) override final;
-
-    virtual void WriteCode(EECodeGenManager * jitMgr) = 0;
-
-    void* getHelperFtn(CorInfoHelpFunc    ftnNum,                         /* IN  */
-                       void **            ppIndirection) override;  /* OUT */
-    static PCODE getHelperFtnStatic(CorInfoHelpFunc ftnNum);
-
-    InfoAccessType constructStringLiteral(CORINFO_MODULE_HANDLE scopeHnd, mdToken metaTok, void **ppValue) override;
-    InfoAccessType emptyStringLiteral(void ** ppValue) override;
-    CORINFO_CLASS_HANDLE getStaticFieldCurrentClass(CORINFO_FIELD_HANDLE field, bool* pIsSpeculative) override;
-    void* getMethodSync(CORINFO_METHOD_HANDLE ftnHnd, void **ppIndirection) override;
-
-protected:
-
-    template <typename TCodeHeader>
-    void setEHcountWorker(unsigned cEH);
-
-    template<class TCodeHeader>
-    void SetRealCodeHeader();
-
-    template<class TCodeHeader>
-    void NibbleMapSet();
-
-    void getEHinfo(
-                    CORINFO_METHOD_HANDLE ftn,              /* IN  */
-                    unsigned      EHnumber,                 /* IN */
-                    CORINFO_EH_CLAUSE* clause               /* OUT */
-                  ) override final;
-
-    void setEHinfoWorker(
-                          EE_ILEXCEPTION* pEHInfo,
-                          unsigned      EHnumber,
-                          const CORINFO_EH_CLAUSE* clause
-                        );
-
-    EECodeGenManager*       m_jitManager;   // responsible for allocating memory
-    void*                   m_CodeHeader;   // descriptor for JITTED code - read/execute address
-    void*                   m_CodeHeaderRW; // descriptor for JITTED code - code write scratch buffer address
-    size_t                  m_codeWriteBufferSize;
-    BYTE*                   m_pRealCodeHeader;
-    HeapList*               m_pCodeHeap;
-    COR_ILMETHOD_DECODER *  m_ILHeader;     // the code header as exist in the file
-
-#if defined(_DEBUG)
-    ULONG                   m_codeSize;     // Code size requested via allocMem
-#endif
-
-    size_t                  m_GCinfo_len;   // Cached copy of GCinfo_len so we can backout in BackoutJitData()
-    size_t                  m_EHinfo_len;   // Cached copy of EHinfo_len so we can backout in BackoutJitData()
-
-    ULONG32                 m_iOffsetMapping;
-    ICorDebugInfo::OffsetMapping * m_pOffsetMapping;
-
-    ULONG32                 m_iNativeVarInfo;
-    ICorDebugInfo::NativeVarInfo * m_pNativeVarInfo;
-
-    ICorDebugInfo::InlineTreeNode    *m_inlineTreeNodes;
-    ULONG32                           m_numInlineTreeNodes;
-    ICorDebugInfo::RichOffsetMapping *m_richOffsetMappings;
-    ULONG32                           m_numRichOffsetMappings;
-
-    // The first time a call is made to CEEJitInfo::GetProfilingHandle() from this thread
-    // for this method, these values are filled in.   Thereafter, these values are used
-    // in lieu of calling into the base CEEInfo::GetProfilingHandle() again.  This protects the
-    // profiler from duplicate calls to its FunctionIDMapper() callback.
-    struct GetProfilingHandleCache
-    {
-        GetProfilingHandleCache() :
-            m_bGphIsCacheValid(false),
-            m_bGphHookFunction(false),
-            m_pvGphProfilerHandle(NULL)
-        {
-            LIMITED_METHOD_CONTRACT;
-        }
-
-        bool                    m_bGphIsCacheValid : 1;        // Tells us whether below values are valid
-        bool                    m_bGphHookFunction : 1;
-        void*                   m_pvGphProfilerHandle;
-    } m_gphCache;
-};
-
-// CEEJitInfo is the concrete implementation of callbacks that the EE must provide for the JIT to do its
-// work.   See code:ICorJitInfo#JitToEEInterface for more on this interface.
-class CEEJitInfo final : public CEECodeGenInfo
-{
-public:
-    // ICorJitInfo stuff
-
-    void allocMem (AllocMemArgs *pArgs) override;
-    void * allocGCInfo(size_t  size) override;
-    void setEHcount (unsigned cEH) override;
-    void setEHinfo (
-        unsigned      EHnumber,
-        const CORINFO_EH_CLAUSE* clause
-       ) override;
-
-    void WriteCodeBytes();
-    void WriteCode(EECodeGenManager * jitMgr) override;
-
-    void reserveUnwindInfo(bool isFunclet, bool isColdCode, uint32_t unwindSize) override;
-
-    void allocUnwindInfo (
-            uint8_t * pHotCode,              /* IN */
-            uint8_t * pColdCode,             /* IN */
-            uint32_t  startOffset,           /* IN */
-            uint32_t  endOffset,             /* IN */
-            uint32_t  unwindSize,            /* IN */
-            uint8_t * pUnwindBlock,          /* IN */
-            CorJitFuncKind funcKind       /* IN */
-            ) override;
-
-    HRESULT allocPgoInstrumentationBySchema(
-            CORINFO_METHOD_HANDLE ftnHnd, /* IN */
-            PgoInstrumentationSchema* pSchema, /* IN/OUT */
-            uint32_t countSchemaItems, /* IN */
-            uint8_t** pInstrumentationData /* OUT */
-            ) override;
-
-    HRESULT getPgoInstrumentationResults(
-            CORINFO_METHOD_HANDLE ftnHnd, /* IN */
-            PgoInstrumentationSchema** pSchema, /* OUT */
-            uint32_t* pCountSchemaItems, /* OUT */
-            uint8_t**pInstrumentationData, /* OUT */
-            PgoSource *pPgoSource, /* OUT */
-            bool* pDynamicPgo /* OUT */
-            ) override;
-
-    void recordCallSite(
-            uint32_t                     instrOffset,  /* IN */
-            CORINFO_SIG_INFO *        callSig,      /* IN */
-            CORINFO_METHOD_HANDLE     methodHandle  /* IN */
-            ) override;
-
-    void recordRelocation(
-            void                    *location,
-            void                    *locationRW,
-            void                    *target,
-            uint16_t                 fRelocType,
-            int32_t                  addlDelta) override;
-
-    uint16_t getRelocTypeHint(void * target) override;
-
-    uint32_t getExpectedTargetArchitecture() override;
-
-    void BackoutJitData(EECodeGenManager * jitMgr) override;
-    void SetDebugInfo(PTR_BYTE pDebugInfo) override;
-
-    void ResetForJitRetry() override
-    {
-        CONTRACTL {
-            NOTHROW;
-            GC_NOTRIGGER;
-        } CONTRACTL_END;
-
-        CEECodeGenInfo::ResetForJitRetry();
 
 #ifdef FEATURE_ON_STACK_REPLACEMENT
         if (m_pPatchpointInfoFromJit != NULL)
@@ -822,7 +735,7 @@ public:
         return m_fJumpStubOverflow;
     }
 
-    BOOL JitAgain() override
+    BOOL JitAgain()
     {
         LIMITED_METHOD_CONTRACT;
         return m_fJumpStubOverflow;
@@ -839,18 +752,8 @@ public:
         LIMITED_METHOD_CONTRACT;
         m_reserveForJumpStubs = value;
     }
-
-    PatchpointInfo* GetPatchpointInfo() override
-    {
-#ifdef FEATURE_ON_STACK_REPLACEMENT
-        return m_pPatchpointInfoFromJit;
 #else
-        return NULL;
-#endif
-    }
-
-#else
-    BOOL JitAgain() override
+    BOOL JitAgain()
     {
         LIMITED_METHOD_CONTRACT;
         return FALSE;
@@ -875,28 +778,46 @@ public:
 #endif
 
     CEEJitInfo(MethodDesc* fd, COR_ILMETHOD_DECODER* header,
-               EECodeGenManager* jm, bool allowInlining = true)
-        : CEECodeGenInfo(fd, header, jm, allowInlining)
+               EEJitManager* jm, bool allowInlining = true)
+        : CEEInfo(fd, allowInlining),
+          m_jitManager(jm),
+          m_CodeHeader(NULL),
+          m_CodeHeaderRW(NULL),
+          m_codeWriteBufferSize(0),
+          m_pRealCodeHeader(NULL),
+          m_pCodeHeap(NULL),
+          m_ILHeader(header),
 #ifdef FEATURE_EH_FUNCLETS
-        , m_moduleBase(0),
+          m_moduleBase(0),
           m_totalUnwindSize(0),
           m_usedUnwindSize(0),
           m_theUnwindBlock(NULL),
           m_totalUnwindInfos(0),
-          m_usedUnwindInfos(0)
+          m_usedUnwindInfos(0),
 #endif
 #ifdef TARGET_AMD64
-        , m_fAllowRel32(FALSE)
+          m_fAllowRel32(FALSE),
 #endif
 #if defined(TARGET_AMD64) || defined(TARGET_ARM64)
-        , m_fJumpStubOverflow(FALSE),
-          m_reserveForJumpStubs(0)
+          m_fJumpStubOverflow(FALSE),
+          m_reserveForJumpStubs(0),
 #endif
+          m_GCinfo_len(0),
+          m_EHinfo_len(0),
+          m_iOffsetMapping(0),
+          m_pOffsetMapping(NULL),
+          m_iNativeVarInfo(0),
+          m_pNativeVarInfo(NULL),
+          m_inlineTreeNodes(NULL),
+          m_numInlineTreeNodes(0),
+          m_richOffsetMappings(NULL),
+          m_numRichOffsetMappings(0),
 #ifdef FEATURE_ON_STACK_REPLACEMENT
-        , m_pPatchpointInfoFromJit(NULL),
+          m_pPatchpointInfoFromJit(NULL),
           m_pPatchpointInfoFromRuntime(NULL),
-          m_ilOffset(0)
+          m_ilOffset(0),
 #endif
+          m_gphCache()
     {
         CONTRACTL
         {
@@ -914,6 +835,15 @@ public:
             GC_NOTRIGGER;
             MODE_ANY;
         } CONTRACTL_END;
+
+        if (m_CodeHeaderRW != m_CodeHeader)
+            freeArrayInternal(m_CodeHeaderRW);
+
+        if (m_pOffsetMapping != NULL)
+            freeArrayInternal(m_pOffsetMapping);
+
+        if (m_pNativeVarInfo != NULL)
+            freeArrayInternal(m_pNativeVarInfo);
 
 #ifdef FEATURE_ON_STACK_REPLACEMENT
         if (m_pPatchpointInfoFromJit != NULL)
@@ -933,6 +863,25 @@ public:
 #endif
     }
 
+    // ICorDebugInfo stuff.
+    void setBoundaries(CORINFO_METHOD_HANDLE ftn,
+                       ULONG32 cMap, ICorDebugInfo::OffsetMapping *pMap) override final;
+    void setVars(CORINFO_METHOD_HANDLE ftn, ULONG32 cVars,
+                 ICorDebugInfo::NativeVarInfo *vars) override final;
+    void CompressDebugInfo();
+
+    void reportRichMappings(
+        ICorDebugInfo::InlineTreeNode*    inlineTreeNodes,
+        uint32_t                          numInlineTreeNodes,
+        ICorDebugInfo::RichOffsetMapping* mappings,
+        uint32_t                          numMappings) override final;
+
+    void reportMetadata(const char* key, const void* value, size_t length) override final;
+
+    void* getHelperFtn(CorInfoHelpFunc    ftnNum,                         /* IN  */
+                       void **            ppIndirection) override final;  /* OUT */
+    static PCODE getHelperFtnStatic(CorInfoHelpFunc ftnNum);
+
     // Override of CEEInfo::GetProfilingHandle.  The first time this is called for a
     // method desc, it calls through to CEEInfo::GetProfilingHandle and caches the
     // result in CEEJitInfo::GetProfilingHandleCache.  Thereafter, this wrapper regurgitates the cached values
@@ -942,12 +891,23 @@ public:
                     bool                      *pbHookFunction,
                     void                     **pProfilerHandle,
                     bool                      *pbIndirectedHandles
-                    ) override;
+                    ) override final;
 
-    void setPatchpointInfo(PatchpointInfo* patchpointInfo) override;
-    PatchpointInfo* getOSRInfo(unsigned* ilOffset) override;
+    InfoAccessType constructStringLiteral(CORINFO_MODULE_HANDLE scopeHnd, mdToken metaTok, void **ppValue) override final;
+    InfoAccessType emptyStringLiteral(void ** ppValue) override final;
+    CORINFO_CLASS_HANDLE getStaticFieldCurrentClass(CORINFO_FIELD_HANDLE field, bool* pIsSpeculative) override final;
+    void* getMethodSync(CORINFO_METHOD_HANDLE ftnHnd, void **ppIndirection) override final;
+
+    void BackoutJitData(EEJitManager * jitMgr);
+
+    void WriteCode(EEJitManager * jitMgr);
+
+    void setPatchpointInfo(PatchpointInfo* patchpointInfo) override final;
+    PatchpointInfo* getOSRInfo(unsigned* ilOffset) override final;
 
 protected :
+
+    void WriteCodeBytes();
 
 #ifdef FEATURE_PGO
     // PGO data
@@ -968,6 +928,13 @@ protected :
 #endif
 
 
+    EEJitManager*           m_jitManager;   // responsible for allocating memory
+    CodeHeader*             m_CodeHeader;   // descriptor for JITTED code - read/execute address
+    CodeHeader*             m_CodeHeaderRW; // descriptor for JITTED code - code write scratch buffer address
+    size_t                  m_codeWriteBufferSize;
+    BYTE*                   m_pRealCodeHeader;
+    HeapList*               m_pCodeHeap;
+    COR_ILMETHOD_DECODER *  m_ILHeader;     // the code header as exist in the file
 #ifdef FEATURE_EH_FUNCLETS
     TADDR                   m_moduleBase;       // Base for unwind Infos
     ULONG                   m_totalUnwindSize;  // Total reserved unwind space
@@ -986,47 +953,50 @@ protected :
     size_t                  m_reserveForJumpStubs; // Space to reserve for jump stubs when allocating code
 #endif
 
+#if defined(_DEBUG)
+    ULONG                   m_codeSize;     // Code size requested via allocMem
+#endif
+
+    size_t                  m_GCinfo_len;   // Cached copy of GCinfo_len so we can backout in BackoutJitData()
+    size_t                  m_EHinfo_len;   // Cached copy of EHinfo_len so we can backout in BackoutJitData()
+
+    ULONG32                 m_iOffsetMapping;
+    ICorDebugInfo::OffsetMapping * m_pOffsetMapping;
+
+    ULONG32                 m_iNativeVarInfo;
+    ICorDebugInfo::NativeVarInfo * m_pNativeVarInfo;
+
+    ICorDebugInfo::InlineTreeNode    *m_inlineTreeNodes;
+    ULONG32                           m_numInlineTreeNodes;
+    ICorDebugInfo::RichOffsetMapping *m_richOffsetMappings;
+    ULONG32                           m_numRichOffsetMappings;
+
 #ifdef FEATURE_ON_STACK_REPLACEMENT
     PatchpointInfo        * m_pPatchpointInfoFromJit;
     PatchpointInfo        * m_pPatchpointInfoFromRuntime;
     unsigned                m_ilOffset;
 #endif
 
-};
-
-#ifdef FEATURE_INTERPRETER
-class CInterpreterJitInfo final : public CEECodeGenInfo
-{
-public:
-    // ICorJitInfo stuff
-
-    CInterpreterJitInfo(MethodDesc* fd, COR_ILMETHOD_DECODER* header,
-                        EECodeGenManager* jm, bool allowInlining = true)
-        : CEECodeGenInfo(fd, header, jm, allowInlining)
+    // The first time a call is made to CEEJitInfo::GetProfilingHandle() from this thread
+    // for this method, these values are filled in.   Thereafter, these values are used
+    // in lieu of calling into the base CEEInfo::GetProfilingHandle() again.  This protects the
+    // profiler from duplicate calls to its FunctionIDMapper() callback.
+    struct GetProfilingHandleCache
     {
-        CONTRACTL
+        GetProfilingHandleCache() :
+            m_bGphIsCacheValid(false),
+            m_bGphHookFunction(false),
+            m_pvGphProfilerHandle(NULL)
         {
-            NOTHROW;
-            GC_NOTRIGGER;
-            MODE_ANY;
-        } CONTRACTL_END;
-    }
+            LIMITED_METHOD_CONTRACT;
+        }
 
-    void allocMem(AllocMemArgs *pArgs) override;
-    void * allocGCInfo(size_t  size) override;
-    void setEHcount (unsigned cEH) override;
-    void setEHinfo (
-        unsigned      EHnumber,
-        const CORINFO_EH_CLAUSE* clause
-       ) override;
+        bool                    m_bGphIsCacheValid : 1;        // Tells us whether below values are valid
+        bool                    m_bGphHookFunction : 1;
+        void*                   m_pvGphProfilerHandle;
+    } m_gphCache;
 
-    void WriteCodeBytes();
-    void WriteCode(EECodeGenManager * jitMgr) override;
-
-    void BackoutJitData(EECodeGenManager * jitMgr) override;
-    void SetDebugInfo(PTR_BYTE pDebugInfo) override;
 };
-#endif // FEATURE_INTERPRETER
 
 /*********************************************************************/
 /*********************************************************************/
@@ -1048,6 +1018,23 @@ extern "C" const VMHELPDEF hlpFuncTable[CORINFO_HELP_COUNT];
 
 #endif
 
+#if defined(_DEBUG) && (defined(TARGET_AMD64) || defined(TARGET_X86)) && !defined(TARGET_UNIX)
+typedef struct {
+    void*       pfnRealHelper;
+    const char* helperName;
+    LONG        count;
+    LONG        helperSize;
+} VMHELPCOUNTDEF;
+
+extern "C" VMHELPCOUNTDEF hlpFuncCountTable[CORINFO_HELP_COUNT+1];
+
+void InitJitHelperLogging();
+void WriteJitHelperCountToSTRESSLOG();
+#else
+inline void InitJitHelperLogging() { }
+inline void WriteJitHelperCountToSTRESSLOG() { }
+#endif
+
 // enum for dynamically assigned helper calls
 enum DynamicCorInfoHelpFunc {
 #define JITHELPER(code, pfnHelper, binderId)
@@ -1066,8 +1053,6 @@ GARY_DECL(VMHELPDEF, hlpDynamicFuncTable, DYNAMIC_CORINFO_HELP_COUNT);
 void    _SetJitHelperFunction(DynamicCorInfoHelpFunc ftnNum, void * pFunc);
 
 VMHELPDEF LoadDynamicJitHelper(DynamicCorInfoHelpFunc ftnNum, MethodDesc** methodDesc = NULL);
-bool HasILBasedDynamicJitHelper(DynamicCorInfoHelpFunc ftnNum);
-bool IndirectionAllowedForJitHelper(CorInfoHelpFunc ftnNum);
 
 void *GenFastGetSharedStaticBase(bool bCheckCCtor);
 
@@ -1081,15 +1066,21 @@ void DoGcStress (PT_CONTEXT regs, NativeCodeVersion nativeCodeVersion);
 // ppPinnedString: If the string is pinned (e.g. allocated in frozen heap),
 // the pointer to the pinned string is returned in *ppPinnedPointer. ppPinnedPointer == nullptr
 // means that the caller does not care whether the string is pinned or not.
-STRINGREF* ConstructStringLiteral(CORINFO_MODULE_HANDLE scopeHnd, mdToken metaTok, void** ppPinnedString = nullptr);
+OBJECTHANDLE ConstructStringLiteral(CORINFO_MODULE_HANDLE scopeHnd, mdToken metaTok, void** ppPinnedString = nullptr);
 
 FCDECL2(Object*, JIT_Box_MP_FastPortable, CORINFO_CLASS_HANDLE type, void* data);
 FCDECL2(Object*, JIT_Box, CORINFO_CLASS_HANDLE type, void* data);
+FCDECL0(VOID, JIT_PollGC);
 
 BOOL ObjIsInstanceOf(Object *pObject, TypeHandle toTypeHnd, BOOL throwCastException = FALSE);
+BOOL ObjIsInstanceOfCore(Object* pObject, TypeHandle toTypeHnd, BOOL throwCastException = FALSE);
 
+EXTERN_C TypeHandle::CastResult STDCALL ObjIsInstanceOfCached(Object *pObject, TypeHandle toTypeHnd);
+
+#ifdef HOST_64BIT
 class InlinedCallFrame;
-EXTERN_C Thread * JIT_InitPInvokeFrame(InlinedCallFrame *pFrame);
+Thread * JIT_InitPInvokeFrame(InlinedCallFrame *pFrame);
+#endif
 
 #ifdef _DEBUG
 extern LONG g_JitCount;
@@ -1100,6 +1091,8 @@ struct VirtualFunctionPointerArgs
     CORINFO_CLASS_HANDLE classHnd;
     CORINFO_METHOD_HANDLE methodHnd;
 };
+
+FCDECL2(CORINFO_MethodPtr, JIT_VirtualFunctionPointer_Dynamic, Object * objectUNSAFE, VirtualFunctionPointerArgs * pArgs);
 
 typedef HCCALL1_PTR(TADDR, FnStaticBaseHelper, TADDR arg0);
 
@@ -1119,6 +1112,17 @@ struct GenericHandleArgs
     CORINFO_MODULE_HANDLE module;
     DWORD dictionaryIndexAndSlot;
 };
+
+FCDECL2(CORINFO_GENERIC_HANDLE, JIT_GenericHandleMethodWithSlotAndModule, CORINFO_METHOD_HANDLE  methodHnd, GenericHandleArgs * pArgs);
+FCDECL2(CORINFO_GENERIC_HANDLE, JIT_GenericHandleClassWithSlotAndModule, CORINFO_CLASS_HANDLE classHnd, GenericHandleArgs * pArgs);
+
+CORINFO_GENERIC_HANDLE JIT_GenericHandleWorker(MethodDesc   *pMD,
+                                               MethodTable  *pMT,
+                                               LPVOID        signature,
+                                               DWORD         dictionaryIndexAndSlot = -1,
+                                               Module *      pModule = NULL);
+
+void ClearJitGenericHandleCache();
 
 CORJIT_FLAGS GetDebuggerCompileFlags(Module* pModule, CORJIT_FLAGS flags);
 

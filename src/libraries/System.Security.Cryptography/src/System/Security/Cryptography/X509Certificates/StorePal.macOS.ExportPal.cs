@@ -54,13 +54,10 @@ namespace System.Security.Cryptography.X509Certificates
                 return Interop.AppleCrypto.X509ExportPkcs7(certHandles);
             }
 
-            protected override byte[] ExportPkcs8(
-                ICertificatePalCore certificatePal,
-                PbeParameters pbeParameters,
-                ReadOnlySpan<char> password)
+            protected override byte[] ExportPkcs8(ICertificatePalCore certificatePal, ReadOnlySpan<char> password)
             {
                 AppleCertificatePal pal = (AppleCertificatePal)certificatePal;
-                return pal.ExportPkcs8(pbeParameters, password);
+                return pal.ExportPkcs8(password);
             }
         }
     }

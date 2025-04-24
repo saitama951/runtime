@@ -19,7 +19,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(TargetOS)' == 'browser'">
     <XunitShowProgress>true</XunitShowProgress>
-    <IsHighAotMemoryUsageTest>true</IsHighAotMemoryUsageTest>
   </PropertyGroup>
 
   <!--
@@ -27,10 +26,6 @@
   -->
   <PropertyGroup>
     <WithoutCategories Condition="'$(EnableAdditionalTimezoneChecks)' != 'true'">$(WithoutCategories);AdditionalTimezoneChecks</WithoutCategories>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(TargetsAppleMobile)' == 'true' and '$(EnableAggressiveTrimming)' == 'true' and '$(UseNativeAotRuntime)' != 'true'">
-    <OverrideDefaultValueAndDesignerHostSupport>true</OverrideDefaultValueAndDesignerHostSupport>
   </PropertyGroup>
 
   <ItemGroup>
@@ -169,7 +164,6 @@
     <Compile Include="System\TimeoutExceptionTests.cs" />
     <Compile Include="System\TimeSpanTests.cs" />
     <Compile Include="System\TimeZoneInfoTests.cs" />
-    <Compile Include="System\TimeZoneInfoTests.Common.cs" />
     <Compile Include="System\TimeZoneTests.cs" />
     <Compile Include="System\TimeZoneNotFoundExceptionTests.cs" />
     <Compile Include="System\TypedReferenceTests.cs" />

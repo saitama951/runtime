@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- Use "$(NetCoreAppCurrent)-windows" to avoid PlatformNotSupportedExceptions from ServiceController. -->
-    <TargetFrameworks>$(NetCoreAppCurrent)-windows;$(NetFrameworkCurrent)</TargetFrameworks>
+    <TargetFrameworks>$(NetCoreAppCurrent)-windows;$(NetFrameworkMinimum)</TargetFrameworks>
     <EnableDefaultItems>true</EnableDefaultItems>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IncludeRemoteExecutor>true</IncludeRemoteExecutor>

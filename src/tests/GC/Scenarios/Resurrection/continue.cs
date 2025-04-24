@@ -1,13 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Xunit;
 namespace DefaultNamespace {
     using System;
     using System.Runtime.CompilerServices;
    
 
-    public class Continue
+    internal class Continue
     {
 // disabling unused variable warning
 #pragma warning disable 0414
@@ -77,8 +76,7 @@ namespace DefaultNamespace {
         }
 
 
-        [Fact]
-        public static int TestEntryPoint()
+        public static int Main()
         {
 
             Console.WriteLine("Test should return with ExitCode 100 ...");

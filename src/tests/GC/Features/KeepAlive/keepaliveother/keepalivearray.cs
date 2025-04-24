@@ -4,7 +4,6 @@
 // Tests KeepAlive() for array of objects
 
 using System;
-using Xunit;
 
 public class Test_keepalivearray {
 
@@ -17,8 +16,7 @@ public class Test_keepalivearray {
 		}
 	}
 
-	[Fact]
-	public static int TestEntryPoint() {
+	public static int Main() {
 
         int returnValue = 0;
 		Dummy[] obj = new Dummy[100];

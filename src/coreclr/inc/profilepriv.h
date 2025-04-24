@@ -13,9 +13,6 @@
 #ifndef _ProfilePriv_h_
 #define _ProfilePriv_h_
 
-#ifndef FEATURE_PERFTRACING
-typedef struct _EventPipeProvider EventPipeProvider;
-#endif //FEATURE_PERFTRACING
 
 // Forward declarations
 class EEToProfInterfaceImpl;

@@ -47,9 +47,7 @@ namespace System.Runtime.InteropServices.JavaScript
 #endif
         internal void AssertNotDisposed()
         {
-#if FEATURE_WASM_MANAGED_THREADS
             lock (ProxyContext)
-#endif
             {
                 ObjectDisposedException.ThrowIf(IsDisposed, this);
             }

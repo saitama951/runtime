@@ -7,12 +7,10 @@
 
 using System;
 using System.Runtime.InteropServices;
-using Xunit;
 
 public class Test_PinnedHandle
 {
-    [Fact]
-    public static int TestEntryPoint()
+    public static int Main()
     {
         int[] arr = new int[100];
         GCHandle handle = GCUtil.Alloc(arr, GCHandleType.Pinned);

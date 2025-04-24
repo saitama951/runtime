@@ -15,7 +15,6 @@ namespace System.Net.Sockets.Tests
 {
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConstructorAndProperty : DualModeBase
     {
         [Fact]
@@ -77,7 +76,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectToIPAddress : DualModeBase
     {
         [Fact] // Base case
@@ -170,7 +168,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectToIPEndPoint : DualModeBase
     {
         [Fact] // Base case
@@ -263,7 +260,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectToIPAddressArray : DualModeBase
     {
         [Fact] // Base Case
@@ -329,7 +325,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectToHostString : DualModeBase
     {
         [ConditionalTheory(nameof(LocalhostIsBothIPv4AndIPv6))]
@@ -348,7 +343,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectToDnsEndPoint : DualModeBase
     {
         [ConditionalTheory(nameof(LocalhostIsBothIPv4AndIPv6))]
@@ -367,7 +361,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeBeginConnectToIPAddress : DualModeBase
     {
         [Fact] // Base case
@@ -432,7 +425,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeBeginConnectToIPEndPoint : DualModeBase
     {
         [Fact]
@@ -471,7 +463,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeBeginConnect : DualModeBase
     {
         [Theory]
@@ -519,7 +510,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectAsync : DualModeBase
     {
         [Fact] // Base case
@@ -669,7 +659,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeBind : DualModeBase
     {
         [Fact]
@@ -823,7 +812,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeAcceptSync : DualModeAcceptBase<SocketHelperArraySync>
     {
         public DualModeAcceptSync(ITestOutputHelper output) : base(output) { }
@@ -831,7 +819,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeAcceptApm : DualModeAcceptBase<SocketHelperApm>
     {
         public DualModeAcceptApm(ITestOutputHelper output) : base(output) { }
@@ -839,7 +826,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeAcceptEap : DualModeAcceptBase<SocketHelperEap>
     {
         public DualModeAcceptEap(ITestOutputHelper output) : base(output) { }
@@ -847,7 +833,6 @@ namespace System.Net.Sockets.Tests
 
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeAcceptTask : DualModeAcceptBase<SocketHelperTask>
     {
         public DualModeAcceptTask(ITestOutputHelper output) : base(output) { }
@@ -928,7 +913,6 @@ namespace System.Net.Sockets.Tests
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
     [Collection(nameof(DisableParallelization))]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectionlessSendToSync : DualModeConnectionlessSendToBase<SocketHelperArraySync>
     {
         public DualModeConnectionlessSendToSync(ITestOutputHelper output) : base(output)
@@ -939,7 +923,6 @@ namespace System.Net.Sockets.Tests
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
     [Collection(nameof(DisableParallelization))]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectionlessSendToApm : DualModeConnectionlessSendToBase<SocketHelperApm>
     {
         public DualModeConnectionlessSendToApm(ITestOutputHelper output) : base(output)
@@ -950,7 +933,6 @@ namespace System.Net.Sockets.Tests
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
     [Collection(nameof(DisableParallelization))]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectionlessSendToEap : DualModeConnectionlessSendToBase<SocketHelperEap>
     {
         public DualModeConnectionlessSendToEap(ITestOutputHelper output) : base(output)
@@ -961,7 +943,6 @@ namespace System.Net.Sockets.Tests
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
     [Collection(nameof(DisableParallelization))]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectionlessSendToTask : DualModeConnectionlessSendToBase<SocketHelperTask>
     {
         public DualModeConnectionlessSendToTask(ITestOutputHelper output) : base(output)
@@ -1063,7 +1044,6 @@ namespace System.Net.Sockets.Tests
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
     [Collection(nameof(DisableParallelization))]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectionlessReceiveFromSync : DualModeConnectionlessReceiveFromBase<SocketHelperArraySync>
     {
         public DualModeConnectionlessReceiveFromSync(ITestOutputHelper output) : base(output)
@@ -1074,7 +1054,6 @@ namespace System.Net.Sockets.Tests
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
     [Collection(nameof(DisableParallelization))]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectionlessReceiveFromApm : DualModeConnectionlessReceiveFromBase<SocketHelperApm>
     {
         public DualModeConnectionlessReceiveFromApm(ITestOutputHelper output) : base(output)
@@ -1085,7 +1064,6 @@ namespace System.Net.Sockets.Tests
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
     [Collection(nameof(DisableParallelization))]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectionlessReceiveFromEap : DualModeConnectionlessReceiveFromBase<SocketHelperEap>
     {
         public DualModeConnectionlessReceiveFromEap(ITestOutputHelper output) : base(output)
@@ -1096,7 +1074,6 @@ namespace System.Net.Sockets.Tests
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
     [Collection(nameof(DisableParallelization))]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectionlessReceiveFromTask : DualModeConnectionlessReceiveFromBase<SocketHelperTask>
     {
         public DualModeConnectionlessReceiveFromTask(ITestOutputHelper output) : base(output)
@@ -1107,7 +1084,6 @@ namespace System.Net.Sockets.Tests
     [Trait("IPv4", "true")]
     [Trait("IPv6", "true")]
     [Collection(nameof(DisableParallelization))]
-    [SkipOnPlatform(TestPlatforms.Wasi, "Wasi doesn't support DualMode")]
     public class DualModeConnectionlessReceiveMessageFrom : DualModeBase
     {
         [Fact]

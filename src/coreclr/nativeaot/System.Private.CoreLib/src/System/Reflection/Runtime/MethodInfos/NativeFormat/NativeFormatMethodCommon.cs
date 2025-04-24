@@ -201,9 +201,12 @@ namespace System.Reflection.Runtime.MethodInfos.NativeFormat
                 genericArgHandles = null;
             }
 
+            TypeManagerHandle typeManager = RuntimeAugments.TypeLoaderCallbacks.GetModuleForMetadataReader(Reader);
+
             return RuntimeAugments.TypeLoaderCallbacks.GetRuntimeMethodHandleForComponents(
                 DeclaringType.TypeHandle,
-                _methodHandle,
+                Name,
+                RuntimeSignature.CreateFromMethodHandle(typeManager, MethodHandle.AsInt()),
                 genericArgHandles);
         }
 

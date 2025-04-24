@@ -98,25 +98,7 @@ namespace System
 
             binder ??= Type.DefaultBinder;
 
-            MethodBase? invokeMethod;
-            object? state;
-
-            try
-            {
-                invokeMethod = binder.BindToMethod(bindingAttr, matches.ToArray(), ref args, null, culture, null, out state);
-            }
-            catch (MissingMethodException innerMME)
-            {
-                // Rethrows to rewrite a message to include the class name.
-                // Make sure the original exception is set as an inner exception.
-                throw new MissingMethodException(SR.Format(SR.Arg_NoDefCTor, type), innerMME);
-            }
-
-            if (invokeMethod == null)
-            {
-                throw new MissingMethodException(SR.Format(SR.Arg_NoDefCTor, type));
-            }
-
+            MethodBase invokeMethod = binder.BindToMethod(bindingAttr, matches.ToArray(), ref args, null, culture, null, out object? state);
             if (invokeMethod.GetParametersAsSpan().Length == 0)
             {
                 if (args.Length != 0)

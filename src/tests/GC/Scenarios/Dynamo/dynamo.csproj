@@ -1,11 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Needed for GCStressIncompatible, GC.WaitForPendingFinalizers -->
-    <RequiresProcessIsolation>true</RequiresProcessIsolation>
-
-    <!-- Test needs explicit Main as it uses command-line parameters -->
-    <ReferenceXUnitWrapperGenerator>false</ReferenceXUnitWrapperGenerator>
-
+    <OutputType>Exe</OutputType>
     <CLRTestExecutionArguments>1000 40 191919</CLRTestExecutionArguments>
     <GCStressIncompatible>true</GCStressIncompatible>
   </PropertyGroup>

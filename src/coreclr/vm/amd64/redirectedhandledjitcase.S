@@ -5,7 +5,9 @@
 #include "unixasmmacros.inc"
 #include "asmconstants.h"
 
-#define OFFSET_OF_FRAME 0
+#define FaultingExceptionFrame_StackAlloc (SIZEOF__GSCookie + SIZEOF__FaultingExceptionFrame)
+#define FaultingExceptionFrame_FrameOffset SIZEOF__GSCookie
+#define OFFSET_OF_FRAME (8 + SIZEOF_GSCookie)
 
 .macro GenerateRedirectedStubWithFrame stub, target
 

@@ -86,8 +86,7 @@ namespace ILLink.CodeFix
 			Property = 0x0002,
 			Field = 0x0004,
 			Event = 0x0008,
-			Class = 0x0010,
-			All = MethodOrConstructor | Property | Field | Event | Class
+			All = MethodOrConstructor | Property | Field | Event
 		}
 
 		private static CSharpSyntaxNode? FindAttributableParent (SyntaxNode node, AttributeableParentTargets targets)
@@ -98,22 +97,10 @@ namespace ILLink.CodeFix
 				case LambdaExpressionSyntax:
 					return null;
 
-				case PropertyDeclarationSyntax when targets.HasFlag (AttributeableParentTargets.Property):
-				case EventDeclarationSyntax when targets.HasFlag (AttributeableParentTargets.Event):
-					return (CSharpSyntaxNode) parentNode;
-				case PropertyDeclarationSyntax:
-				case EventDeclarationSyntax:
-					// If the attribute can be placed on a method but not directly on a property/event, we don't want to keep walking up
-					// the syntax tree to annotate the class. Instead the correct thing to do is to add accessor methods and annotate those.
-					// The code fixer doesn't support doing this automatically, so return null to indicate that the attribute can't be added.
-					if (targets.HasFlag (AttributeableParentTargets.MethodOrConstructor))
-						return null;
-
-					parentNode = parentNode.Parent;
-					break;
 				case LocalFunctionStatementSyntax or BaseMethodDeclarationSyntax or AccessorDeclarationSyntax when targets.HasFlag (AttributeableParentTargets.MethodOrConstructor):
+				case PropertyDeclarationSyntax when targets.HasFlag (AttributeableParentTargets.Property):
 				case FieldDeclarationSyntax when targets.HasFlag (AttributeableParentTargets.Field):
-				case ClassDeclarationSyntax when targets.HasFlag (AttributeableParentTargets.Class):
+				case EventDeclarationSyntax when targets.HasFlag (AttributeableParentTargets.Event):
 					return (CSharpSyntaxNode) parentNode;
 
 				default:

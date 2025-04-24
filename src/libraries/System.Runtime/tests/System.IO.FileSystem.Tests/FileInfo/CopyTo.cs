@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Xunit;
-using Xunit.Abstractions;
 
 namespace System.IO.Tests
 {
@@ -17,11 +16,6 @@ namespace System.IO.Tests
 
     public class FileInfo_CopyTo_str_b : File_Copy_str_str_b
     {
-        public FileInfo_CopyTo_str_b(ITestOutputHelper output)
-            : base(output)
-        {
-        }
-
         protected override void Copy(string source, string dest)
         {
             new FileInfo(source).CopyTo(dest, false);

@@ -14,11 +14,8 @@ using System.Threading.Tasks;
 namespace System.Formats.Nrbf;
 
 /// <summary>
-/// Represents the ID of <see cref="SerializationRecord" />.
+/// The ID of <see cref="SerializationRecord" />.
 /// </summary>
-/// <remarks>
-/// This struct can be used to detect cycles in decoded records.
-/// </remarks>
 [DebuggerDisplay("{_id}")]
 public readonly struct SerializationRecordId : IEquatable<SerializationRecordId>
 {

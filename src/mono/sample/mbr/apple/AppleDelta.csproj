@@ -27,7 +27,7 @@
     <DevTeamProvisioning Condition="'$(TargetOS)' == 'maccatalyst' and '$(DevTeamProvisioning)' == ''">-</DevTeamProvisioning>
   </PropertyGroup>
 
-  <Import Project="$(MonoProjectRoot)\msbuild\common\MonoAOTCompiler.props" />
+  <Import Project="$(RepoTasksDir)AotCompilerTask\MonoAOTCompiler.props" />
   <UsingTask TaskName="AppleAppBuilderTask"
              AssemblyFile="$(AppleAppBuilderTasksAssemblyPath)" />
 

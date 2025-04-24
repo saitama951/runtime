@@ -1489,10 +1489,14 @@ void DisAssembler::disAsmCode(BYTE*  hotCodePtr,
 #endif // !DEBUG
 
 #ifdef DEBUG
-    const char* fileName = JitConfig.JitLateDisasmTo();
+    const WCHAR* fileName = JitConfig.JitLateDisasmTo();
     if (fileName != nullptr)
     {
-        disAsmFile = fopen_utf8(fileName, "a+");
+        errno_t ec = _wfopen_s(&disAsmFile, fileName, W("a+"));
+        if (ec != 0)
+        {
+            disAsmFile = nullptr;
+        }
     }
 #else  // !DEBUG
     // NOTE: non-DEBUG builds always use jitstdout currently!

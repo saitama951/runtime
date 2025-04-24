@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Threading;
-using System.Threading.Tasks;
 
 using Xunit;
 
@@ -28,9 +27,9 @@ namespace System.Net.Sockets.Tests
         }
 
         [Fact]
-        public async Task Equals_NonDefaultValue_Success()
+        public void Equals_NonDefaultValue_Success()
         {
-            IPPacketInformation packetInfo = await GetNonDefaultIPPacketInformation();
+            IPPacketInformation packetInfo = GetNonDefaultIPPacketInformation();
             IPPacketInformation packetInfoCopy = packetInfo;
 
             Assert.Equal(packetInfo, packetInfoCopy);
@@ -49,28 +48,40 @@ namespace System.Net.Sockets.Tests
         }
 
         [Fact]
-        public async Task GetHashCode_NonDefaultValue_Success()
+        public void GetHashCode_NonDefaultValue_Success()
         {
-            IPPacketInformation packetInfo = await GetNonDefaultIPPacketInformation();
+            IPPacketInformation packetInfo = GetNonDefaultIPPacketInformation();
 
             Assert.Equal(packetInfo.GetHashCode(), packetInfo.GetHashCode());
         }
 
-        private async Task<IPPacketInformation> GetNonDefaultIPPacketInformation()
+        private IPPacketInformation GetNonDefaultIPPacketInformation()
         {
+            const int ReceiveTimeout = 10000;
+
             using (var receiver = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
             using (var sender = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
             {
                 int port = receiver.BindToAnonymousPort(IPAddress.Loopback);
+
+                var waitHandle = new ManualResetEvent(false);
+
+                SocketAsyncEventArgs receiveArgs = new SocketAsyncEventArgs {
+                    RemoteEndPoint = new IPEndPoint(IPAddress.Loopback, port),
+                    UserToken = waitHandle
+                };
+
+                receiveArgs.SetBuffer(new byte[1], 0, 1);
+                receiveArgs.Completed += (_, args) => ((ManualResetEvent)args.UserToken).Set();
+
+                Assert.True(receiver.ReceiveMessageFromAsync(receiveArgs), "receiver.ReceiveMessageFromAsync");
+
                 // Send a few packets, in case they aren't delivered reliably.
-                var receiveTask = receiver.ReceiveMessageFromAsync(new byte[1], new IPEndPoint(IPAddress.Loopback, port));
-                var sendTask = sender.SendToAsync(new byte[1], new IPEndPoint(IPAddress.Loopback, port));
+                sender.SendTo(new byte[1], new IPEndPoint(IPAddress.Loopback, port));
 
-                Assert.True(await Task.WhenAny(receiveTask, Task.Delay(TestSettings.PassingTestTimeout)) == receiveTask, "Timed out");
+                Assert.True(waitHandle.WaitOne(ReceiveTimeout), "waitHandle.WaitOne");
 
-                var result = await receiveTask;
-
-                return result.PacketInformation;
+                return receiveArgs.ReceiveMessageFromPacketInfo;
             }
         }
     }

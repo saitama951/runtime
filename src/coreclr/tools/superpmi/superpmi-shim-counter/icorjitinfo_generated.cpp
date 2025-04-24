@@ -162,15 +162,6 @@ CORINFO_METHOD_HANDLE interceptor_ICJI::getUnboxedEntry(
     return original_ICorJitInfo->getUnboxedEntry(ftn, requiresInstMethodTableArg);
 }
 
-CORINFO_METHOD_HANDLE interceptor_ICJI::getInstantiatedEntry(
-          CORINFO_METHOD_HANDLE ftn,
-          CORINFO_METHOD_HANDLE* methodArg,
-          CORINFO_CLASS_HANDLE* classArg)
-{
-    mcs->AddCall("getInstantiatedEntry");
-    return original_ICorJitInfo->getInstantiatedEntry(ftn, methodArg, classArg);
-}
-
 CORINFO_CLASS_HANDLE interceptor_ICJI::getDefaultComparerClass(
           CORINFO_CLASS_HANDLE elemType)
 {
@@ -183,13 +174,6 @@ CORINFO_CLASS_HANDLE interceptor_ICJI::getDefaultEqualityComparerClass(
 {
     mcs->AddCall("getDefaultEqualityComparerClass");
     return original_ICorJitInfo->getDefaultEqualityComparerClass(elemType);
-}
-
-CORINFO_CLASS_HANDLE interceptor_ICJI::getSZArrayHelperEnumeratorClass(
-          CORINFO_CLASS_HANDLE elemType)
-{
-    mcs->AddCall("getSZArrayHelperEnumeratorClass");
-    return original_ICorJitInfo->getSZArrayHelperEnumeratorClass(elemType);
 }
 
 void interceptor_ICJI::expandRawHandleIntrinsic(
@@ -338,14 +322,6 @@ CORINFO_CLASS_HANDLE interceptor_ICJI::getTypeInstantiationArgument(
 {
     mcs->AddCall("getTypeInstantiationArgument");
     return original_ICorJitInfo->getTypeInstantiationArgument(cls, index);
-}
-
-CORINFO_CLASS_HANDLE interceptor_ICJI::getMethodInstantiationArgument(
-          CORINFO_METHOD_HANDLE ftn,
-          unsigned index)
-{
-    mcs->AddCall("getMethodInstantiationArgument");
-    return original_ICorJitInfo->getMethodInstantiationArgument(ftn, index);
 }
 
 size_t interceptor_ICJI::printClassName(
@@ -776,10 +752,10 @@ CORINFO_CLASS_HANDLE interceptor_ICJI::getFieldClass(
 CorInfoType interceptor_ICJI::getFieldType(
           CORINFO_FIELD_HANDLE field,
           CORINFO_CLASS_HANDLE* structType,
-          CORINFO_CLASS_HANDLE fieldOwnerHint)
+          CORINFO_CLASS_HANDLE memberParent)
 {
     mcs->AddCall("getFieldType");
-    return original_ICorJitInfo->getFieldType(field, structType, fieldOwnerHint);
+    return original_ICorJitInfo->getFieldType(field, structType, memberParent);
 }
 
 unsigned interceptor_ICJI::getFieldOffset(
@@ -967,6 +943,12 @@ void interceptor_ICJI::getEEInfo(
 {
     mcs->AddCall("getEEInfo");
     original_ICorJitInfo->getEEInfo(pEEInfoOut);
+}
+
+const char16_t* interceptor_ICJI::getJitTimeLogFilename()
+{
+    mcs->AddCall("getJitTimeLogFilename");
+    return original_ICorJitInfo->getJitTimeLogFilename();
 }
 
 mdMethodDef interceptor_ICJI::getMethodDefFromMethod(
@@ -1439,12 +1421,5 @@ uint32_t interceptor_ICJI::getJitFlags(
 {
     mcs->AddCall("getJitFlags");
     return original_ICorJitInfo->getJitFlags(flags, sizeInBytes);
-}
-
-CORINFO_METHOD_HANDLE interceptor_ICJI::getSpecialCopyHelper(
-          CORINFO_CLASS_HANDLE type)
-{
-    mcs->AddCall("getSpecialCopyHelper");
-    return original_ICorJitInfo->getSpecialCopyHelper(type);
 }
 

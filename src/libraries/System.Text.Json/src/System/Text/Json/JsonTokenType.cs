@@ -12,8 +12,8 @@ namespace System.Text.Json
     /// </summary>
     public enum JsonTokenType : byte
     {
-        // Do not re-number.
-        // We rely on the underlying values to quickly check things like JsonReaderHelper.IsTokenTypePrimitive and Utf8JsonWriter.CanWriteValue
+        // Do not re-order.
+        // We rely on the ordering to quickly check things like IsTokenTypePrimitive
 
         /// <summary>
         ///   Indicates that there is no value (as distinct from <see cref="Null"/>).
@@ -21,61 +21,61 @@ namespace System.Text.Json
         /// <remarks>
         ///   This is the default token type if no data has been read by the <see cref="Utf8JsonReader"/>.
         /// </remarks>
-        None = 0,
+        None,
 
         /// <summary>
         ///   Indicates that the token type is the start of a JSON object.
         /// </summary>
-        StartObject = 1,
+        StartObject,
 
         /// <summary>
         ///   Indicates that the token type is the end of a JSON object.
         /// </summary>
-        EndObject = 2,
+        EndObject,
 
         /// <summary>
         ///   Indicates that the token type is the start of a JSON array.
         /// </summary>
-        StartArray = 3,
+        StartArray,
 
         /// <summary>
         ///   Indicates that the token type is the end of a JSON array.
         /// </summary>
-        EndArray = 4,
+        EndArray,
 
         /// <summary>
         ///   Indicates that the token type is a JSON property name.
         /// </summary>
-        PropertyName = 5,
+        PropertyName,
 
         /// <summary>
         ///   Indicates that the token type is the comment string.
         /// </summary>
-        Comment = 6,
+        Comment,
 
         /// <summary>
         ///   Indicates that the token type is a JSON string.
         /// </summary>
-        String = 7,
+        String,
 
         /// <summary>
         ///   Indicates that the token type is a JSON number.
         /// </summary>
-        Number = 8,
+        Number,
 
         /// <summary>
         ///   Indicates that the token type is the JSON literal <c>true</c>.
         /// </summary>
-        True = 9,
+        True,
 
         /// <summary>
         ///   Indicates that the token type is the JSON literal <c>false</c>.
         /// </summary>
-        False = 10,
+        False,
 
         /// <summary>
         ///   Indicates that the token type is the JSON literal <c>null</c>.
         /// </summary>
-        Null = 11,
+        Null,
     }
 }

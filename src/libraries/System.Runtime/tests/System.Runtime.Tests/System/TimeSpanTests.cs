@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq.Expressions;
 using System.Text;
 using Xunit;
 
@@ -632,7 +631,7 @@ namespace System.Tests
         [InlineData(0, -(maxSeconds + 1), 0, 0)]
         [InlineData(0, 0, maxMilliseconds + 1, 0)]
         [InlineData(0, 0, -(maxMilliseconds + 1), 0)]
-        [InlineData(0, 0, 0, maxMicroseconds + 1)]
+        [InlineData(0, 0, 0, maxMicroseconds + 1)]        
         [InlineData(0, 0, 0, -(maxMicroseconds + 1))]
         public static void FromMinutes_Int_ShouldOverflow(long minutes, long seconds, long milliseconds, long microseconds)
         {
@@ -714,16 +713,7 @@ namespace System.Tests
             long ticksFromMicroseconds = microseconds * TimeSpan.TicksPerMicrosecond;
             var expected = TimeSpan.FromTicks(ticksFromMilliseconds + ticksFromMicroseconds);
             Assert.Equal(expected, TimeSpan.FromMilliseconds(milliseconds, microseconds));
-
-            expected = TimeSpan.FromTicks(ticksFromMilliseconds);
-            Assert.Equal(expected, TimeSpan.FromMilliseconds(milliseconds));
-
-            // The following exist to ensure compilation of the expressions
-            Expression<Action> a = () => TimeSpan.FromMilliseconds(milliseconds);
-            Expression<Action> b = () => TimeSpan.FromMilliseconds(milliseconds, microseconds);
-            Expression<Action> c = () => TimeSpan.FromMilliseconds((double)milliseconds);
         }
-
         [Theory]
         [InlineData(maxMilliseconds + 1, 0)]
         [InlineData(-(maxMilliseconds + 1), 0)]
@@ -740,11 +730,6 @@ namespace System.Tests
         public static void FromMilliseconds_Int_ShouldOverflow(long milliseconds, long microseconds)
         {
             Assert.Throws<ArgumentOutOfRangeException>(() => TimeSpan.FromMilliseconds(milliseconds, microseconds));
-
-            if (microseconds == 0)
-            {
-                Assert.Throws<ArgumentOutOfRangeException>(() => TimeSpan.FromMilliseconds(milliseconds));
-            }
         }
 
         [Theory]

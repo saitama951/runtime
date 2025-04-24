@@ -2,9 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using Xunit;
 
-public static class Repro
+internal static class Repro
 {
     private struct S
     {
@@ -40,8 +39,7 @@ public static class Repro
         }
     }
 
-    [Fact]
-    public static int TestEntryPoint()
+    private static int Main()
     {
         try
         {

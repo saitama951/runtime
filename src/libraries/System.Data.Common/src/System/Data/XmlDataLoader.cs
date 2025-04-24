@@ -285,7 +285,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal void LoadData(XmlDocument xdoc)
         {
             if (xdoc.DocumentElement == null)
@@ -364,7 +363,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private void LoadRowData(DataRow row, XmlElement rowElement)
         {
             XmlNode? n;
@@ -495,7 +493,6 @@ namespace System.Data
 
         // load all data from tree structure into datarows
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private void LoadRows(DataRow? parentRow, XmlNode parentElement)
         {
             if (parentElement == null)
@@ -542,7 +539,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private static void SetRowValueFromXmlText(DataRow row, DataColumn col, string xmlText)
         {
             row[col] = col.ConvertXmlToObject(xmlText);
@@ -583,7 +579,6 @@ namespace System.Data
         }
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         internal void LoadData(XmlReader reader)
         {
             _dataReader = DataTextReader.CreateReader(reader);
@@ -678,7 +673,6 @@ namespace System.Data
         // Yes, it is terrible and I don't like it also..
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private void LoadTopMostTable(DataTable table)
         {
             //        /------------------------------- This one is in topMostNode (backed up to XML DOM)
@@ -860,7 +854,6 @@ namespace System.Data
         // nested elements processing and loading data. Please keep it this way.
 
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private void LoadTable(DataTable table, bool isNested)
         {
             //  <DataSet> /--------------------------- We are here on entrance
@@ -1130,7 +1123,6 @@ namespace System.Data
 
         // Returns column value
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private void LoadColumn(DataColumn column, object[] foundColumns)
         {
             //  <DataSet>    /--------------------------------- We are here on entrance
@@ -1359,7 +1351,6 @@ namespace System.Data
         // DataReader would be set on the first XML element after the schema of schema was found.
         // If no schema detected, reader's position will not change.
         [RequiresUnreferencedCode(DataSet.RequiresUnreferencedCodeMessage)]
-        [RequiresDynamicCode(DataSet.RequiresDynamicCodeMessage)]
         private bool ProcessXsdSchema()
         {
             if (((object)_dataReader!.LocalName == _XSD_SCHEMA && (object)_dataReader.NamespaceURI == _XSDNS))

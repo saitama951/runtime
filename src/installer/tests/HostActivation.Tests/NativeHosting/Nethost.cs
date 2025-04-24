@@ -89,6 +89,7 @@ namespace Microsoft.DotNet.CoreSetup.Test.HostActivation.NativeHosting
         }
 
         [Theory]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/61131", TestPlatforms.OSX)]
         [InlineData(true, false, true, false)]
         [InlineData(true, false, true, true)]
         [InlineData(true, false, false, false)]
@@ -182,6 +183,7 @@ namespace Microsoft.DotNet.CoreSetup.Test.HostActivation.NativeHosting
         }
 
         [Theory]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/61131", TestPlatforms.OSX)]
         [SkipOnPlatform(TestPlatforms.Windows, "This test targets the install_location config file which is only used on Linux and macOS.")]
         [InlineData("{0}", false, true)]
         [InlineData("{0}\n", false, true)]
@@ -247,6 +249,7 @@ namespace Microsoft.DotNet.CoreSetup.Test.HostActivation.NativeHosting
         }
 
         [Fact]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/61131", TestPlatforms.OSX)]
         [SkipOnPlatform(TestPlatforms.Windows, "This test targets the install_location config file which is only used on Linux and macOS.")]
         public void GetHostFxrPath_GlobalInstallation_HasNoDefaultInstallationPath()
         {
@@ -277,6 +280,7 @@ namespace Microsoft.DotNet.CoreSetup.Test.HostActivation.NativeHosting
         }
 
         [Fact]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/61131", TestPlatforms.OSX)]
         [SkipOnPlatform(TestPlatforms.Windows, "This test targets the install_location config file which is only used on Linux and macOS.")]
         public void GetHostFxrPath_GlobalInstallation_ArchitectureSpecificPathIsPickedOverDefaultPath()
         {
@@ -338,23 +342,22 @@ namespace Microsoft.DotNet.CoreSetup.Test.HostActivation.NativeHosting
         [Fact]
         public void TestOnlyDisabledByDefault()
         {
-            using (TestArtifact artifact = TestArtifact.Create(nameof(TestOnlyDisabledByDefault)))
-            {
-                // Copy the native host and unmodified nethost product binary into a new test folder
-                string nativeHostPath = Path.Combine(artifact.Location, Path.GetFileName(sharedState.NativeHostPath));
-                File.Copy(sharedState.NativeHostPath, nativeHostPath);
+            // Intentionally not enabling test-only behavior. This test validates that even if the test-only env. variable is set
+            // it will not take effect on its own by default.
+            // To make sure the test is reliable, copy the product binary again into the test folder where we run it from.
+            // This is to make sure that we're using the unmodified product binary. If some previous test
+            // enabled test-only product behavior on the binary and didn't correctly cleanup, this test would fail.
+            File.Copy(
+                Binaries.NetHost.FilePath,
+                sharedState.NethostPath,
+                overwrite: true);
 
-                // Intentionally not enabling test-only behavior. This test validates that even if the test-only env. variable is set
-                // it will not take effect on its own by default.
-                File.Copy(Binaries.NetHost.FilePath, Path.Combine(artifact.Location, Binaries.NetHost.FileName));
-
-                Command.Create(nativeHostPath, GetHostFxrPath)
-                    .EnableTracingAndCaptureOutputs()
-                    .EnvironmentVariable(Constants.TestOnlyEnvironmentVariables.GloballyRegisteredPath, sharedState.ValidInstallRoot)
-                    .DotNetRoot(null)
-                    .Execute()
-                    .Should().NotHaveStdErrContaining($"Using global install location [{sharedState.ValidInstallRoot}] as runtime location.");
-            }
+            Command.Create(sharedState.NativeHostPath, GetHostFxrPath)
+                .EnableTracingAndCaptureOutputs()
+                .EnvironmentVariable(Constants.TestOnlyEnvironmentVariables.GloballyRegisteredPath, sharedState.ValidInstallRoot)
+                .DotNetRoot(null)
+                .Execute()
+                .Should().NotHaveStdErrContaining($"Using global install location [{sharedState.ValidInstallRoot}] as runtime location.");
         }
 
         public class SharedTestState : SharedTestStateBase

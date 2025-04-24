@@ -429,7 +429,6 @@ namespace System.Net.Security.Tests
                 await serverAuthentication.WaitAsync(TestConfiguration.PassingTestTimeout);
                 _logVerbose.WriteLine("ServerAsyncAuthenticateTest.serverAuthentication complete.");
 
-#pragma warning disable SYSLIB0058 // Use NegotiatedCipherSuite.
                 _log.WriteLine(
                     "Server({0}) authenticated with encryption cipher: {1} {2}-bit strength",
                     serverStream.Socket.LocalEndPoint,
@@ -441,7 +440,6 @@ namespace System.Net.Security.Tests
                     "Cipher algorithm should not be NULL");
 
                 Assert.True(sslServerStream.CipherStrength > 0, "Cipher strength should be greater than 0");
-#pragma warning restore SYSLIB0058 // Use NegotiatedCipherSuite.
             }
         }
 

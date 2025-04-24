@@ -7,12 +7,12 @@ using System.Collections.Generic;
 namespace Microsoft.Extensions.Options
 {
     /// <summary>
-    /// Represents the exception that's thrown when options validation fails.
+    /// Thrown when options validation fails.
     /// </summary>
     public class OptionsValidationException : Exception
     {
         /// <summary>
-        /// Creates a new instance of <see cref="OptionsValidationException"/>.
+        /// Constructor.
         /// </summary>
         /// <param name="optionsName">The name of the options instance that failed.</param>
         /// <param name="optionsType">The options type that failed.</param>
@@ -28,22 +28,22 @@ namespace Microsoft.Extensions.Options
         }
 
         /// <summary>
-        /// Gets the name of the options instance that failed.
+        /// The name of the options instance that failed.
         /// </summary>
         public string OptionsName { get; }
 
         /// <summary>
-        /// Gets the type of the options that failed.
+        /// The type of the options that failed.
         /// </summary>
         public Type OptionsType { get; }
 
         /// <summary>
-        /// Gets the validation failures.
+        /// The validation failures.
         /// </summary>
         public IEnumerable<string> Failures { get; }
 
         /// <summary>
-        /// Gets a semicolon-separated list of the <see cref="Failures"/>.
+        /// The message is a semicolon separated list of the <see cref="Failures"/>.
         /// </summary>
         public override string Message => string.Join("; ", Failures);
     }

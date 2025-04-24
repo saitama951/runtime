@@ -2,15 +2,10 @@ cmake_minimum_required(VERSION 3.20)
 
 include(CheckCCompilerFlag)
 
-project(LibsNative C)
+project(CoreFX C)
 
-if ("${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
-    # This is our root CMakeList.txt, so we need to set up some global settings and include the minipal here.
-    include(../../../eng/native/configurepaths.cmake)
-    include(${CLR_ENG_NATIVE_DIR}/configurecompiler.cmake)
-
-    add_subdirectory(${CLR_SRC_NATIVE_DIR}/minipal minipal)
-endif()
+include(../../../eng/native/configurepaths.cmake)
+include(${CLR_ENG_NATIVE_DIR}/configurecompiler.cmake)
 
 include_directories(${CLR_SRC_NATIVE_DIR})
 
@@ -51,6 +46,8 @@ if (CLR_CMAKE_TARGET_UNIX OR CLR_CMAKE_TARGET_BROWSER OR CLR_CMAKE_TARGET_WASI)
 
     if (CLR_CMAKE_TARGET_WASI)
         set(HOST_WASI 1)
+        add_compile_options(-I${CLR_REPO_ROOT_DIR}/src/mono/wasi/include/)
+        add_compile_options(-I${CLR_REPO_ROOT_DIR}/src/mono/wasi/libs-include/)
         add_compile_options(-Wno-unused-variable)
         add_compile_options(-Wno-unused-parameter)
         add_compile_options(-Wno-gnu-statement-expression)
@@ -58,10 +55,9 @@ if (CLR_CMAKE_TARGET_UNIX OR CLR_CMAKE_TARGET_BROWSER OR CLR_CMAKE_TARGET_WASI)
         add_compile_options(-D_WASI_EMULATED_PROCESS_CLOCKS)
         add_compile_options(-D_WASI_EMULATED_SIGNAL)
         add_compile_options(-D_WASI_EMULATED_MMAN)
-        add_compile_options(-D_WASI_EMULATED_PTHREAD)
         # keep in sync with src\mono\wasi\build\WasiApp.targets
         # keep in sync with src\mono\wasi\wasi.proj
-        add_link_options(-Wl,-z,stack-size=1048576,--initial-memory=5242880,--max-memory=52428800,-lwasi-emulated-process-clocks,-lwasi-emulated-signal,-lwasi-emulated-mman,-lwasi-emulated-pthread)
+        add_link_options(-Wl,-z,stack-size=1048576,--initial-memory=5242880,--max-memory=52428800,-lwasi-emulated-process-clocks,-lwasi-emulated-signal,-lwasi-emulated-mman)
     endif ()
 
     if (CLR_CMAKE_TARGET_ANDROID)
@@ -118,10 +114,6 @@ if (CLR_CMAKE_TARGET_UNIX OR CLR_CMAKE_TARGET_BROWSER OR CLR_CMAKE_TARGET_WASI)
     if (NOT CLR_CMAKE_TARGET_BROWSER AND NOT CLR_CMAKE_TARGET_WASI AND NOT CLR_CMAKE_TARGET_IOS AND NOT CLR_CMAKE_TARGET_TVOS)
         add_subdirectory(System.IO.Ports.Native)
     endif ()
-
-    if (MONO_WASM_MT)
-        add_definitions(-DMONO_WASM_MT)
-    endif()
 
     if (CMAKE_C_COMPILER_ID MATCHES "Clang")
         add_compile_options(-Weverything)

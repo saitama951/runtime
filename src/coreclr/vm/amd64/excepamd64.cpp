@@ -48,14 +48,12 @@ inline PTR_CONTEXT GetCONTEXTFromRedirectedStubStackFrameWorker(UINT_PTR establi
     return *ppContext;
 }
 
-#ifdef TARGET_WINDOWS
 PTR_CONTEXT GetCONTEXTFromRedirectedStubStackFrame(DISPATCHER_CONTEXT * pDispatcherContext)
 {
     LIMITED_METHOD_DAC_CONTRACT;
 
     return GetCONTEXTFromRedirectedStubStackFrameWorker(pDispatcherContext->EstablisherFrame);
 }
-#endif // TARGET_WINDOWS
 
 PTR_CONTEXT GetCONTEXTFromRedirectedStubStackFrame(CONTEXT * pContext)
 {
@@ -65,14 +63,17 @@ PTR_CONTEXT GetCONTEXTFromRedirectedStubStackFrame(CONTEXT * pContext)
 }
 
 #if !defined(DACCESS_COMPILE)
-#ifdef TARGET_WINDOWS
+
 FaultingExceptionFrame *GetFrameFromRedirectedStubStackFrame (DISPATCHER_CONTEXT *pDispatcherContext)
 {
     LIMITED_METHOD_CONTRACT;
 
     return (FaultingExceptionFrame*)(pDispatcherContext->EstablisherFrame + THROWSTUB_ESTABLISHER_OFFSET_FaultingExceptionFrame);
 }
-#endif // TARGET_WINDOWS
+
+#endif // !DACCESS_COMPILE
+
+#if !defined(DACCESS_COMPILE)
 
 #define AMD64_SIZE64_PREFIX 0x48
 #define AMD64_ADD_IMM8_OP 0x83
@@ -599,44 +600,26 @@ AdjustContextForVirtualStub(
 
     PCODE f_IP = GetIP(pContext);
 
-    bool isVirtualStubNullCheck = false;
-#ifdef FEATURE_CACHED_INTERFACE_DISPATCH
-    if (VirtualCallStubManager::isCachedInterfaceDispatchStubAVLocation(f_IP))
-    {
-        isVirtualStubNullCheck = true; 
-    }
-#endif // FEATURE_CACHED_INTERFACE_DISPATCH
-#ifdef FEATURE_VIRTUAL_STUB_DISPATCH
-    if (!isVirtualStubNullCheck)
-    {
-        StubCodeBlockKind sk = RangeSectionStubManager::GetStubKind(f_IP);
+    StubCodeBlockKind sk = RangeSectionStubManager::GetStubKind(f_IP);
 
-        if (sk == STUB_CODE_BLOCK_VSD_DISPATCH_STUB)
+    if (sk == STUB_CODE_BLOCK_VSD_DISPATCH_STUB)
+    {
+        if ((*PTR_DWORD(f_IP) & 0xffffff) != X64_INSTR_CMP_IND_THIS_REG_RAX) // cmp [THIS_REG], rax
         {
-            if ((*PTR_DWORD(f_IP) & 0xffffff) != X64_INSTR_CMP_IND_THIS_REG_RAX) // cmp [THIS_REG], rax
-            {
-                _ASSERTE(!"AV in DispatchStub at unknown instruction");
-            }
-            else
-            {
-                isVirtualStubNullCheck = true;
-            }
-        }
-        else
-        if (sk == STUB_CODE_BLOCK_VSD_RESOLVE_STUB)
-        {
-            if ((*PTR_DWORD(f_IP) & 0xffffff) != X64_INSTR_MOV_RAX_IND_THIS_REG) // mov rax, [THIS_REG]
-            {
-                _ASSERTE(!"AV in ResolveStub at unknown instruction");
-            }
-            else
-            {
-                isVirtualStubNullCheck = true;
-            }
+            _ASSERTE(!"AV in DispatchStub at unknown instruction");
+            return FALSE;
         }
     }
-#endif // FEATURE_VIRTUAL_STUB_DISPATCH
-    if (!isVirtualStubNullCheck)
+    else
+    if (sk == STUB_CODE_BLOCK_VSD_RESOLVE_STUB)
+    {
+        if ((*PTR_DWORD(f_IP) & 0xffffff) != X64_INSTR_MOV_RAX_IND_THIS_REG) // mov rax, [THIS_REG]
+        {
+            _ASSERTE(!"AV in ResolveStub at unknown instruction");
+            return FALSE;
+        }
+    }
+    else
     {
         return FALSE;
     }

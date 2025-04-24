@@ -87,6 +87,7 @@ namespace System.Xml.Serialization
         private TypeDesc? _nullableTypeDesc;
         private readonly TypeKind _kind;
         private readonly XmlSchemaType? _dataType;
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         private Type? _type;
         private TypeDesc? _baseTypeDesc;
         private TypeFlags _flags;
@@ -120,13 +121,15 @@ namespace System.Xml.Serialization
             : this(name, fullName, (XmlSchemaType?)null, kind, baseTypeDesc, flags, null)
         { }
 
-        internal TypeDesc(Type type, bool isXsdType, XmlSchemaType dataType, string formatterName, TypeFlags flags)
+        internal TypeDesc(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type, bool isXsdType, XmlSchemaType dataType, string formatterName, TypeFlags flags)
             : this(type!.Name, type.FullName!, dataType, TypeKind.Primitive, (TypeDesc?)null, flags, formatterName)
         {
             _isXsdType = isXsdType;
             _type = type;
         }
-        internal TypeDesc(Type? type, string name, string fullName, TypeKind kind, TypeDesc? baseTypeDesc, TypeFlags flags, TypeDesc? arrayElementTypeDesc)
+        internal TypeDesc(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type? type, string name, string fullName, TypeKind kind, TypeDesc? baseTypeDesc, TypeFlags flags, TypeDesc? arrayElementTypeDesc)
             : this(name, fullName, null, kind, baseTypeDesc, flags, null)
         {
             _arrayElementTypeDesc = arrayElementTypeDesc;
@@ -171,6 +174,7 @@ namespace System.Xml.Serialization
             get { return _dataType; }
         }
 
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         internal Type? Type
         {
             get { return _type; }
@@ -625,7 +629,9 @@ namespace System.Xml.Serialization
             AddSoapEncodedPrimitive(typeof(byte[]), "base64", ns, "ByteArrayBase64", new XmlQualifiedName("base64Binary", XmlSchema.Namespace), TypeFlags.CanBeAttributeValue | TypeFlags.CanBeElementValue | TypeFlags.IgnoreDefault | TypeFlags.Reference);
         }
 
-        private static void AddPrimitive(Type type, string dataTypeName, string formatterName, TypeFlags flags)
+        private static void AddPrimitive(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type,
+            string dataTypeName, string formatterName, TypeFlags flags)
         {
             XmlSchemaSimpleType dataType = new XmlSchemaSimpleType();
             dataType.Name = dataTypeName;
@@ -636,7 +642,9 @@ namespace System.Xml.Serialization
             s_primitiveNames.Add(dataTypeName, XmlSchema.Namespace, typeDesc);
         }
 
-        private static void AddNonXsdPrimitive(Type type, string dataTypeName, string ns, string formatterName, XmlQualifiedName baseTypeName, XmlSchemaFacet[] facets, TypeFlags flags)
+        private static void AddNonXsdPrimitive(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type,
+            string dataTypeName, string ns, string formatterName, XmlQualifiedName baseTypeName, XmlSchemaFacet[] facets, TypeFlags flags)
         {
             XmlSchemaSimpleType dataType = new XmlSchemaSimpleType();
             dataType.Name = dataTypeName;
@@ -654,7 +662,9 @@ namespace System.Xml.Serialization
             s_primitiveNames.Add(dataTypeName, ns, typeDesc);
         }
 
-        private static void AddSoapEncodedPrimitive(Type type, string dataTypeName, string ns, string formatterName, XmlQualifiedName baseTypeName, TypeFlags flags)
+        private static void AddSoapEncodedPrimitive(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type,
+            string dataTypeName, string ns, string formatterName, XmlQualifiedName baseTypeName, TypeFlags flags)
         {
             AddNonXsdPrimitive(type, dataTypeName, ns, formatterName, baseTypeName, Array.Empty<XmlSchemaFacet>(), flags);
         }
@@ -1033,20 +1043,16 @@ namespace System.Xml.Serialization
 
         internal static void GetAllMembers(StructMapping mapping, List<MemberMapping> list)
         {
-            // Order matters. Legacy behavior gives deference to base mappings. So we start there.
-            // But we want to replace base mappings with overrides from the derived class.
             if (mapping.BaseMapping != null)
             {
                 GetAllMembers(mapping.BaseMapping, list);
             }
             for (int i = 0; i < mapping.Members!.Length; i++)
             {
-                if (!TryReplaceHiddenMapping(list, mapping.Members[i]))
-                    list.Add(mapping.Members[i]);
+                list.Add(mapping.Members[i]);
             }
         }
 
-        [RequiresUnreferencedCode(XmlSerializer.TrimSerializationWarning)]
         internal static MemberMapping[] GetAllMembers(StructMapping mapping, System.Collections.Generic.Dictionary<string, MemberInfo> memberInfos)
         {
             MemberMapping[] mappings = GetAllMembers(mapping);
@@ -1063,9 +1069,6 @@ namespace System.Xml.Serialization
 
         private static void GetSettableMembers(StructMapping mapping, List<MemberMapping> list)
         {
-            // Similar to GetAllMembers, we want to replace base mappings with overrides from the derived class.
-            // Although I don't believe order matters here. We just want to make sure we don't have duplicates.
-            // Start with the base mapping.
             if (mapping.BaseMapping != null)
             {
                 GetSettableMembers(mapping.BaseMapping, list);
@@ -1081,25 +1084,9 @@ namespace System.Xml.Serialization
                     {
                         throw new InvalidOperationException(SR.Format(SR.XmlReadOnlyPropertyError, propertyInfo.DeclaringType, propertyInfo.Name));
                     }
-
-                    // Replace hidden base members with derived members, or else add the new member.
-                    if (!TryReplaceHiddenMapping(list, memberMapping))
-                        list.Add(memberMapping);
+                    list.Add(memberMapping);
                 }
             }
-        }
-
-        private static bool TryReplaceHiddenMapping(List<MemberMapping> list, MemberMapping memberMapping)
-        {
-            for (int i = 0; i < list.Count; i++)
-            {
-                if (memberMapping.Hides(list[i]))
-                {
-                    list[i] = memberMapping;
-                    return true;
-                }
-            }
-            return false;
         }
 
         private static bool CanWriteProperty(PropertyInfo propertyInfo, TypeDesc typeDesc)
@@ -1116,7 +1103,6 @@ namespace System.Xml.Serialization
             return propertyInfo.SetMethod != null && propertyInfo.SetMethod.IsPublic;
         }
 
-        [RequiresUnreferencedCode(XmlSerializer.TrimSerializationWarning)]
         internal static MemberMapping[] GetSettableMembers(StructMapping mapping, System.Collections.Generic.Dictionary<string, MemberInfo> memberInfos)
         {
             MemberMapping[] mappings = GetSettableMembers(mapping);
@@ -1124,7 +1110,6 @@ namespace System.Xml.Serialization
             return mappings;
         }
 
-        [RequiresUnreferencedCode("Calls ShouldBeReplaced with type whose members may be trimmed")]
         private static void PopulateMemberInfos(StructMapping structMapping, MemberMapping[] mappings, System.Collections.Generic.Dictionary<string, MemberInfo> memberInfos)
         {
             memberInfos.Clear();

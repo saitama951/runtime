@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime;
 using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
@@ -199,19 +198,8 @@ namespace System.Threading
             get => _managedThreadId.Id;
         }
 
-        // TODO: Support non-current thread
-        private void ThreadNameChanged(string? value)
-        {
-            if (Thread.CurrentThread != this)
-            {
-                return;
-            }
-            if (value == null)
-            {
-                return;
-            }
-            RuntimeImports.RhSetCurrentThreadName(value);
-        }
+        // TODO: Inform the debugger and the profiler
+        // private void ThreadNameChanged(string? value) {}
 
         public ThreadPriority Priority
         {
@@ -379,7 +367,7 @@ namespace System.Threading
                 }
 
                 bool waitingForThreadStart = false;
-                GCHandle<Thread> threadHandle = new GCHandle<Thread>(this);
+                GCHandle threadHandle = GCHandle.Alloc(this);
 
                 try
                 {
@@ -404,7 +392,7 @@ namespace System.Threading
                     Debug.Assert(!waitingForThreadStart, "Leaked threadHandle");
                     if (!waitingForThreadStart)
                     {
-                        threadHandle.Dispose();
+                        threadHandle.Free();
                     }
                 }
 
@@ -422,7 +410,8 @@ namespace System.Threading
 
         private static void StartThread(IntPtr parameter)
         {
-            Thread thread = GCHandle<Thread>.FromIntPtr(parameter).Target;
+            GCHandle threadHandle = (GCHandle)parameter;
+            Thread thread = (Thread)threadHandle.Target!;
 
             try
             {
@@ -457,10 +446,6 @@ namespace System.Threading
                 thread._startHelper = null;
 
                 startHelper.Run();
-            }
-            catch (Exception ex) when (ExceptionHandling.IsHandledByGlobalHandler(ex))
-            {
-                // the handler returned "true" means the exception is now "handled" and we should gracefully exit.
             }
             finally
             {

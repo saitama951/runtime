@@ -81,17 +81,17 @@ namespace System.Security.Cryptography.X509Certificates
             throw new CryptographicException();
         }
 
-        internal unsafe byte[] ExportPkcs8(PbeParameters pbeParameters, ReadOnlySpan<char> password)
+        internal unsafe byte[] ExportPkcs8(ReadOnlySpan<char> password)
         {
             Debug.Assert(_identityHandle != null);
 
             using (SafeSecKeyRefHandle key = Interop.AppleCrypto.X509GetPrivateKeyFromIdentity(_identityHandle))
             {
-                return ExportPkcs8(key, pbeParameters, password);
+                return ExportPkcs8(key, password);
             }
         }
 
-        internal static unsafe byte[] ExportPkcs8(SafeSecKeyRefHandle key, PbeParameters pbeParameters, ReadOnlySpan<char> password)
+        internal static unsafe byte[] ExportPkcs8(SafeSecKeyRefHandle key, ReadOnlySpan<char> password)
         {
             using (SafeCFDataHandle data = Interop.AppleCrypto.SecKeyExportData(key, exportPrivate: true, password))
             {
@@ -110,7 +110,7 @@ namespace System.Security.Cryptography.X509Certificates
                             password,
                             manager.Memory,
                             password,
-                            pbeParameters);
+                            UnixExportProvider.s_windowsPbe);
 
                         return writer.Encode();
                     }

@@ -13,5 +13,3 @@ bool GetVersionResilientMethodDefHashCode(IMDInternalImport *pMDImport, mdExport
 int GetVersionResilientModuleHashCode(Module* pModule);
 
 bool GetVersionResilientILCodeHashCode(MethodDesc *pMD, int* hashCode, unsigned* ilSize);
-
-extern "C" INT32 VersionResilientHashCode_TypeHashCode(QCall::TypeHandle pTypeHandle);

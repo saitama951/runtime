@@ -2,7 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 //
-// CLR Data Field Abstraction
+// COM+ Data Field Abstraction
 //
 
 
@@ -285,7 +285,7 @@ public:
         SetOffset(FIELD_OFFSET_NEW_ENC);
     }
 
-    BOOL IsCollectible()
+    BOOL IsCollectible()    
     {
         LIMITED_METHOD_DAC_CONTRACT;
 
@@ -340,6 +340,7 @@ public:
     PTR_VOID   GetAddress(PTR_VOID o);
 
     PTR_VOID GetAddressNoThrowNoGC(PTR_VOID o);
+    void*   GetAddressGuaranteedInHeap(void *o);
 
     void*   GetValuePtr(OBJECTREF o);
     VOID    SetValuePtr(OBJECTREF o, void* pValue);
@@ -718,7 +719,7 @@ public:
 #endif
 
 #ifndef DACCESS_COMPILE
-    REFLECTFIELDREF AllocateStubFieldInfo();
+    REFLECTFIELDREF GetStubFieldInfo();
 #endif
 };
 

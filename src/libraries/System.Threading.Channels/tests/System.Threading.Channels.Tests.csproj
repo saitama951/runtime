@@ -1,10 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
-    <TargetFrameworks>$(NetCoreAppCurrent);$(NetFrameworkCurrent)</TargetFrameworks>
+    <TargetFrameworks>$(NetCoreAppCurrent);$(NetFrameworkMinimum)</TargetFrameworks>
     <DebuggerSupport Condition="'$(DebuggerSupport)' == '' and '$(TargetOS)' == 'browser'">true</DebuggerSupport>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="BoundedChannelTests.cs" />
     <Compile Include="ChannelClosedExceptionTests.cs" />
@@ -16,8 +14,7 @@
     <Compile Include="UnboundedChannelTests.cs" />
     <Compile Include="$(CommonTestPath)System\Diagnostics\DebuggerAttributes.cs" Link="Common\System\Diagnostics\DebuggerAttributes.cs" />
   </ItemGroup>
-
-  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp'">
+  <ItemGroup Condition="'$(TargetFramework)' == '$(NetCoreAppCurrent)'">
     <Compile Include="ChannelClosedExceptionTests.netcoreapp.cs"  />
     <Compile Include="PriorityUnboundedChannelTests.cs" />
     <!-- Reference the `NetCoreAppMinimum` build which has a functional BinaryFormatter and force a private copy to ensure it's not excluded -->
@@ -25,9 +22,7 @@
                       Private="true"
                       SetTargetFramework="TargetFramework=$(NetCoreAppMinimum)" />
   </ItemGroup>
-
-  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
+  <ItemGroup Condition="'$(TargetFramework)' == '$(NetFrameworkMinimum)'">
     <ProjectReference Include="..\src\System.Threading.Channels.csproj" />
   </ItemGroup>
-
 </Project>

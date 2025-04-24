@@ -1,12 +1,15 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
+//
 
+//
 //*****************************************************************************
 // EventReporter.cpp
 //
 // A utility to log an entry in event log.
 //
 //*****************************************************************************
+
 
 #include "common.h"
 #include "utilcode.h"
@@ -463,7 +466,7 @@ BOOL ShouldLogInEventLog()
     CONTRACTL_END;
 
     // If the process is being debugged, don't log
-    if ((CORDebuggerAttached() || minipal_is_native_debugger_present())
+    if ((CORDebuggerAttached() || IsDebuggerPresent())
 #ifdef _DEBUG
         // Allow debug to be able to break in
         &&
@@ -629,6 +632,7 @@ void ReportExceptionStackHelper(OBJECTREF exObj, EventReporter& reporter, SmallS
 
     DebugStackTrace::GetStackFramesData stackFramesData;
     stackFramesData.pDomain = NULL;
+    stackFramesData.skip = 0;
     stackFramesData.NumFramesRequested = 0;
 
     DebugStackTrace::GetStackFramesFromException(&(gc.exObj), &stackFramesData);

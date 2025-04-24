@@ -126,6 +126,20 @@ LEAF_ENTRY RestoreFPUContext, _TEXT
     ret     4
 LEAF_END RestoreFPUContext, _TEXT
 
+NESTED_ENTRY StubRareDisableTHROW, _TEXT, NoHandler
+    push    eax
+    push    edx
+
+    push    ebx     // Thread
+
+    CHECK_STACK_ALIGNMENT
+    call    C_FUNC(StubRareDisableTHROWWorker)
+
+    pop     edx
+    pop     eax
+    ret
+NESTED_END StubRareDisableTHROW, _TEXT
+
 // ------------------------------------------------------------------------------
 //  This helper routine enregisters the appropriate arguments and makes the
 //  actual call.
@@ -180,7 +194,7 @@ LOCAL_LABEL(CallDescrWorkerInternalReturnAddress):
 #ifdef _DEBUG
     nop     // This is a tag that we use in an assert.  Fcalls expect to
             // be called from Jitted code or from certain blessed call sites like
-            // this one.  (See HelperMethodFrame::EnsureInit)
+            // this one.  (See HelperMethodFrame::InsureInit)
 #endif
 
     // Save FP return value if necessary
@@ -558,6 +572,7 @@ NESTED_ENTRY DelayLoad_MethodCall, _TEXT, NoHandler
 
     STUB_EPILOG
 
+PATCH_LABEL ExternalMethodFixupPatchLabel
     // Tailcall target
     jmp eax
 
@@ -663,7 +678,7 @@ DYNAMICHELPER (DynamicHelperFrameFlags_ObjectArg | DynamicHelperFrameFlags_Objec
 //    siteAddrForRegisterIndirect (used only if this is a RegisterIndirect dispatch call)
 //    return address of caller to stub
 //
-// Please see asmhelpers.asm for details
+// Please see vm/i386/virtualcallstubcpu.hpp for details
 //
 NESTED_ENTRY ResolveWorkerAsmStub, _TEXT, NoHandler
     //
@@ -721,6 +736,27 @@ NESTED_ENTRY ResolveWorkerAsmStub, _TEXT, NoHandler
     // Now jump to the target
     jmp         eax // continue on into the method
 NESTED_END ResolveWorkerAsmStub, _TEXT
+
+#ifdef FEATURE_STUBS_AS_IL
+// ==========================================================================
+// void SinglecastDelegateInvokeStub();
+//
+LEAF_ENTRY SinglecastDelegateInvokeStub, _TEXT
+
+    test        ecx, ecx
+    jz          LOCAL_LABEL(NullObject)
+
+    mov         eax, [ecx + DelegateObject___methodPtr]
+    mov         ecx, [ecx + DelegateObject___target]    // replace "this" pointer
+    jmp         eax
+
+LOCAL_LABEL(NullObject):
+
+    mov         ecx, CORINFO_NullReferenceException_ASM
+    jmp         C_FUNC(JIT_InternalThrow)
+
+LEAF_END SinglecastDelegateInvokeStub, _TEXT
+#endif // FEATURE_STUBS_AS_IL
 
 // =======================================================================================
 // void ResolveWorkerChainLookupAsmStub();
@@ -793,7 +829,8 @@ LOCAL_LABEL(main_loop):
     mov     ecx, eax
 
     CHECK_STACK_ALIGNMENT
-    call    C_FUNC(VSD_PromoteChainEntry)
+    // call C_FUNC(VirtualCallStubManager::PromoteChainEntry)
+    call    C_FUNC(_ZN22VirtualCallStubManager17PromoteChainEntryEP16ResolveCacheElem)
 
     add     esp, STACK_ALIGN_PADDING
     #undef  STACK_ALIGN_PADDING
@@ -1080,63 +1117,3 @@ NESTED_ENTRY OnCallCountThresholdReachedStub, _TEXT, NoHandler
 NESTED_END OnCallCountThresholdReachedStub, _TEXT
 
 #endif // FEATURE_TIERED_COMPILATION
-
-//edi -This pointer
-//esi -ReturnBuffer
-LEAF_ENTRY ThisPtrRetBufPrecodeWorker, _TEXT
-    mov  eax, [eax + ThisPtrRetBufPrecodeData__Target]
-    // Use XOR swap technique to set avoid the need to spill to the stack
-    xor edi, esi
-    xor esi, edi
-    xor edi, esi
-    jmp eax
-LEAF_END ThisPtrRetBufPrecodeWorker, _TEXT
-
-//==========================================================================
-// Capture a transition block with register values and call the IL_Throw
-// implementation written in C.
-//
-// Input state:
-//   ECX = Pointer to exception object
-//==========================================================================
-LEAF_ENTRY IL_Throw, _TEXT
-    STUB_PROLOG
-
-    mov     edx, esp
-
-    #define STACK_ALIGN_PADDING 4
-    sub     esp, STACK_ALIGN_PADDING
-
-    CHECK_STACK_ALIGNMENT
-
-    call    C_FUNC(IL_Throw_x86)
-
-    add     esp, STACK_ALIGN_PADDING
-    #undef STACK_ALIGN_PADDING
-
-    STUB_EPILOG
-    ret     4
-LEAF_END IL_Throw, _TEXT
-
-//==========================================================================
-// Capture a transition block with register values and call the IL_Rethrow
-// implementation written in C.
-//==========================================================================
-LEAF_ENTRY IL_Rethrow, _TEXT
-    STUB_PROLOG
-
-    mov     ecx, esp
-
-    #define STACK_ALIGN_PADDING 4
-    sub     esp, STACK_ALIGN_PADDING
-
-    CHECK_STACK_ALIGNMENT
-
-    call    C_FUNC(IL_Rethrow_x86)
-
-    add     esp, STACK_ALIGN_PADDING
-    #undef STACK_ALIGN_PADDING
-
-    STUB_EPILOG
-    ret     4
-LEAF_END IL_Rethrow

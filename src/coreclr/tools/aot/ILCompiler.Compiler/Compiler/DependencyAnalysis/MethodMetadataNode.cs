@@ -25,14 +25,12 @@ namespace ILCompiler.DependencyAnalysis
     /// </remarks>
     internal sealed class MethodMetadataNode : DependencyNodeCore<NodeFactory>
     {
-        private readonly EcmaMethod _method;
-        private readonly bool _isMinimal;
+        private readonly MethodDesc _method;
 
-        public MethodMetadataNode(MethodDesc method, bool isMinimal)
+        public MethodMetadataNode(MethodDesc method)
         {
             Debug.Assert(method.IsTypicalMethodDefinition);
-            _method = (EcmaMethod)method;
-            _isMinimal = isMinimal;
+            _method = method;
         }
 
         public MethodDesc Method => _method;
@@ -42,15 +40,7 @@ namespace ILCompiler.DependencyAnalysis
             DependencyList dependencies = new DependencyList();
             dependencies.Add(factory.TypeMetadata((MetadataType)_method.OwningType), "Owning type metadata");
 
-            if (!_isMinimal)
-            {
-                CustomAttributeBasedDependencyAlgorithm.AddDependenciesDueToCustomAttributes(ref dependencies, factory, _method);
-
-                foreach (var parameterHandle in _method.MetadataReader.GetMethodDefinition(_method.Handle).GetParameters())
-                {
-                    dependencies.Add(factory.MethodParameterMetadata(new ReflectableParameter(_method.Module, parameterHandle)), "Parameter is visible");
-                }
-            }
+            CustomAttributeBasedDependencyAlgorithm.AddDependenciesDueToCustomAttributes(ref dependencies, factory, ((EcmaMethod)_method));
 
             MethodSignature sig = _method.Signature;
             const string reason = "Method signature metadata";
@@ -67,9 +57,9 @@ namespace ILCompiler.DependencyAnalysis
                         TypeMetadataNode.GetMetadataDependencies(ref dependencies, factory, sigData.type, "Modifier in a method signature");
             }
 
-            if (!_isMinimal)
+            if (_method is EcmaMethod ecmaMethod)
             {
-                DynamicDependencyAttributesOnEntityNode.AddDependenciesDueToDynamicDependencyAttribute(ref dependencies, factory, _method);
+                DynamicDependencyAttributesOnEntityNode.AddDependenciesDueToDynamicDependencyAttribute(ref dependencies, factory, ecmaMethod);
 
                 // On a reflectable method, perform generic data flow for the return type and all the parameter types
                 // This is a compensation for the DI issue described in https://github.com/dotnet/runtime/issues/81358

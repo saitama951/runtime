@@ -11,11 +11,23 @@
 #include "threads.h"
 
 
-FCIMPL2(void*, TailCallHelp::AllocTailCallArgBufferWorker, INT32 size, void* gcDesc)
+FCIMPL2(void*, TailCallHelp::AllocTailCallArgBuffer, INT32 size, void* gcDesc)
 {
-    FCALL_CONTRACT;
+    CONTRACTL
+    {
+        FCALL_CHECK;
+        INJECT_FAULT(FCThrow(kOutOfMemoryException););
+    }
+    CONTRACTL_END
+
     _ASSERTE(size >= 0);
-    return GetThread()->GetTailCallTls()->AllocArgBuffer(size, gcDesc);
+
+    void* result = GetThread()->GetTailCallTls()->AllocArgBuffer(size, gcDesc);
+
+    if (result == NULL)
+        FCThrow(kOutOfMemoryException);
+
+    return result;
 }
 FCIMPLEND
 

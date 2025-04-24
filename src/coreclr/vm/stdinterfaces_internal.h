@@ -55,7 +55,7 @@ HRESULT __stdcall ErrorInfo_GetSource(IUnknown* pUnk, BSTR* pbstrSource);
 
 
 //------------------------------------------------------------------------------------------
-//      IDispatch methods for CLR objects. These methods dispatch to the appropriate
+//      IDispatch methods for COM+ objects. These methods dispatch to the appropriate
 //      implementation based on the flags of the class that implements them.
 
 
@@ -94,7 +94,7 @@ HRESULT __stdcall   Dispatch_Invoke (
                                     unsigned int *puArgErr);
 
 //------------------------------------------------------------------------------------------
-//      IDispatch methods for CLR objects that use our internal implementation.
+//      IDispatch methods for COM+ objects that use our internal implementation.
 
 
 // IDispatch::GetIDsofNames
@@ -120,7 +120,7 @@ HRESULT __stdcall   InternalDispatchImpl_Invoke (
 
 
 //------------------------------------------------------------------------------------------
-//      IDispatchEx methods for CLR objects
+//      IDispatchEx methods for COM+ objects
 
 
 // IDispatchEx::GetTypeInfoCount
@@ -212,7 +212,7 @@ HRESULT __stdcall   DispatchEx_InvokeEx (
                                     IServiceProvider *pspCaller);
 
 //------------------------------------------------------------------------------------------
-//      IMarshal methods for CLR objects
+//      IMarshal methods for COM+ objects
 
 HRESULT __stdcall Marshal_GetUnmarshalClass (
                                     IMarshal* pMarsh,
@@ -243,7 +243,7 @@ HRESULT __stdcall Marshal_DisconnectObject (IMarshal* pMarsh, ULONG dwReserved);
 
 
 //------------------------------------------------------------------------------------------
-//      IConnectionPointContainer methods for CLR objects
+//      IConnectionPointContainer methods for COM+ objects
 
 interface IEnumConnectionPoints;
 
@@ -255,7 +255,7 @@ HRESULT __stdcall ConnectionPointContainer_FindConnectionPoint(IUnknown* pUnk,
                                     IConnectionPoint **ppCP);
 
 //------------------------------------------------------------------------------------------
-//      IObjectSafety methods for CLR objects
+//      IObjectSafety methods for COM+ objects
 
 interface IObjectSafety;
 

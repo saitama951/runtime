@@ -15,12 +15,9 @@
 #include <stdio.h>
 #include <signal.h>
 #include <errno.h>
+#include <sys/ucontext.h>
 #include <sys/utsname.h>
 #include <unistd.h>
-
-#ifndef __HAIKU__
-#include <sys/ucontext.h>
-#endif
 
 enum
 {
@@ -62,7 +59,7 @@ void sigsegv_handler(int code, siginfo_t *siginfo, void *context)
     {
         printf("ERROR: sigprocmask failed; error is %d\n", errno);
         _exit(FAIL);
-    }
+    } 
 
     printf("Signal chaining PASSED\n");
     _exit(PASS);

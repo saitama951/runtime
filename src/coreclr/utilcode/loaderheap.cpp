@@ -150,7 +150,7 @@ BOOL RangeList::AddRangeWorker(const BYTE *start, const BYTE *end, void *id)
     }
 }
 
-void RangeList::RemoveRangesWorker(void *id)
+void RangeList::RemoveRangesWorker(void *id, const BYTE* start, const BYTE* end)
 {
     CONTRACTL
     {
@@ -177,9 +177,24 @@ void RangeList::RemoveRangesWorker(void *id)
 
         while (r < rEnd)
         {
-            if (r->id == (TADDR)id)
+            if (r->id != (TADDR)NULL)
             {
-                r->id = (TADDR)NULL;
+                if (start != NULL)
+                {
+                    _ASSERTE(end != NULL);
+
+                    if (r->start >= (TADDR)start && r->start < (TADDR)end)
+                    {
+                        CONSISTENCY_CHECK_MSGF(r->end >= (TADDR)start &&
+                                               r->end <= (TADDR)end,
+                                               ("r: %p start: %p end: %p", r, start, end));
+                        r->id = (TADDR)NULL;
+                    }
+                }
+                else if (r->id == (TADDR)id)
+                {
+                    r->id = (TADDR)NULL;
+                }
             }
 
             r++;
@@ -209,7 +224,7 @@ void RangeList::RemoveRangesWorker(void *id)
 
 #endif // #ifndef DACCESS_COMPILE
 
-BOOL RangeList::IsInRangeWorker(TADDR address)
+BOOL RangeList::IsInRangeWorker(TADDR address, TADDR *pID /* = NULL */)
 {
     CONTRACTL
     {
@@ -222,15 +237,46 @@ BOOL RangeList::IsInRangeWorker(TADDR address)
 
     SUPPORTS_DAC;
 
-    for (const RangeListBlock* b = &m_starterBlock; b != nullptr; b = b->next)
+    RangeListBlock* b = &m_starterBlock;
+    Range* r = b->ranges;
+    Range* rEnd = r + RANGE_COUNT;
+
+    //
+    // Look for a matching element
+    //
+
+    while (TRUE)
     {
-        for (const Range r : b->ranges)
+        while (r < rEnd)
         {
-            if (r.id != (TADDR)nullptr && address >= r.start && address < r.end)
+            if (r->id != (TADDR)NULL &&
+                address >= r->start
+                && address < r->end)
+            {
+                if (pID != NULL)
+                {
+                    *pID = r->id;
+                }
                 return TRUE;
+            }
+            r++;
         }
+
+        //
+        // If there are no more blocks, we're done.
+        //
+
+        if (b->next == NULL)
+            return FALSE;
+
+        //
+        // Next block.
+        //
+
+        b = b->next;
+        r = b->ranges;
+        rEnd = r + RANGE_COUNT;
     }
-    return FALSE;
 }
 
 #ifdef DACCESS_COMPILE
@@ -291,7 +337,7 @@ RangeList::RangeListBlock::EnumMemoryRegions(CLRDataEnumMemoryFlags flags)
         _ASSERTE( size < UINT32_MAX );    // ranges should be less than 4gig!
 
         // We can't be sure this entire range is mapped.  For example, the code:StubLinkStubManager
-        // keeps track of all ranges in the code:LoaderAllocator::m_pStubHeap LoaderHeap, and
+        // keeps track of all ranges in the code:BaseDomain::m_pStubHeap LoaderHeap, and
         // code:LoaderHeap::UnlockedReservePages adds a range for the entire reserved region, instead
         // of updating the RangeList when pages are committed.  But in that case, the committed region of
         // memory will be enumerated by the LoaderHeap anyway, so it's OK if this fails
@@ -533,36 +579,33 @@ class LoaderHeapSniffer
             STATIC_CONTRACT_NOTHROW;
             STATIC_CONTRACT_FORBID_FAULT;
 
-            minipal_log_print_info("\n------------- LoaderHeapEvents (in reverse time order!) --------------------");
+            printf("\n------------- LoaderHeapEvents (in reverse time order!) --------------------");
 
-            StackSString buf;
             LoaderHeapEvent *pEvent = pHeap->m_pEventList;
             while (pEvent)
             {
-                minipal_log_print_info("\n");
-
+                printf("\n");
                 switch (pEvent->m_allocationType)
                 {
-                    case kAllocMem:         buf.AppendUTF8("AllocMem        "); break;
-                    case kFreedMem:         buf.AppendUTF8("BackoutMem      "); break;
+                    case kAllocMem:         printf("AllocMem        "); break;
+                    case kFreedMem:         printf("BackoutMem      "); break;
 
                 }
-                buf.AppendPrintf(" ptr = 0x%-8p", pEvent->m_pMem);
-                buf.AppendPrintf(" rqsize = 0x%-8x", (DWORD)pEvent->m_dwRequestedSize);
-                buf.AppendPrintf(" actsize = 0x%-8x", (DWORD)pEvent->m_dwSize);
-                buf.AppendPrintf(" (at %s@%d)", pEvent->m_szFile, pEvent->m_lineNum);
+                printf(" ptr = 0x%-8p", pEvent->m_pMem);
+                printf(" rqsize = 0x%-8x", (DWORD)pEvent->m_dwRequestedSize);
+                printf(" actsize = 0x%-8x", (DWORD)pEvent->m_dwSize);
+                printf(" (at %s@%d)", pEvent->m_szFile, pEvent->m_lineNum);
                 if (pEvent->m_allocationType == kFreedMem)
                 {
-                    buf.AppendPrintf(" (original allocation at %s@%d)", pEvent->m_szAllocFile, pEvent->m_allocLineNum);
+                    printf(" (original allocation at %s@%d)", pEvent->m_szAllocFile, pEvent->m_allocLineNum);
                 }
-
-                minipal_log_print_info(buf.GetUTF8());
-                buf.Clear();
 
                 pEvent = pEvent->m_pNext;
 
             }
-            minipal_log_print_info("\n------------- End of LoaderHeapEvents --------------------------------------\n");
+            printf("\n------------- End of LoaderHeapEvents --------------------------------------");
+            printf("\n");
+
         }
 
 
@@ -922,6 +965,8 @@ UnlockedLoaderHeap::UnlockedLoaderHeap(DWORD dwReserveBlockSize,
     s_dwNumInstancesOfLoaderHeaps++;
     m_pEventList                 = NULL;
     m_dwDebugFlags               = LoaderHeapSniffer::InitDebugFlags();
+    m_fPermitStubsWithUnwindInfo = FALSE;
+    m_fStubUnwindInfoUnregistered= FALSE;
 #endif
 
     m_kind = kind;
@@ -947,6 +992,8 @@ UnlockedLoaderHeap::~UnlockedLoaderHeap()
         FORBID_FAULT;
     }
     CONTRACTL_END
+
+    _ASSERTE(!m_fPermitStubsWithUnwindInfo || m_fStubUnwindInfoUnregistered);
 
     if (m_pRangeList != NULL)
         m_pRangeList->RemoveRanges((void *) this);
@@ -1928,11 +1975,10 @@ void UnlockedLoaderHeap::DumpFreeList()
     LIMITED_METHOD_CONTRACT;
     if (m_pFirstFreeBlock == NULL)
     {
-        minipal_log_print_info("FREEDUMP: FreeList is empty\n");
+        printf("FREEDUMP: FreeList is empty\n");
     }
     else
     {
-        InlineSString<128> buf;
         LoaderHeapFreeBlock *pBlock = m_pFirstFreeBlock;
         while (pBlock != NULL)
         {
@@ -1954,13 +2000,10 @@ void UnlockedLoaderHeap::DumpFreeList()
                 }
             }
 
-            buf.Printf("Addr = %pxh, Size = %xh", pBlock, ((ULONG)dwsize));
-            if (ccbad) buf.AppendUTF8(" *** ERROR: NOT CC'd ***");
-            if (sizeunaligned) buf.AppendUTF8(" *** ERROR: size not a multiple of ALLOC_ALIGN_CONSTANT ***");
-            buf.AppendUTF8("\n");
-
-            minipal_log_print_info(buf.GetUTF8());
-            buf.Clear();
+            printf("Addr = %pxh, Size = %xh", pBlock, ((ULONG)dwsize));
+            if (ccbad) printf(" *** ERROR: NOT CC'd ***");
+            if (sizeunaligned) printf(" *** ERROR: size not a multiple of ALLOC_ALIGN_CONSTANT ***");
+            printf("\n");
 
             pBlock = pBlock->m_pNext;
         }
