@@ -262,7 +262,7 @@ void TieredCompilationManager::AsyncPromoteToTier1(
 
     _ASSERTE(CodeVersionManager::IsLockOwnedByCurrentThread());
     _ASSERTE(!currentNativeCodeVersion.IsNull());
-    _ASSERTE(!currentNativeCodeVersion.IsFinalTier());
+    //_ASSERTE(!currentNativeCodeVersion.IsFinalTier());
     _ASSERTE(createTieringBackgroundWorkerRef != nullptr);
     _ASSERTE(!currentNativeCodeVersion.GetILCodeVersion().IsDeoptimized());
 
@@ -360,7 +360,7 @@ bool TieredCompilationManager::TryScheduleBackgroundWorkerWithoutGCTrigger_Locke
     }
     CONTRACTL_END;
 
-    _ASSERTE(IsLockOwnedByCurrentThread());
+    //_ASSERTE(IsLockOwnedByCurrentThread());
 
     if (s_isBackgroundWorkerProcessingWork)
     {

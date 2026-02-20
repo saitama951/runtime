@@ -67,7 +67,7 @@
 #endif
 
 // ALLOW_SXS_JIT enables AltJit support for JIT-ing, via DOTNET_AltJit / DOTNET_AltJitName.
-#define ALLOW_SXS_JIT
+//#define ALLOW_SXS_JIT 0
 
 #if !defined(TARGET_UNIX)
 // PLATFORM_SUPPORTS_THREADSUSPEND is defined for platforms where it is safe to call

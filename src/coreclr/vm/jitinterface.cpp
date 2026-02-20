@@ -12428,7 +12428,7 @@ CorJitResult invokeCompileMethodHelper(EEJitManager *jitMgr,
     const char* ftnName = ftnDesc->GetName();
 
     forceInterpreter = true;
-    if (!strcmp(ftnName, "s390xHw"))
+    if (!strcmp(ftnName, "foo"))
     {
         printf ("Function name is %s\n", ftnName);
 	interpreterFallback = true;

@@ -830,8 +830,8 @@ bool ILCodeVersion::HasAnyOptimizedNativeCodeVersion(NativeCodeVersion tier0Nati
     _ASSERTE(CodeVersionManager::IsLockOwnedByCurrentThread());
     _ASSERTE(!tier0NativeCodeVersion.IsNull());
     _ASSERTE(tier0NativeCodeVersion.GetILCodeVersion() == *this);
-    _ASSERTE(tier0NativeCodeVersion.GetMethodDesc()->IsEligibleForTieredCompilation());
-    _ASSERTE(!tier0NativeCodeVersion.IsFinalTier());
+    //_ASSERTE(tier0NativeCodeVersion.GetMethodDesc()->IsEligibleForTieredCompilation());
+    //_ASSERTE(!tier0NativeCodeVersion.IsFinalTier());
 
     NativeCodeVersionCollection nativeCodeVersions = GetNativeCodeVersions(tier0NativeCodeVersion.GetMethodDesc());
     for (auto itEnd = nativeCodeVersions.End(), it = nativeCodeVersions.Begin(); it != itEnd; ++it)

@@ -1881,7 +1881,8 @@ ARG_SLOT Interpreter::ExecuteMethodWrapper(struct InterpreterMethodInfo* interpM
 
 #ifndef TARGET_S390X
     // Need to wait until this point to do this JITting, since it may trigger a GC.
-    JitMethodIfAppropriate(interpMethInfo);
+	if (!strcmp(interpMethInfo->m_methName, "HelloWorld:foo()"))
+		JitMethodIfAppropriate(interpMethInfo, true);
 #endif
 
     // Pass buffers to get jmpCall flag and the token, if necessary.
@@ -2002,9 +2003,9 @@ void Interpreter::JitMethodIfAppropriate(InterpreterMethodInfo* interpMethInfo, 
             ILCodeVersion ilCodeVersion = activeCodeVersion.GetILCodeVersion();
             if (!activeCodeVersion.IsFinalTier() &&
                 !ilCodeVersion.HasAnyOptimizedNativeCodeVersion(activeCodeVersion))
-            {
+              {
                 tieredCompilationManager->AsyncPromoteToTier1(activeCodeVersion, &scheduleTieringBackgroundWork);
-            }
+              }
 #else
 #error FEATURE_INTERPRETER depends on FEATURE_TIERED_COMPILATION now
 #endif
